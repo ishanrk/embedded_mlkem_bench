@@ -1,4 +1,4 @@
-use pqc_poly_ring::{mul, Out, Poly, N, Q};
+use pqc_poly_ring::{mul, PolyArray, SignedPolyArray, N, Q};
 use std::time::Instant;
 
 #[derive(Debug, serde::Serialize)]
@@ -153,7 +153,7 @@ fn put(z: &mut [u16], x: &[u16], n: usize, c: &mut Cnt)
     }
 }
 
-fn norm(a: &Poly, c: &mut Cnt) -> Vec<u16>
+fn norm(a: &SignedPolyArray, c: &mut Cnt) -> Vec<u16>
 {
     let mut x = Vec::with_capacity(N);
 
@@ -168,7 +168,7 @@ fn norm(a: &Poly, c: &mut Cnt) -> Vec<u16>
     x
 }
 
-fn pad(a: &Poly, c: &mut Cnt) -> Vec<u16>
+fn pad(a: &SignedPolyArray, c: &mut Cnt) -> Vec<u16>
 {
     let mut x = vec![0u16; 512];
 
@@ -184,7 +184,7 @@ fn pad(a: &Poly, c: &mut Cnt) -> Vec<u16>
     x
 }
 
-fn fold(x: &[u16], c: &mut Cnt) -> Out
+fn fold(x: &[u16], c: &mut Cnt) -> PolyArray
 {
     let mut y = [0u16; N];
 
@@ -223,7 +223,7 @@ fn result(id: &str, alg: &str, sch: &str, c: Cnt, ns: u64, ok: bool) -> DesignRe
     }
 }
 
-fn school(a: &Poly, b: &Poly, c: &mut Cnt) -> Out
+fn school(a: &SignedPolyArray, b: &SignedPolyArray, c: &mut Cnt) -> PolyArray
 {
     let mut z = [0u16; N];
 
@@ -259,7 +259,7 @@ fn school(a: &Poly, b: &Poly, c: &mut Cnt) -> Out
     z
 }
 
-fn run_k(a: &Poly, b: &Poly, n: usize, id: &str, sch: &str) -> (Out, DesignResult)
+fn run_k(a: &SignedPolyArray, b: &SignedPolyArray, n: usize, id: &str, sch: &str) -> (PolyArray, DesignResult)
 {
     let mut c = Cnt::default();
     let t = Instant::now();
@@ -280,7 +280,7 @@ fn run_k(a: &Poly, b: &Poly, n: usize, id: &str, sch: &str) -> (Out, DesignResul
     (d, r)
 }
 
-fn run_top(a: &Poly, b: &Poly) -> (Out, DesignResult)
+fn run_top(a: &SignedPolyArray, b: &SignedPolyArray) -> (PolyArray, DesignResult)
 {
     let mut c = Cnt::default();
     let t = Instant::now();
@@ -326,7 +326,7 @@ fn run_top(a: &Poly, b: &Poly) -> (Out, DesignResult)
     (d, r)
 }
 
-pub fn schoolbook_509(a: &Poly, b: &Poly) -> (Out, DesignResult)
+pub fn schoolbook_509(a: &SignedPolyArray, b: &SignedPolyArray) -> (PolyArray, DesignResult)
 {
     let mut c = Cnt::default();
     let t = Instant::now();
@@ -338,17 +338,17 @@ pub fn schoolbook_509(a: &Poly, b: &Poly) -> (Out, DesignResult)
     (d, r)
 }
 
-pub fn karatsuba_top(a: &Poly, b: &Poly) -> (Out, DesignResult)
+pub fn karatsuba_top(a: &SignedPolyArray, b: &SignedPolyArray) -> (PolyArray, DesignResult)
 {
     run_top(a, b)
 }
 
-pub fn karatsuba_32(a: &Poly, b: &Poly) -> (Out, DesignResult)
+pub fn karatsuba_32(a: &SignedPolyArray, b: &SignedPolyArray) -> (PolyArray, DesignResult)
 {
     run_k(a, b, 32, "karatsuba-32", "recursive-32")
 }
 
-pub fn karatsuba_16(a: &Poly, b: &Poly) -> (Out, DesignResult)
+pub fn karatsuba_16(a: &SignedPolyArray, b: &SignedPolyArray) -> (PolyArray, DesignResult)
 {
     run_k(a, b, 16, "karatsuba-16", "recursive-16")
 }

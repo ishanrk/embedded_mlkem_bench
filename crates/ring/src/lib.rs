@@ -3,10 +3,10 @@
 pub const N: usize = 509;
 pub const Q: u16 = 2048;
 
-pub type Poly = [i16; N];
-pub type Out = [u16; N];
+pub type SignedPolyArray = [i16; N];
+pub type PolyArray = [u16; N];
 
-pub fn mul(a: &Poly, b: &Poly) -> Out
+pub fn mul(a: &SignedPolyArray, b: &SignedPolyArray) -> PolyArray
 {
     let mut c = [0i64; N];
 
