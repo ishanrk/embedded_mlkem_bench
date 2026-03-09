@@ -6,4 +6,3 @@ publish = false
 
 [dependencies]
 pqc-poly-ring = { path = "../ring" }
-serde = { version = "1.0.228", features = ["derive"] }
