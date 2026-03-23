@@ -1,0 +1,17 @@
+{
+  "op": "cyclic_mul",
+  "n": 509,
+  "q": 2048,
+  "input": "centered",
+  "output": "canonical",
+  "alias": "no",
+  "target": {
+    "name": "rv32im",
+    "word_bits": 32,
+    "size_bits": 32,
+    "acc_bits": [32, 64]
+  },
+  "limits": {
+    "ram": 4096
+  }
+}

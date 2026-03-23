@@ -29,3 +29,38 @@ pub fn reference_multiply(left: &SignedPolyArray, right: &SignedPolyArray) -> Po
 
     reduced
 }
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    #[test]
+    fn multiplication_wraps_cyclically()
+    {
+        let mut left = [0i16; N];
+        let mut right = [0i16; N];
+
+        left[N - 1] = 1;
+        right[1] = 1;
+
+        let product = reference_multiply(&left, &right);
+
+        assert_eq!(product[0], 1);
+        assert!(product[1..].iter().all(|coefficient| *coefficient == 0));
+    }
+
+    #[test]
+    fn multiplication_returns_canonical_coefficients()
+    {
+        let mut left = [0i16; N];
+        let mut right = [0i16; N];
+
+        left[0] = -1;
+        right[0] = 1;
+
+        let product = reference_multiply(&left, &right);
+
+        assert_eq!(product[0], Q - 1);
+    }
+}
