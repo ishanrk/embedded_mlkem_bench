@@ -1,100 +1,205 @@
 # pqc-poly-bench
 
-`pqc-poly-bench` is a constraint-driven polynomial-kernel selector for PQC
-experiments. The primary ring is NTRU-HPS-2048-509,
-`Z_2048[x] / (x^509 - 1)`, on an RV32IM target.
+`pqc-poly-bench` is a C++20 constraint-driven compiler and autotuner for
+post-quantum polynomial arithmetic. Given a ring operation, degree, modulus,
+target description, alias contract, and scratch-RAM limit, it constructs an
+explainable implementation space, rejects illegal plans, independently checks
+the selected lowering, and emits a standalone kernel.
 
-The current checkpoint separates two concerns that must not be conflated:
+The project is entirely C++. Cargo and Rust are not required.
 
-- `formula` contains independently tested NTRU implementations of Karatsuba,
-  Toom-Cook, NTT, and TMVP.
-- `selector` parses a target request, enumerates schoolbook execution schedules,
-  proves their range, memory, aliasing, and target-size legality, ranks the legal
-  candidates deterministically, and retains an independent checker as an
-  emission gate.
+## Current implementation slice
 
-The formula implementations are not yet placed in the selector's candidate
-pool. Each needs its own independently checked range, scratch-memory, and cost
-model before a comparison would be meaningful.
+The current end-to-end path supports cyclic and negacyclic multiplication with
+three verified schoolbook memory schedules:
 
-## Operations and schedules
+- a full linear convolution buffer followed by ring folding;
+- a blocked ring accumulator with selectable block size;
+- a direct-output schedule with no scratch allocation.
 
-The request layer supports both polynomial wrap conventions explicitly:
+It also implements the compiler infrastructure needed to grow beyond that
+bootstrap space:
 
-- `cyclic_mul` for `Z_q[x] / (x^n - 1)`, including NTRU-HPS-2048-509
-- `negacyclic_mul` for `Z_q[x] / (x^n + 1)`, including the ML-KEM architecture
-  example
+- a range-aware polynomial IR with exact signed coefficient intervals;
+- reduction-state and required-width tracking;
+- explicit operation dependencies and last-use information;
+- aligned scratch regions with offsets and live ranges;
+- structured algorithm trees for schoolbook, blocked schoolbook, Karatsuba,
+  mixed Karatsuba, Toom-Cook, hybrid Toom/Karatsuba, NTT, and NTT+CRT;
+- separate legality and lowering-support states, so an unimplemented family is
+  never presented as runnable;
+- an independent plan checker and a separate IR checker;
+- verified-only empirical winner selection;
+- measured latency/RAM/code-size Pareto frontiers;
+- deterministic JSON artifacts and a standalone HTML report.
 
-The first selectable family is schoolbook multiplication with three schedules:
+Recursive and transform families are already represented in `plans.json`, but
+remain capability-blocked until their C++ lowerings, range proofs, and exact
+workspace schedules exist.
 
-- `sb_full`: form a `2n - 1` convolution buffer, then fold it
-- `sb_fold`: accumulate directly into an `n`-coefficient buffer using a chosen
-  tile size
-- `sb_out`: compute one output coefficient at a time without explicit scratch
+## Architecture
 
-`alias: "no"` means the output is disjoint from the inputs; the two inputs may
-still be the same polynomial. `alias: "may"` permits output overlap too, so
-`sb_out` is rejected for that contract.
+- `pqc_poly_selector` validates requests and provides the conservative
+  bootstrap search and bound model.
+- `pqc_poly_compiler_plan` constructs algorithm trees and records recursion,
+  leaves, reduction placement, and memory policy.
+- `pqc_poly_ir` lowers supported plans to an explicit value/operation graph and
+  independently verifies ranges, dependencies, wrap semantics, and lifetimes.
+- `pqc_poly_codegen` emits standalone optimized C++20.
+- `pqc_poly_tuning` validates benchmark records, selects only verified
+  measurements, and computes a three-dimensional Pareto frontier.
+- `pqc_poly_host_tuner` compiles each legal candidate twice: a sanitized
+  differential-testing build and an optimized measurement build.
+- `pqc_poly_explore` coordinates selection, emission, and reporting.
+- `pqc_poly_formula` retains the allocation-free NTRU-HPS-2048-509 research
+  kernels: schoolbook, Karatsuba, exact dual-prime NTT, Toom-Cook, and TMVP.
 
-## Run
+Public arithmetic APIs follow output-first `r, a, b` ordering. The C++ layout,
+Allman braces, right-aligned pointers, lower snake case, and prefixed global
+symbols are loosely based on
+[mlkem-native](https://github.com/pq-code-package/mlkem-native). Source comments
+are intentionally sparse, lowercase, and limited to design or safety rationale.
 
-Select and emit the NTRU schedule:
+## Build and test
 
-```bash
-cargo run -p pqc-poly-explore -- examples/ntruhps2048509.json -o out
-```
-
-The ML-KEM-shaped negacyclic example uses the same pipeline:
-
-```bash
-cargo run -p pqc-poly-explore -- examples/mlkem.json -o out
-```
-
-Use `--plan PLAN_ID` to emit a particular legal candidate instead of the static
-winner. Each run writes reproducible artifacts:
-
-- `kernel.c` and `kernel.h`: portable C lowering
-- `kernel.rs`: the equivalent standalone `no_std` Rust lowering
-- `plan.json`: selected plan, analysis, score, and verification status
-- `cands.json`: every candidate, including rejected candidates and reasons
-
-## Layout
-
-- `crates/ring`: fixed NTRU-HPS-2048-509 semantics and the exact reference
-  multiplication
-- `crates/formula`: current Karatsuba, Toom-Cook, NTT, and TMVP kernels
-- `crates/selector`: strict request schema, plan records, bounds, candidate
-  search, static ranking, Pareto frontier, and independent checks
-- `crates/codegen`: checked C and `no_std` Rust lowering
-- `crates/explore`: deterministic artifact emission and command-line interface
-- `examples`: cyclic NTRU and negacyclic ML-KEM request files
-
-## Current limits
-
-- The score model is a deterministic bootstrap, not a claim about target speed.
-- `tmp_bytes` counts explicit algorithm scratch, not compiler spills or caller
-  input/output storage.
-- `% q` is functionally tested but is not yet a target constant-time proof.
-- Accumulator storage is selected as signed 32 or 64 bit; input and output
-  coefficients remain signed 32 bit in generated kernels.
-- Target-size checks bound every modeled input, output, and scratch object by
-  the target's signed pointer-offset limit as well as its unsigned size limit.
-- Host compilation validates generated-kernel semantics, not RV32 cycle counts.
-
-## Test
+Portable optimized build:
 
 ```bash
-cargo test --workspace --all-targets
+cmake --preset release
+cmake --build --preset release --parallel
+ctest --preset release
 ```
 
-The tests cover strict request parsing, exact ranking and frontier results,
-independent-checker mutations, cyclic and negacyclic wrap behavior, alias-safe
-plans, generated-code compilation, and differential comparison with simple
-references.
+Host-native optimized build and fixed-kernel benchmark:
 
-Algorithm references:
+```bash
+cmake --preset release-native
+cmake --build --preset release-native --parallel
+ctest --preset release-native
+./build/release-native/pqc-poly-formula-bench 1000
+```
 
-1. [Karatsuba](https://en.wikipedia.org/wiki/Karatsuba_algorithm)
-2. [Toom-Cook](https://eprint.iacr.org/2023/678)
-3. [NTT](https://eprint.iacr.org/2024/585.pdf)
-4. [TMVP](https://open.metu.edu.tr/handle/11511/98549)
+ASan and UBSan build:
+
+```bash
+cmake --preset sanitize
+cmake --build --preset sanitize --parallel
+ASAN_OPTIONS=detect_leaks=0 ctest --preset sanitize
+```
+
+Leak detection is disabled in that command because LeakSanitizer cannot run
+under the workspace's ptrace wrapper. AddressSanitizer and
+UndefinedBehaviorSanitizer remain enabled.
+
+## Static compilation
+
+Static selection uses the conservative bootstrap cost model and does not claim
+target measurements:
+
+```bash
+./build/release/pqc-poly-bench examples/mlkem.json -o out
+```
+
+Use `--plan PLAN_ID` to force a particular legal, supported bootstrap plan.
+
+## Verified host autotuning
+
+The first empirical backend is explicit because a host result must not be
+confused with an RV32 result:
+
+```bash
+./build/release/pqc-poly-bench \
+  --tune-host \
+  --metric nanoseconds \
+  --samples 5 \
+  --iterations 16 \
+  examples/host-negacyclic.json \
+  -o out
+```
+
+For every legal supported candidate, this mode:
+
+1. regenerates the checked kernel;
+2. compiles and runs boundary, impulse, deterministic-random, and exact-alias
+   differential tests under ASan and UBSan;
+3. compiles a separate `-O3` kernel;
+4. records median nanoseconds and, on x86, timestamp-counter ticks;
+5. records `.text` size when the platform size tool is available;
+6. chooses the fastest locally verified candidate for the requested metric;
+7. reports nondominated latency, scratch, and code-size points.
+
+Measurements are labeled `host-proxy-for-*`. They are not presented as target
+cycles for a different architecture.
+
+## Emitted artifacts
+
+Every successful run writes:
+
+- `kernel.hpp` and `kernel.cpp`: standalone optimized C++20;
+- `plan.json`: selected lowering, analysis, compiler tree, verification state,
+  and optional measurement;
+- `cands.json`: bootstrap candidates, including rejection reasons;
+- `plans.json`: the broader structured algorithm-tree space, including honest
+  capability blockers;
+- `ir.json`: ranges, widths, dependencies, reductions, storage, and lifetimes;
+- `benchmarks.json`: provenance, verification gates, measurements, winner, and
+  measured Pareto frontier;
+- `report.html`: a standalone human-readable experiment report.
+
+The generated ABI entry point is `pqc_poly_mul`. `kernel.hpp` also provides an
+inline `polysel_mul` compatibility name without another generated function.
+
+## Verification scope
+
+A record is eligible for the current empirical selector only after:
+
+- the original plan analysis is independently recomputed;
+- the IR is independently recomputed and checked;
+- differential tests pass;
+- ASan and UBSan execution passes;
+- the explicit scratch allocation fits the requested RAM budget.
+
+This local gate is deliberately not called a CBMC proof or a real target run.
+Those states remain `not_run` until the corresponding backend actually runs.
+Generated loops and memory access are independent of coefficient values, but
+the generic `% q` lowering is not itself a complete microarchitectural
+constant-time proof. Power-of-two moduli use an unsigned mask.
+
+## Fixed-kernel performance
+
+The NTRU-509 formula backends perform no heap allocation. Scratch is fixed-size
+and 64-byte aligned; the native schoolbook path uses AVX2; recursive algorithms
+reuse one arena; and NTT tables are computed at compile time. On the development
+Intel Core i7-13700H, TMVP measured about 3.5 microseconds per multiplication
+and the AVX2 schoolbook backend about 7.6 microseconds. Results depend on the
+compiler, CPU, frequency policy, and thermal state.
+
+## External backends still requiring configuration
+
+The following canonical features need concrete external choices before they
+can be implemented responsibly:
+
+- the RV32 compiler triple, ABI, multilib, linker script, and allowed flags;
+- the simulator and its machine-readable cycle/instruction-count interface;
+- the real board or FPGA, deployment transport, firmware harness, cycle
+  counter, and reset protocol;
+- the CBMC version, loop-unwind policy, proof bounds, timeout budget, and exact
+  properties required for release gating;
+- the PQC integration target and revision, such as mlkem-native, liboqs, or a
+  specific firmware tree, plus its required kernel ABI;
+- experiment-budget policy for large recursive/hybrid search spaces.
+
+These are isolated behind future backend boundaries. The current host path,
+IR, plan checking, artifact generation, and reporting do not fabricate their
+results.
+
+## Portability limits
+
+- The host selector uses exact unsigned 128-bit model arithmetic and therefore
+  requires a GCC or Clang target providing `unsigned __int128`.
+- Standalone emitted kernels do not require 128-bit arithmetic and can be
+  cross-compiled for narrower targets such as RV32.
+- Scratch accounting covers explicit algorithm arrays, not compiler spills or
+  caller-owned buffers.
+- Host code size falls back to optimized object-file size if no compatible
+  section-size tool is available; provenance records that measurement path.

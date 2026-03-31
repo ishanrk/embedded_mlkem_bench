@@ -1,13 +1,30 @@
-.PHONY: test demo clean
+.PHONY: all build test native benchmark tune-example sanitize clean
 
-test:
-	cargo test --workspace --all-targets
+all: native
 
-demo:
-	cargo run -p pqc-poly-explore -- examples/ntruhps2048509.json -o out
-	cc -std=c11 -O2 -Wall -Wextra -Werror -c out/kernel.c -Iout -o out/kernel.o
-	rustc --edition=2024 --crate-type=lib out/kernel.rs -o out/libkernel.rlib
+build:
+	cmake --preset release
+	cmake --build --preset release --parallel
+
+test: build
+	ctest --preset release
+
+native:
+	cmake --preset release-native
+	cmake --build --preset release-native --parallel
+	ctest --preset release-native
+
+benchmark: native
+	./build/release-native/pqc-poly-formula-bench 1000
+
+tune-example: build
+	./build/release/pqc-poly-bench --tune-host examples/host-negacyclic.json -o out
+
+sanitize:
+	cmake --preset sanitize
+	cmake --build --preset sanitize --parallel
+	ASAN_OPTIONS=detect_leaks=0 ctest --preset sanitize
 
 clean:
-	cargo clean
-	rm -rf out
+	cmake -E remove_directory build
+	cmake -E remove_directory out
