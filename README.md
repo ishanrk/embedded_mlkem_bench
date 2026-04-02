@@ -17,40 +17,21 @@ three verified schoolbook memory schedules:
 - a blocked ring accumulator with selectable block size;
 - a direct-output schedule with no scratch allocation.
 
-It also implements the compiler infrastructure needed to grow beyond that
-bootstrap space:
+The supporting compiler path contains only state used by a runnable candidate:
 
 - a range-aware polynomial IR with exact signed coefficient intervals;
 - reduction-state and required-width tracking;
 - explicit operation dependencies and last-use information;
 - aligned scratch regions with offsets and live ranges;
-- structured algorithm trees for schoolbook, blocked schoolbook, Karatsuba,
-  mixed Karatsuba, Toom-Cook, hybrid Toom/Karatsuba, NTT, and NTT+CRT;
-- separate legality and lowering-support states, so an unimplemented family is
-  never presented as runnable;
 - an independent plan checker and a separate IR checker;
 - verified-only empirical winner selection;
 - measured latency/RAM/code-size Pareto frontiers;
 - deterministic JSON artifacts and a standalone HTML report.
 
-Recursive and transform families are already represented in `plans.json`, but
-remain capability-blocked until their C++ lowerings, range proofs, and exact
-workspace schedules exist.
-
 ## Architecture
 
-- `pqc_poly_selector` validates requests and provides the conservative
-  bootstrap search and bound model.
-- `pqc_poly_compiler_plan` constructs algorithm trees and records recursion,
-  leaves, reduction placement, and memory policy.
-- `pqc_poly_ir` lowers supported plans to an explicit value/operation graph and
-  independently verifies ranges, dependencies, wrap semantics, and lifetimes.
-- `pqc_poly_codegen` emits standalone optimized C++20.
-- `pqc_poly_tuning` validates benchmark records, selects only verified
-  measurements, and computes a three-dimensional Pareto frontier.
-- `pqc_poly_host_tuner` compiles each legal candidate twice: a sanitized
-  differential-testing build and an optimized measurement build.
-- `pqc_poly_explore` coordinates selection, emission, and reporting.
+- `pqc_poly_compiler` contains request validation, selection, IR verification,
+  code generation, host tuning, and reporting.
 - `pqc_poly_formula` retains the allocation-free NTRU-HPS-2048-509 research
   kernels: schoolbook, Karatsuba, exact dual-prime NTT, Toom-Cook, and TMVP.
 
@@ -136,11 +117,9 @@ cycles for a different architecture.
 Every successful run writes:
 
 - `kernel.hpp` and `kernel.cpp`: standalone optimized C++20;
-- `plan.json`: selected lowering, analysis, compiler tree, verification state,
-  and optional measurement;
+- `plan.json`: selected lowering, analysis, verification state, and optional
+  measurement;
 - `cands.json`: bootstrap candidates, including rejection reasons;
-- `plans.json`: the broader structured algorithm-tree space, including honest
-  capability blockers;
 - `ir.json`: ranges, widths, dependencies, reductions, storage, and lifetimes;
 - `benchmarks.json`: provenance, verification gates, measurements, winner, and
   measured Pareto frontier;

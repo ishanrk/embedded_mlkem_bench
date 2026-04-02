@@ -1,5 +1,7 @@
 #include "pqc_poly/tuning.hpp"
 
+#include "json.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <tuple>
@@ -8,6 +10,8 @@ namespace pqc_poly
 {
 namespace
 {
+
+using detail::append_json_string;
 
 [[nodiscard]] bool valid_status(benchmark_status value) noexcept
 {
@@ -38,133 +42,6 @@ void require_metric(latency_metric metric)
     {
         throw tuning_error("invalid latency metric");
     }
-}
-
-void append_hex_escape(std::string &out, std::uint16_t value)
-{
-    constexpr std::string_view digits = "0123456789abcdef";
-
-    out += "\\u";
-    for (const unsigned shift : {12U, 8U, 4U, 0U})
-    {
-        out += digits[(value >> shift) & 0xfU];
-    }
-}
-
-void append_code_point(std::string &out, std::uint32_t value)
-{
-    if (value <= 0xffffU)
-    {
-        append_hex_escape(out, static_cast<std::uint16_t>(value));
-        return;
-    }
-
-    value -= 0x10000U;
-    append_hex_escape(out, static_cast<std::uint16_t>(0xd800U | (value >> 10U)));
-    append_hex_escape(out, static_cast<std::uint16_t>(0xdc00U | (value & 0x3ffU)));
-}
-
-void append_json_string(std::string &out, std::string_view value)
-{
-    // ascii output makes reports byte stable across locale and filesystem settings
-    out += '"';
-
-    for (std::size_t index = 0; index < value.size();)
-    {
-        const auto first = static_cast<std::uint8_t>(value[index]);
-
-        if (first < 0x80U)
-        {
-            ++index;
-            switch (first)
-            {
-                case '"':
-                    out += "\\\"";
-                    break;
-                case '\\':
-                    out += "\\\\";
-                    break;
-                case '\b':
-                    out += "\\b";
-                    break;
-                case '\f':
-                    out += "\\f";
-                    break;
-                case '\n':
-                    out += "\\n";
-                    break;
-                case '\r':
-                    out += "\\r";
-                    break;
-                case '\t':
-                    out += "\\t";
-                    break;
-                default:
-                    if (first < 0x20U)
-                    {
-                        append_hex_escape(out, first);
-                    }
-                    else
-                    {
-                        out += static_cast<char>(first);
-                    }
-                    break;
-            }
-            continue;
-        }
-
-        std::uint32_t code_point = 0;
-        std::size_t width = 0;
-        std::uint32_t minimum = 0;
-
-        if ((first & 0xe0U) == 0xc0U)
-        {
-            code_point = first & 0x1fU;
-            width = 2;
-            minimum = 0x80U;
-        }
-        else if ((first & 0xf0U) == 0xe0U)
-        {
-            code_point = first & 0x0fU;
-            width = 3;
-            minimum = 0x800U;
-        }
-        else if ((first & 0xf8U) == 0xf0U)
-        {
-            code_point = first & 0x07U;
-            width = 4;
-            minimum = 0x10000U;
-        }
-
-        bool valid = width != 0 && index + width <= value.size();
-        for (std::size_t offset = 1; valid && offset < width; ++offset)
-        {
-            const auto next = static_cast<std::uint8_t>(value[index + offset]);
-
-            if ((next & 0xc0U) != 0x80U)
-            {
-                valid = false;
-            }
-            else
-            {
-                code_point = (code_point << 6U) | (next & 0x3fU);
-            }
-        }
-
-        valid = valid && code_point >= minimum && code_point <= 0x10ffffU &&
-                !(code_point >= 0xd800U && code_point <= 0xdfffU);
-        if (!valid)
-        {
-            append_hex_escape(out, first);
-            ++index;
-            continue;
-        }
-
-        append_code_point(out, code_point);
-        index += width;
-    }
-
-    out += '"';
 }
 
 void append_html_text(std::string &out, std::string_view value)

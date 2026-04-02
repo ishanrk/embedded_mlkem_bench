@@ -151,8 +151,8 @@ void test_run_and_artifacts()
     require(first_output.str().find("sb_full_i32") != std::string::npos, "missing selection");
 
     const std::set<std::string> expected_files = {
-        "benchmarks.json", "cands.json", "ir.json",    "kernel.cpp",
-        "kernel.hpp",      "plan.json",  "plans.json", "report.html",
+        "benchmarks.json", "cands.json", "ir.json",     "kernel.cpp",
+        "kernel.hpp",      "plan.json",  "report.html",
     };
     std::set<std::string> files;
 
@@ -174,14 +174,10 @@ void test_run_and_artifacts()
             "json did not use ascii escapes");
     require(metadata.find("\"ir\": \"ir.json\"") != std::string::npos,
             "plan does not reference its ir");
-    require(metadata.find("\"plan_space\": \"plans.json\"") != std::string::npos,
-            "plan does not reference its plan space");
     require(read_text(first / "benchmarks.json").find("\"selected\": null") != std::string::npos,
             "static run claimed a measured winner");
     require(read_text(first / "ir.json").find("\"operations\"") != std::string::npos,
             "ir artifact is incomplete");
-    require(read_text(first / "plans.json").find("\"family\": \"karatsuba\"") != std::string::npos,
-            "plan space omits blocked recursive candidates");
     require(
         read_text(first / "report.html").find("no fully verified measurement") != std::string::npos,
         "static report lacks its measurement status");
