@@ -10,7 +10,6 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
-#include <set>
 #include <system_error>
 #include <tuple>
 #include <utility>
@@ -42,7 +41,6 @@ struct json_value
     std::string text{};
     std::vector<std::string> keys{};
     std::vector<json_value> values{};
-    bool boolean{false};
 };
 
 class json_parser
@@ -120,10 +118,10 @@ private:
             }
             case 't':
                 parse_literal("true");
-                return json_value{json_kind::boolean, {}, {}, {}, true};
+                return json_value{json_kind::boolean};
             case 'f':
                 parse_literal("false");
-                return json_value{json_kind::boolean, {}, {}, {}, false};
+                return json_value{json_kind::boolean};
             case 'n':
                 parse_literal("null");
                 return json_value{};
@@ -157,7 +155,12 @@ private:
             {
                 fail("expected an object key");
             }
-            result.keys.push_back(parse_string());
+            std::string key = parse_string();
+            if (std::find(result.keys.begin(), result.keys.end(), key) != result.keys.end())
+            {
+                fail("duplicate object key");
+            }
+            result.keys.push_back(std::move(key));
             skip_space();
             if (!consume(':'))
             {
@@ -483,15 +486,23 @@ private:
 
 [[nodiscard]] const json_value *find_member(const json_value &object, std::string_view key) noexcept
 {
-    // reverse lookup deliberately gives duplicate object members last-value semantics.
-    for (std::size_t index = object.keys.size(); index != 0; --index)
+    for (std::size_t index = 0; index < object.keys.size(); ++index)
     {
-        if (object.keys[index - 1] == key)
+        if (object.keys[index] == key)
         {
-            return &object.values[index - 1];
+            return &object.values[index];
         }
     }
     return nullptr;
+}
+
+[[nodiscard]] const json_value &require_member(const json_value &object, std::string_view key)
+{
+    if (const json_value *value = find_member(object, key))
+    {
+        return *value;
+    }
+    throw spec_error("missing request field: " + std::string(key));
 }
 
 void reject_unknown_fields(const json_value &object, std::span<const std::string_view> allowed,
@@ -571,11 +582,11 @@ void reject_unknown_fields(const json_value &object, std::span<const std::string
 [[nodiscard]] operation parse_operation(const json_value &value)
 {
     const std::string name = get_string(value, "op");
-    if (name == "negacyclic_mul" || name == "negacyclic-mul")
+    if (name == "negacyclic_mul")
     {
         return operation::negacyclic_mul;
     }
-    if (name == "cyclic_mul" || name == "cyclic-mul")
+    if (name == "cyclic_mul")
     {
         return operation::cyclic_mul;
     }
@@ -638,7 +649,7 @@ void reject_unknown_fields(const json_value &object, std::span<const std::string
     return left * right;
 }
 
-[[nodiscard]] std::vector<schoolbook_plan> generate_candidates_unchecked(const request &req)
+[[nodiscard]] std::vector<schoolbook_plan> make_plans_unchecked(const request &req)
 {
     std::vector<schoolbook_plan> candidates;
     candidates.reserve(req.target.acc_bits.size() * 7);
@@ -667,7 +678,7 @@ void reject_unknown_fields(const json_value &object, std::span<const std::string
     return candidates;
 }
 
-[[nodiscard]] wide_uint temporary_bytes(const request &req, const schoolbook_plan &plan) noexcept
+[[nodiscard]] wide_uint scratch_bytes(const request &req, const schoolbook_plan &plan) noexcept
 {
     const wide_uint count = req.n;
     const wide_uint acc_bytes = plan.acc_bits / 8;
@@ -737,8 +748,15 @@ struct operation_counts
 {
     const wide_uint count = req.n;
     const wide_uint multiplications = count * count;
-    const wide_uint additions =
-        plan.sched == schedule::full ? multiplications + count - 1 : multiplications;
+    wide_uint additions = multiplications;
+    if (plan.sched == schedule::full)
+    {
+        additions += count - 1;
+    }
+    else if (plan.sched == schedule::output)
+    {
+        additions += 3 * count;
+    }
     return {multiplications, additions, count};
 }
 
@@ -768,41 +786,41 @@ struct operation_counts
     return cost;
 }
 
-[[nodiscard]] candidate_trial analyze_unchecked(const request &req, const schoolbook_plan &plan)
+[[nodiscard]] candidate analyze_unchecked(const request &req, const schoolbook_plan &plan)
 {
-    analysis_verdict verdict;
-    verdict.plan = plan;
-    verdict.temporary_bytes = temporary_bytes(req, plan);
-    verdict.alias_safe = plan_alias_safe(plan);
-    verdict.accumulator_bound = pqc_poly::accumulator_bound(req);
-    verdict.required_bits = required_signed_bits(verdict.accumulator_bound);
+    plan_analysis analysis;
+    analysis.plan = plan;
+    analysis.scratch_bytes = scratch_bytes(req, plan);
+    analysis.alias_safe = plan_alias_safe(plan);
+    analysis.accumulator_bound = pqc_poly::accumulator_bound(req);
+    analysis.required_bits = required_signed_bits(analysis.accumulator_bound);
 
     const operation_counts counts = count_operations(req, plan);
-    verdict.multiplications = counts.multiplications;
-    verdict.additions = counts.additions;
-    verdict.reductions = counts.reductions;
+    analysis.multiplications = counts.multiplications;
+    analysis.additions = counts.additions;
+    analysis.reductions = counts.reductions;
 
-    if (verdict.temporary_bytes > req.limits.ram)
+    if (analysis.scratch_bytes > req.limits.ram)
     {
-        verdict.failure_reasons.emplace_back("ram");
+        analysis.rejections.emplace_back("ram");
     }
-    if (!signed_width_fits(verdict.accumulator_bound, plan.acc_bits))
+    if (!signed_width_fits(analysis.accumulator_bound, plan.acc_bits))
     {
-        verdict.failure_reasons.emplace_back("acc_width");
+        analysis.rejections.emplace_back("acc_width");
     }
-    if (req.alias == aliasing::may && !verdict.alias_safe)
+    if (req.alias == aliasing::may && !analysis.alias_safe)
     {
-        verdict.failure_reasons.emplace_back("alias");
+        analysis.rejections.emplace_back("alias");
     }
     if (!target_size_is_legal(req, plan))
     {
-        verdict.failure_reasons.emplace_back("size_t");
+        analysis.rejections.emplace_back("size_t");
     }
-    verdict.legal = verdict.failure_reasons.empty();
+    analysis.legal = analysis.rejections.empty();
 
     return {
-        std::move(verdict),
-        {estimate_cost(req, plan, counts), "starter-v0"},
+        std::move(analysis),
+        estimate_cost(req, plan, counts),
     };
 }
 
@@ -834,7 +852,7 @@ struct operation_counts
 }
 
 [[nodiscard]] bool independent_target_size_is_legal(const request &req,
-                                                    const analysis_verdict &verdict) noexcept
+                                                    const plan_analysis &analysis) noexcept
 {
     const wide_uint size_maximum = req.target.size_bits == 32
                                        ? wide_uint{std::numeric_limits<std::uint32_t>::max()}
@@ -849,12 +867,12 @@ struct operation_counts
         return false;
     }
 
-    const wide_uint acc_bytes = verdict.plan.acc_bits / 8;
+    const wide_uint acc_bytes = analysis.plan.acc_bits / 8;
     if (acc_bytes == 0)
     {
         return false;
     }
-    switch (verdict.plan.sched)
+    switch (analysis.plan.sched)
     {
         case schedule::full:
         {
@@ -878,9 +896,9 @@ void append_plan_json(std::string &output, const schoolbook_plan &plan, std::siz
     append_json_string(output, plan_id(plan));
     output += ",\n";
     append_indent(output, indent + 2);
-    output += "\"algo\": \"schoolbook\",\n";
+    output += "\"algorithm\": \"schoolbook\",\n";
     append_indent(output, indent + 2);
-    output += "\"sched\": ";
+    output += "\"schedule\": ";
     append_json_string(output, schedule_name(plan.sched));
     output += ",\n";
     append_indent(output, indent + 2);
@@ -891,8 +909,8 @@ void append_plan_json(std::string &output, const schoolbook_plan &plan, std::siz
     output += '}';
 }
 
-void append_failure_reasons(std::string &output, const std::vector<std::string> &reasons,
-                            std::size_t indent)
+void append_rejections(std::string &output, const std::vector<std::string> &reasons,
+                       std::size_t indent)
 {
     if (reasons.empty())
     {
@@ -910,47 +928,34 @@ void append_failure_reasons(std::string &output, const std::vector<std::string> 
     output += ']';
 }
 
-void append_analysis_json(std::string &output, const analysis_verdict &analysis, std::size_t indent)
+void append_analysis_json(std::string &output, const plan_analysis &analysis, std::size_t indent)
 {
     output += "{\n";
     append_indent(output, indent + 2);
-    output += "\"tmp_bytes\": " + wide_to_string(analysis.temporary_bytes) + ",\n";
+    output += "\"scratch_bytes\": " + wide_to_string(analysis.scratch_bytes) + ",\n";
     append_indent(output, indent + 2);
     output += std::string{"\"alias_safe\": "} + (analysis.alias_safe ? "true,\n" : "false,\n");
     append_indent(output, indent + 2);
-    output += "\"acc_bound\": " + wide_to_string(analysis.accumulator_bound) + ",\n";
+    output += "\"accumulator_bound\": " + wide_to_string(analysis.accumulator_bound) + ",\n";
     append_indent(output, indent + 2);
-    output += "\"need_bits\": " + std::to_string(analysis.required_bits) + ",\n";
+    output += "\"required_bits\": " + std::to_string(analysis.required_bits) + ",\n";
     append_indent(output, indent + 2);
-    output += "\"muls\": " + wide_to_string(analysis.multiplications) + ",\n";
+    output += "\"multiplications\": " + wide_to_string(analysis.multiplications) + ",\n";
     append_indent(output, indent + 2);
-    output += "\"adds\": " + wide_to_string(analysis.additions) + ",\n";
+    output += "\"additions\": " + wide_to_string(analysis.additions) + ",\n";
     append_indent(output, indent + 2);
-    output += "\"reds\": " + wide_to_string(analysis.reductions) + ",\n";
+    output += "\"reductions\": " + wide_to_string(analysis.reductions) + ",\n";
     append_indent(output, indent + 2);
     output += std::string{"\"legal\": "} + (analysis.legal ? "true,\n" : "false,\n");
     append_indent(output, indent + 2);
-    output += "\"fail\": ";
-    append_failure_reasons(output, analysis.failure_reasons, indent + 2);
+    output += "\"rejections\": ";
+    append_rejections(output, analysis.rejections, indent + 2);
     output += '\n';
     append_indent(output, indent);
     output += '}';
 }
 
-void append_score_json(std::string &output, const static_score &score, std::size_t indent)
-{
-    output += "{\n";
-    append_indent(output, indent + 2);
-    output += "\"cost\": " + wide_to_string(score.cost) + ",\n";
-    append_indent(output, indent + 2);
-    output += "\"model\": ";
-    append_json_string(output, score.model);
-    output += '\n';
-    append_indent(output, indent);
-    output += '}';
-}
-
-void append_candidate_json(std::string &output, const candidate_trial &candidate,
+void append_candidate_json(std::string &output, const candidate &candidate,
                            std::size_t indent)
 {
     output += "{\n";
@@ -963,8 +968,7 @@ void append_candidate_json(std::string &output, const candidate_trial &candidate
     append_analysis_json(output, candidate.analysis, indent + 2);
     output += ",\n";
     append_indent(output, indent + 2);
-    output += "\"score\": ";
-    append_score_json(output, candidate.score, indent + 2);
+    output += "\"estimated_cost\": " + wide_to_string(candidate.estimated_cost);
     output += '\n';
     append_indent(output, indent);
     output += '}';
@@ -1045,10 +1049,9 @@ request parse_request(std::string_view json)
     }
 
     constexpr std::array request_fields{
-        std::string_view{"op"},     std::string_view{"operation"}, std::string_view{"n"},
-        std::string_view{"degree"}, std::string_view{"q"},         std::string_view{"modulus"},
-        std::string_view{"input"},  std::string_view{"output"},    std::string_view{"alias"},
-        std::string_view{"target"}, std::string_view{"limits"},    std::string_view{"ram_limit"},
+        std::string_view{"op"},     std::string_view{"n"},      std::string_view{"q"},
+        std::string_view{"input"},  std::string_view{"output"}, std::string_view{"alias"},
+        std::string_view{"target"}, std::string_view{"limits"},
     };
     constexpr std::array target_fields{
         std::string_view{"name"},
@@ -1058,17 +1061,16 @@ request parse_request(std::string_view json)
     };
     constexpr std::array limit_fields{std::string_view{"ram"}};
 
-    // the parser accepts general json, then this layer enforces the small request schema.
+    // parse general json, then enforce the small request schema here
     reject_unknown_fields(root, request_fields, "request");
     const json_value *target = find_member(root, "target");
     const json_value *limits = find_member(root, "limits");
-    if ((target != nullptr && target->kind != json_kind::object &&
-         target->kind != json_kind::string) ||
+    if ((target != nullptr && target->kind != json_kind::object) ||
         (limits != nullptr && limits->kind != json_kind::object))
     {
-        throw spec_error("target must be a string or object and limits must be an object");
+        throw spec_error("target and limits must be objects");
     }
-    if (target != nullptr && target->kind == json_kind::object)
+    if (target != nullptr)
     {
         reject_unknown_fields(*target, target_fields, "target");
     }
@@ -1077,32 +1079,10 @@ request parse_request(std::string_view json)
         reject_unknown_fields(*limits, limit_fields, "limits");
     }
 
-    const auto aliased_member = [&root](std::string_view compact,
-                                        std::string_view descriptive) -> const json_value &
-    {
-        const json_value *first = find_member(root, compact);
-        const json_value *second = find_member(root, descriptive);
-
-        if (first != nullptr && second != nullptr)
-        {
-            throw spec_error("request fields " + std::string(compact) + " and " +
-                             std::string(descriptive) + " are mutually exclusive");
-        }
-        if (first != nullptr)
-        {
-            return *first;
-        }
-        if (second != nullptr)
-        {
-            return *second;
-        }
-        throw spec_error("missing request field: " + std::string(descriptive));
-    };
-
     request req;
-    req.op = parse_operation(aliased_member("op", "operation"));
-    req.n = get_u64(aliased_member("n", "degree"), "degree");
-    const std::uint64_t modulus = get_u64(aliased_member("q", "modulus"), "modulus");
+    req.op = parse_operation(require_member(root, "op"));
+    req.n = get_u64(require_member(root, "n"), "n");
+    const std::uint64_t modulus = get_u64(require_member(root, "q"), "q");
     if (modulus > std::numeric_limits<std::uint32_t>::max())
     {
         invalid_field("q");
@@ -1122,11 +1102,7 @@ request parse_request(std::string_view json)
         req.alias = parse_aliasing(*value);
     }
 
-    if (target != nullptr && target->kind == json_kind::string)
-    {
-        req.target.name = get_string(*target, "target");
-    }
-    else if (target != nullptr)
+    if (target != nullptr)
     {
         if (const json_value *value = find_member(*target, "name"))
         {
@@ -1143,21 +1119,14 @@ request parse_request(std::string_view json)
         if (const json_value *value = find_member(*target, "acc_bits"))
         {
             req.target.acc_bits.clear();
-            if (value->kind == json_kind::number)
-            {
-                req.target.acc_bits.push_back(get_u16(*value, "target.acc_bits"));
-            }
-            else if (value->kind == json_kind::array)
-            {
-                req.target.acc_bits.reserve(value->values.size());
-                for (const json_value &entry : value->values)
-                {
-                    req.target.acc_bits.push_back(get_u16(entry, "target.acc_bits"));
-                }
-            }
-            else
+            if (value->kind != json_kind::array)
             {
                 invalid_field("target.acc_bits");
+            }
+            req.target.acc_bits.reserve(value->values.size());
+            for (const json_value &entry : value->values)
+            {
+                req.target.acc_bits.push_back(get_u16(entry, "target.acc_bits"));
             }
             std::sort(req.target.acc_bits.begin(), req.target.acc_bits.end());
             req.target.acc_bits.erase(
@@ -1173,15 +1142,6 @@ request parse_request(std::string_view json)
             req.limits.ram = get_u64(*value, "limits.ram");
         }
     }
-    if (const json_value *ram_limit = find_member(root, "ram_limit"))
-    {
-        if (limits != nullptr && find_member(*limits, "ram") != nullptr)
-        {
-            throw spec_error("request fields limits.ram and ram_limit are mutually exclusive");
-        }
-        req.limits.ram = get_u64(*ram_limit, "ram_limit");
-    }
-
     validate_request(req);
     return req;
 }
@@ -1404,7 +1364,7 @@ std::string request_to_json(const request &req)
     return output;
 }
 
-std::string candidate_to_json(const candidate_trial &candidate)
+std::string candidate_to_json(const candidate &candidate)
 {
     std::string output;
     output.reserve(512);
@@ -1413,7 +1373,7 @@ std::string candidate_to_json(const candidate_trial &candidate)
     return output;
 }
 
-std::string candidates_to_json(std::span<const candidate_trial> candidates)
+std::string candidates_to_json(std::span<const candidate> candidates)
 {
     std::string output;
     output.reserve(candidates.size() * 512);
@@ -1432,23 +1392,11 @@ std::string candidates_to_json(std::span<const candidate_trial> candidates)
     return output;
 }
 
-std::vector<schoolbook_plan> generate_candidates(const request &req)
+std::vector<candidate> find_candidates(const request &req)
 {
     validate_request(req);
-    return generate_candidates_unchecked(req);
-}
-
-candidate_trial analyze(const request &req, const schoolbook_plan &plan)
-{
-    validate_request(req);
-    return analyze_unchecked(req, plan);
-}
-
-std::vector<candidate_trial> find(const request &req)
-{
-    validate_request(req);
-    const std::vector<schoolbook_plan> plans = generate_candidates_unchecked(req);
-    std::vector<candidate_trial> candidates;
+    const std::vector<schoolbook_plan> plans = make_plans_unchecked(req);
+    std::vector<candidate> candidates;
     candidates.reserve(plans.size());
     for (const schoolbook_plan &plan : plans)
     {
@@ -1457,10 +1405,10 @@ std::vector<candidate_trial> find(const request &req)
     return candidates;
 }
 
-const candidate_trial &pick(std::span<const candidate_trial> candidates)
+const candidate &pick_static(std::span<const candidate> candidates)
 {
-    const candidate_trial *selected = nullptr;
-    for (const candidate_trial &candidate : candidates)
+    const candidate *selected = nullptr;
+    for (const candidate &candidate : candidates)
     {
         if (!candidate.analysis.legal)
         {
@@ -1469,12 +1417,12 @@ const candidate_trial &pick(std::span<const candidate_trial> candidates)
         // cost, scratch, then stable id makes selection independent of input order.
         if (selected == nullptr ||
             std::tuple{
-                candidate.score.cost,
-                candidate.analysis.temporary_bytes,
+                candidate.estimated_cost,
+                candidate.analysis.scratch_bytes,
                 plan_id(candidate.analysis.plan),
             } < std::tuple{
-                    selected->score.cost,
-                    selected->analysis.temporary_bytes,
+                    selected->estimated_cost,
+                    selected->analysis.scratch_bytes,
                     plan_id(selected->analysis.plan),
                 })
         {
@@ -1488,11 +1436,11 @@ const candidate_trial &pick(std::span<const candidate_trial> candidates)
     return *selected;
 }
 
-std::vector<const candidate_trial *> frontier(std::span<const candidate_trial> candidates)
+std::vector<const candidate *> static_frontier(std::span<const candidate> candidates)
 {
-    std::vector<const candidate_trial *> legal;
+    std::vector<const candidate *> legal;
     legal.reserve(candidates.size());
-    for (const candidate_trial &candidate : candidates)
+    for (const candidate &candidate : candidates)
     {
         if (candidate.analysis.legal)
         {
@@ -1500,57 +1448,61 @@ std::vector<const candidate_trial *> frontier(std::span<const candidate_trial> c
         }
     }
 
-    std::vector<const candidate_trial *> result;
+    std::vector<const candidate *> result;
     result.reserve(legal.size());
-    for (const candidate_trial *candidate : legal)
+    for (const candidate *point : legal)
     {
         const bool dominated = std::any_of(
             legal.begin(), legal.end(),
-            [candidate](const candidate_trial *other)
+            [point](const candidate *other)
             {
-                return other->analysis.temporary_bytes <= candidate->analysis.temporary_bytes &&
-                       other->score.cost <= candidate->score.cost &&
-                       (other->analysis.temporary_bytes < candidate->analysis.temporary_bytes ||
-                        other->score.cost < candidate->score.cost);
+                return other->analysis.scratch_bytes <= point->analysis.scratch_bytes &&
+                       other->estimated_cost <= point->estimated_cost &&
+                       (other->analysis.scratch_bytes < point->analysis.scratch_bytes ||
+                        other->estimated_cost < point->estimated_cost);
             });
         if (!dominated)
         {
-            result.push_back(candidate);
+            result.push_back(point);
         }
     }
 
     std::sort(result.begin(), result.end(),
-              [](const candidate_trial *left, const candidate_trial *right)
+              [](const candidate *left, const candidate *right)
               {
                   return std::tuple{
-                             left->analysis.temporary_bytes,
-                             left->score.cost,
+                             left->analysis.scratch_bytes,
+                             left->estimated_cost,
                              plan_id(left->analysis.plan),
                          } < std::tuple{
-                                 right->analysis.temporary_bytes,
-                                 right->score.cost,
+                                 right->analysis.scratch_bytes,
+                                 right->estimated_cost,
                                  plan_id(right->analysis.plan),
                              };
               });
     return result;
 }
 
-std::vector<std::string> check_plan(const request &req, const analysis_verdict &verdict)
+namespace
 {
-    // this pass intentionally repeats the math instead of trusting selector helpers.
+
+[[nodiscard]] std::vector<std::string> check_analysis(const request &req,
+                                                      const plan_analysis &analysis)
+{
+    // repeat the math instead of trusting the values produced during search
     validate_request(req);
     std::vector<std::string> errors;
-    if (verdict.plan.sched == schedule::fold &&
-        (verdict.plan.block < 1 || verdict.plan.block > req.n))
+    if (analysis.plan.sched == schedule::fold &&
+        (analysis.plan.block < 1 || analysis.plan.block > req.n))
     {
         errors.emplace_back("bad block");
     }
-    if (verdict.plan.sched != schedule::fold && verdict.plan.block != 0)
+    if (analysis.plan.sched != schedule::fold && analysis.plan.block != 0)
     {
         errors.emplace_back("unexpected block");
     }
-    if ((verdict.plan.acc_bits != 32 && verdict.plan.acc_bits != 64) ||
-        std::find(req.target.acc_bits.begin(), req.target.acc_bits.end(), verdict.plan.acc_bits) ==
+    if ((analysis.plan.acc_bits != 32 && analysis.plan.acc_bits != 64) ||
+        std::find(req.target.acc_bits.begin(), req.target.acc_bits.end(), analysis.plan.acc_bits) ==
             req.target.acc_bits.end())
     {
         errors.emplace_back("bad acc type");
@@ -1559,98 +1511,107 @@ std::vector<std::string> check_plan(const request &req, const analysis_verdict &
     const wide_uint representative_bound =
         req.input == input_representation::canonical ? wide_uint{req.q - 1} : wide_uint{req.q / 2};
     const wide_uint acc_bound = wide_uint{req.n} * representative_bound * representative_bound;
-    const std::uint16_t need_bits = independent_required_bits(acc_bound);
-    if (verdict.accumulator_bound != acc_bound || verdict.required_bits != need_bits)
+    const std::uint16_t required_bits = independent_required_bits(acc_bound);
+    if (analysis.accumulator_bound != acc_bound || analysis.required_bits != required_bits)
     {
         errors.emplace_back("bad range");
     }
 
     const wide_uint count = req.n;
-    const wide_uint acc_bytes = verdict.plan.acc_bits / 8;
+    const wide_uint acc_bytes = analysis.plan.acc_bits / 8;
     const wide_uint multiplications = count * count;
-    wide_uint tmp_bytes = 0;
+    wide_uint scratch = 0;
     bool alias_safe = false;
     wide_uint additions = multiplications;
-    switch (verdict.plan.sched)
+    switch (analysis.plan.sched)
     {
         case schedule::full:
-            tmp_bytes = (2 * count - 1) * acc_bytes;
+            scratch = (2 * count - 1) * acc_bytes;
             alias_safe = true;
             additions = multiplications + count - 1;
             break;
         case schedule::fold:
-            tmp_bytes = count * acc_bytes;
+            scratch = count * acc_bytes;
             alias_safe = true;
             break;
         case schedule::output:
+            additions += 3 * count;
             break;
     }
 
-    if (verdict.temporary_bytes != tmp_bytes)
+    if (analysis.scratch_bytes != scratch)
     {
         errors.emplace_back("bad ram");
     }
-    if (verdict.alias_safe != alias_safe)
+    if (analysis.alias_safe != alias_safe)
     {
         errors.emplace_back("bad alias flag");
     }
-    if (verdict.multiplications != multiplications || verdict.additions != additions ||
-        verdict.reductions != count)
+    if (analysis.multiplications != multiplications || analysis.additions != additions ||
+        analysis.reductions != count)
     {
         errors.emplace_back("bad op count");
     }
 
-    std::vector<std::string> failure_reasons;
-    if (tmp_bytes > req.limits.ram)
+    std::vector<std::string> rejections;
+    if (scratch > req.limits.ram)
     {
-        failure_reasons.emplace_back("ram");
+        rejections.emplace_back("ram");
     }
-    if (!independent_width_fits(acc_bound, verdict.plan.acc_bits))
+    if (!independent_width_fits(acc_bound, analysis.plan.acc_bits))
     {
-        failure_reasons.emplace_back("acc_width");
+        rejections.emplace_back("acc_width");
     }
     if (req.alias == aliasing::may && !alias_safe)
     {
-        failure_reasons.emplace_back("alias");
+        rejections.emplace_back("alias");
     }
-    if (!independent_target_size_is_legal(req, verdict))
+    if (!independent_target_size_is_legal(req, analysis))
     {
-        failure_reasons.emplace_back("size_t");
+        rejections.emplace_back("size_t");
     }
-    if (verdict.legal != failure_reasons.empty() || verdict.failure_reasons != failure_reasons)
+    if (analysis.legal != rejections.empty() || analysis.rejections != rejections)
     {
         errors.emplace_back("bad legality");
     }
     return errors;
 }
 
-std::vector<std::string> check_trial(const request &req, const candidate_trial &trial)
+}
+
+std::vector<std::string> check_candidate(const request &req, const candidate &selected)
 {
-    // score reconstruction is kept beside, but separate from, legality reconstruction.
-    std::vector<std::string> errors = check_plan(req, trial.analysis);
+    std::vector<std::string> errors = check_analysis(req, selected.analysis);
     const wide_uint count = req.n;
     const wide_uint multiplications = count * count;
-    const wide_uint additions =
-        trial.analysis.plan.sched == schedule::full ? multiplications + count - 1 : multiplications;
-    const bool wide = trial.analysis.plan.acc_bits > req.target.word_bits;
+    wide_uint additions = multiplications;
+    if (selected.analysis.plan.sched == schedule::full)
+    {
+        additions += count - 1;
+    }
+    else if (selected.analysis.plan.sched == schedule::output)
+    {
+        additions += 3 * count;
+    }
+    const bool wide = selected.analysis.plan.acc_bits > req.target.word_bits;
     wide_uint cost = checked_multiply(wide ? 10 : 4, multiplications);
     cost = checked_add(cost, additions);
     cost = checked_add(cost, checked_multiply(wide ? 14 : 8, count));
 
-    if (trial.analysis.plan.sched == schedule::fold && trial.analysis.plan.block >= 1 &&
-        trial.analysis.plan.block <= req.n)
+    if (selected.analysis.plan.sched == schedule::fold && selected.analysis.plan.block >= 1 &&
+        selected.analysis.plan.block <= req.n)
     {
-        const wide_uint block = trial.analysis.plan.block;
+        const wide_uint block = selected.analysis.plan.block;
         const wide_uint tiles = (count + block - 1) / block;
         cost = checked_add(cost, multiplications / 4);
         cost = checked_add(cost, checked_multiply(2, checked_multiply(tiles, tiles)));
     }
-    else if (trial.analysis.plan.sched == schedule::output)
+    else if (selected.analysis.plan.sched == schedule::output)
     {
         cost = checked_add(cost, multiplications / 2);
     }
 
-    if (trial.score.cost != cost || trial.score.model != "starter-v0")
+    if (selected.estimated_cost != cost)
     {
         errors.emplace_back("bad score");
     }

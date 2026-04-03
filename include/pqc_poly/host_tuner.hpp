@@ -18,7 +18,7 @@ struct host_tuning_options
 };
 
 [[nodiscard]] std::vector<benchmark_record> tune_on_host(
-    const request &req, std::span<const candidate_trial> candidates,
+    const request &req, std::span<const candidate> candidates,
     const host_tuning_options &options = {});
 
 }

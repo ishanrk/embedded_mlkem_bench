@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <string_view>
 
 namespace
@@ -108,6 +109,20 @@ int main()
     }
 
     if (!check_case("shared input", dense_a, dense_a))
+    {
+        return 1;
+    }
+
+    pqc_poly::signed_poly extreme_a{};
+    pqc_poly::signed_poly extreme_b{};
+    for (std::size_t i = 0; i < pqc_poly::poly_n; ++i)
+    {
+        extreme_a[i] = i % 2 == 0 ? std::numeric_limits<std::int16_t>::min()
+                                  : std::numeric_limits<std::int16_t>::max();
+        extreme_b[i] = i % 3 == 0 ? std::numeric_limits<std::int16_t>::max()
+                                  : std::numeric_limits<std::int16_t>::min();
+    }
+    if (!check_case("int16 boundary", extreme_a, extreme_b))
     {
         return 1;
     }

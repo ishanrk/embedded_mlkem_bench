@@ -1,7 +1,7 @@
 {
-  "operation": "negacyclic-mul",
-  "degree": 64,
-  "modulus": 3329,
+  "op": "negacyclic_mul",
+  "n": 64,
+  "q": 3329,
   "input": "centered",
   "output": "canonical",
   "alias": "no",
@@ -11,5 +11,7 @@
     "size_bits": 64,
     "acc_bits": [32, 64]
   },
-  "ram_limit": 4096
+  "limits": {
+    "ram": 4096
+  }
 }

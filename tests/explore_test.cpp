@@ -107,15 +107,17 @@ constexpr std::string_view aliasing_request_json = R"json({
 })json";
 
 constexpr std::string_view tuning_request_json = R"json({
-  "operation": "negacyclic-mul",
-  "degree": 2,
-  "modulus": 17,
+  "op": "negacyclic_mul",
+  "n": 2,
+  "q": 17,
   "alias": "may",
   "target": {
     "name": "host",
-    "acc_bits": 32
+    "acc_bits": [32]
   },
-  "ram_limit": 64
+  "limits": {
+    "ram": 64
+  }
 })json";
 
 void test_run_and_artifacts()
@@ -151,8 +153,7 @@ void test_run_and_artifacts()
     require(first_output.str().find("sb_full_i32") != std::string::npos, "missing selection");
 
     const std::set<std::string> expected_files = {
-        "benchmarks.json", "cands.json", "ir.json",     "kernel.cpp",
-        "kernel.hpp",      "plan.json",  "report.html",
+        "benchmarks.json", "candidates.json", "kernel.cpp", "kernel.hpp", "plan.json",
     };
     std::set<std::string> files;
 
@@ -172,15 +173,11 @@ void test_run_and_artifacts()
 
     require(metadata.find("rv32-\\u03bc-\\ud83d\\ude80") != std::string::npos,
             "json did not use ascii escapes");
-    require(metadata.find("\"ir\": \"ir.json\"") != std::string::npos,
-            "plan does not reference its ir");
     require(read_text(first / "benchmarks.json").find("\"selected\": null") != std::string::npos,
             "static run claimed a measured winner");
-    require(read_text(first / "ir.json").find("\"operations\"") != std::string::npos,
-            "ir artifact is incomplete");
-    require(
-        read_text(first / "report.html").find("no fully verified measurement") != std::string::npos,
-        "static report lacks its measurement status");
+    require(read_text(first / "candidates.json").find("\"scratch_bytes\"") !=
+                std::string::npos,
+            "candidate artifact lacks scratch accounting");
     require(read_text(first / "kernel.cpp").find("extern \"C\" PQC_POLY_HOT void pqc_poly_mul") !=
                 std::string::npos,
             "generated c++ entry point is missing");
@@ -299,9 +296,9 @@ void test_host_tuning_cli()
             "host tuning artifact lacks a winner");
     require(read_text(out / "plan.json").find("\"host_measurement\": null") == std::string::npos,
             "host tuning plan lacks its measurement");
-    require(read_text(out / "report.html").find("not mean cbmc or real target execution") !=
-                std::string::npos,
-            "host report overstates its verification scope");
+    require(read_text(out / "benchmarks.json")
+                    .find("not formal verification or target execution") != std::string::npos,
+            "benchmark artifact overstates its verification scope");
 }
 
 }

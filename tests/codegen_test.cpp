@@ -24,7 +24,7 @@ namespace
 {
 
 using pqc_poly::aliasing;
-using pqc_poly::candidate_trial;
+using pqc_poly::candidate;
 using pqc_poly::input_representation;
 using pqc_poly::operation;
 using pqc_poly::output_representation;
@@ -62,10 +62,10 @@ void require(bool condition, std::string_view message)
     return req;
 }
 
-[[nodiscard]] const candidate_trial &trial_for(std::span<const candidate_trial> trials,
+[[nodiscard]] const candidate &trial_for(std::span<const candidate> trials,
                                                schedule wanted, std::uint64_t block = 0)
 {
-    for (const candidate_trial &trial : trials)
+    for (const candidate &trial : trials)
     {
         if (trial.analysis.legal && trial.analysis.plan.sched == wanted &&
             (wanted != schedule::fold || trial.analysis.plan.block == block))
@@ -76,7 +76,7 @@ void require(bool condition, std::string_view message)
 
     std::cerr << "missing schedule " << pqc_poly::schedule_name(wanted) << " with block " << block
               << '\n';
-    for (const candidate_trial &trial : trials)
+    for (const candidate &trial : trials)
     {
         std::cerr << "  " << pqc_poly::plan_id(trial.analysis.plan)
                   << " legal=" << trial.analysis.legal << '\n';
@@ -305,7 +305,7 @@ int main()
 
     pqc_poly_mul(r_is_a.data(), r_is_a.data(), b.data());
     pqc_poly_mul(r_is_b.data(), a.data(), r_is_b.data());
-    polysel_mul(all_same.data(), all_same.data(), all_same.data());
+    pqc_poly_mul(all_same.data(), all_same.data(), all_same.data());
 
     return r_is_a == expected && r_is_b == expected && all_same == square ? 0 : 1;
 }
@@ -314,7 +314,7 @@ int main()
     return out.str();
 }
 
-void compile_and_run(std::string_view label, const request &req, const candidate_trial &trial,
+void compile_and_run(std::string_view label, const request &req, const candidate &trial,
                      std::string_view harness)
 {
     const temporary_directory directory(label);
@@ -343,15 +343,14 @@ void compile_and_run(std::string_view label, const request &req, const candidate
 void test_header_contract()
 {
     const request req = make_request(operation::negacyclic_mul, aliasing::may);
-    const std::vector<candidate_trial> trials = pqc_poly::find(req);
-    const candidate_trial &trial = trial_for(trials, schedule::full);
+    const std::vector<candidate> trials = pqc_poly::find_candidates(req);
+    const candidate &trial = trial_for(trials, schedule::full);
     const std::string first = pqc_poly::generate_header(req, trial);
     const std::string second = pqc_poly::generate_header(req, trial);
 
     require(first == second, "header output must be deterministic");
     require_contains(first, "inline constexpr std::size_t pqc_poly_n", "missing n constant");
     require_contains(first, "extern \"C\" void pqc_poly_mul", "missing prefixed c abi");
-    require_contains(first, "inline void polysel_mul", "missing compatibility wrapper");
     require_contains(first, "r, a, and b may overlap", "missing alias contract");
     require_lowercase_comments(first);
 }
@@ -361,10 +360,10 @@ void test_schedule_bodies()
     for (operation op : {operation::cyclic_mul, operation::negacyclic_mul})
     {
         const request req = make_request(op, aliasing::no);
-        const std::vector<candidate_trial> trials = pqc_poly::find(req);
-        const candidate_trial &full = trial_for(trials, schedule::full);
-        const candidate_trial &fold = trial_for(trials, schedule::fold, 4);
-        const candidate_trial &output = trial_for(trials, schedule::output);
+        const std::vector<candidate> trials = pqc_poly::find_candidates(req);
+        const candidate &full = trial_for(trials, schedule::full);
+        const candidate &fold = trial_for(trials, schedule::fold, 4);
+        const candidate &output = trial_for(trials, schedule::output);
         const std::string full_source = pqc_poly::generate_source(req, full);
         const std::string fold_source = pqc_poly::generate_source(req, fold);
         const std::string output_source = pqc_poly::generate_source(req, output);
@@ -389,8 +388,8 @@ void test_schedule_bodies()
 void test_legality_gate()
 {
     const request req = make_request(operation::negacyclic_mul, aliasing::no);
-    std::vector<candidate_trial> trials = pqc_poly::find(req);
-    candidate_trial damaged = trial_for(trials, schedule::full);
+    std::vector<candidate> trials = pqc_poly::find_candidates(req);
+    candidate damaged = trial_for(trials, schedule::full);
 
     damaged.analysis.accumulator_bound += 1;
 
@@ -410,9 +409,9 @@ void test_legality_gate()
 void test_illegal_plan_gate()
 {
     const request req = make_request(operation::negacyclic_mul, aliasing::may);
-    const std::vector<candidate_trial> trials = pqc_poly::find(req);
+    const std::vector<candidate> trials = pqc_poly::find_candidates(req);
 
-    for (const candidate_trial &trial : trials)
+    for (const candidate &trial : trials)
     {
         if (trial.analysis.plan.sched == schedule::output)
         {
@@ -440,8 +439,8 @@ void test_power_of_two_reduction()
 {
     request req = make_request(operation::negacyclic_mul, aliasing::no);
     req.q = 16;
-    const std::vector<candidate_trial> trials = pqc_poly::find(req);
-    const candidate_trial &trial = trial_for(trials, schedule::full);
+    const std::vector<candidate> trials = pqc_poly::find_candidates(req);
+    const candidate &trial = trial_for(trials, schedule::full);
     const std::string source = pqc_poly::generate_source(req, trial);
 
     require_contains(source, "using unsigned_acc_t", "missing power-of-two fast path");
@@ -456,13 +455,13 @@ void test_compiled_schedules()
     for (operation op : {operation::cyclic_mul, operation::negacyclic_mul})
     {
         const request req = make_request(op, aliasing::no);
-        const std::vector<candidate_trial> trials = pqc_poly::find(req);
+        const std::vector<candidate> trials = pqc_poly::find_candidates(req);
         const std::vector<std::int32_t> expected = reference_product(op, a, b, req.q);
 
         for (schedule wanted : {schedule::full, schedule::fold, schedule::output})
         {
             const std::uint64_t block = wanted == schedule::fold ? 4 : 0;
-            const candidate_trial &trial = trial_for(trials, wanted, block);
+            const candidate &trial = trial_for(trials, wanted, block);
             const std::string label = std::string(pqc_poly::operation_name(op)) + "-" +
                                       std::string(pqc_poly::schedule_name(wanted));
 
@@ -486,13 +485,13 @@ void test_compiled_widening_schedules()
         static_cast<std::int32_t>(req.q - 3),
         static_cast<std::int32_t>(req.q - 4),
     };
-    const std::vector<candidate_trial> trials = pqc_poly::find(req);
+    const std::vector<candidate> trials = pqc_poly::find_candidates(req);
     const std::vector<std::int32_t> expected = reference_product(req.op, a, b, req.q);
 
     for (schedule wanted : {schedule::full, schedule::fold, schedule::output})
     {
         const std::uint64_t block = wanted == schedule::fold ? req.n : 0;
-        const candidate_trial &trial = trial_for(trials, wanted, block);
+        const candidate &trial = trial_for(trials, wanted, block);
 
         require(trial.analysis.plan.acc_bits == 64, "widening test did not select i64");
         compile_and_run("i64-" + std::string(pqc_poly::schedule_name(wanted)), req, trial,
@@ -508,14 +507,14 @@ void test_compiled_aliasing()
     for (operation op : {operation::cyclic_mul, operation::negacyclic_mul})
     {
         const request req = make_request(op, aliasing::may);
-        const std::vector<candidate_trial> trials = pqc_poly::find(req);
+        const std::vector<candidate> trials = pqc_poly::find_candidates(req);
         const std::vector<std::int32_t> expected = reference_product(op, a, b, req.q);
         const std::vector<std::int32_t> square = reference_product(op, a, a, req.q);
 
         for (schedule wanted : {schedule::full, schedule::fold})
         {
             const std::uint64_t block = wanted == schedule::fold ? 4 : 0;
-            const candidate_trial &trial = trial_for(trials, wanted, block);
+            const candidate &trial = trial_for(trials, wanted, block);
             const std::string label = "alias-" + std::string(pqc_poly::operation_name(op)) + "-" +
                                       std::string(pqc_poly::schedule_name(wanted));
 
@@ -557,8 +556,8 @@ void test_compiled_project_examples()
             b[i] = (i % 3U) == 0 ? value.high : value.low;
         }
 
-        const std::vector<candidate_trial> trials = pqc_poly::find(req);
-        const candidate_trial &selected = pqc_poly::pick(trials);
+        const std::vector<candidate> trials = pqc_poly::find_candidates(req);
+        const candidate &selected = pqc_poly::pick_static(trials);
         const std::vector<std::int32_t> expected = reference_product(req.op, a, b, req.q);
 
         require(selected.analysis.plan.sched == schedule::full,

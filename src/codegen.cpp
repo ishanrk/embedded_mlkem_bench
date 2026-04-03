@@ -25,10 +25,10 @@ enum class wrap_sign
     return wrap_sign::subtract;
 }
 
-void validate_trial(const request &req, const candidate_trial &trial)
+void validate_candidate(const request &req, const candidate &selected)
 {
-    // emission trusts the independent checker, not the search path that built the trial
-    const std::vector<std::string> errors = check_trial(req, trial);
+    // recheck derived values instead of trusting the search path that built the candidate
+    const std::vector<std::string> errors = check_candidate(req, selected);
 
     if (!errors.empty())
     {
@@ -47,7 +47,7 @@ void validate_trial(const request &req, const candidate_trial &trial)
         throw codegen_error(message.str());
     }
 
-    if (!trial.analysis.legal)
+    if (!selected.analysis.legal)
     {
         throw codegen_error("cannot emit an illegal plan");
     }
@@ -249,15 +249,15 @@ void validate_trial(const request &req, const candidate_trial &trial)
 )pqc";
 }
 
-[[nodiscard]] std::string generated_body(const request &req, const analysis_verdict &verdict)
+[[nodiscard]] std::string generated_body(const request &req, const plan_analysis &analysis)
 {
     // the checked schedule controls code shape; no runtime schedule branch is emitted
-    switch (verdict.plan.sched)
+    switch (analysis.plan.sched)
     {
         case schedule::full:
             return full_body(req.op);
         case schedule::fold:
-            return fold_body(req.op, verdict.plan.block);
+            return fold_body(req.op, analysis.plan.block);
         case schedule::output:
             return output_body(req.op);
     }
@@ -267,9 +267,9 @@ void validate_trial(const request &req, const candidate_trial &trial)
 
 }
 
-std::string generate_header(const request &req, const candidate_trial &trial)
+std::string generate_header(const request &req, const candidate &selected)
 {
-    validate_trial(req, trial);
+    validate_candidate(req, selected);
 
     const std::string_view alias_contract = req.alias == aliasing::may
                                                 ? "r, a, and b may overlap"
@@ -301,28 +301,19 @@ extern "C" void pqc_poly_mul(
     const std::int32_t *a,
     const std::int32_t *b) noexcept;
 
-// this compatibility name has no separate code or call overhead
-inline void polysel_mul(
-    std::int32_t *r,
-    const std::int32_t *a,
-    const std::int32_t *b) noexcept
-{
-    pqc_poly_mul(r, a, b);
-}
-
 #endif
 )pqc";
 
     return out.str();
 }
 
-std::string generate_source(const request &req, const candidate_trial &trial)
+std::string generate_source(const request &req, const candidate &selected)
 {
-    validate_trial(req, trial);
+    validate_candidate(req, selected);
 
-    const analysis_verdict &verdict = trial.analysis;
+    const plan_analysis &analysis = selected.analysis;
     const std::string_view accumulator_type =
-        verdict.plan.acc_bits == 32 ? "std::int32_t" : "std::int64_t";
+        analysis.plan.acc_bits == 32 ? "std::int32_t" : "std::int64_t";
     const std::string_view alias_note =
         req.alias == aliasing::no
             ? "r is restricted because the checked contract keeps it disjoint"
@@ -346,7 +337,7 @@ std::string generate_source(const request &req, const candidate_trial &trial)
 #define PQC_POLY_FORCE_INLINE inline __attribute__((always_inline))
 #define PQC_POLY_HOT __attribute__((hot))
 #define PQC_POLY_RESTRICT __restrict__
-#define PQC_POLY_VECTOR_LOOP
+#define PQC_POLY_VECTOR_LOOP _Pragma("clang loop vectorize(enable)")
 #elif defined(__GNUC__)
 #define PQC_POLY_FORCE_INLINE inline __attribute__((always_inline))
 #define PQC_POLY_HOT __attribute__((hot))
@@ -366,7 +357,7 @@ using acc_t = )pqc"
         << accumulator_type << R"pqc(;
 
 inline constexpr std::uint64_t accumulator_bound = )pqc"
-        << wide_to_string(verdict.accumulator_bound) << R"pqc(ULL;
+        << wide_to_string(analysis.accumulator_bound) << R"pqc(ULL;
 
 static_assert(
     accumulator_bound <= static_cast<std::uint64_t>(std::numeric_limits<acc_t>::max()),
@@ -378,11 +369,11 @@ static_assert(
 
 /*
  * plan: )pqc"
-        << plan_id(verdict.plan) << R"pqc(
+        << plan_id(analysis.plan) << R"pqc(
  * raw accumulator bound: )pqc"
-        << wide_to_string(verdict.accumulator_bound) << R"pqc(
+        << wide_to_string(analysis.accumulator_bound) << R"pqc(
  * explicit scratch bytes: )pqc"
-        << wide_to_string(verdict.temporary_bytes) << R"pqc(
+        << wide_to_string(analysis.scratch_bytes) << R"pqc(
  */
 // )pqc" << alias_note
         << R"pqc(
@@ -390,7 +381,7 @@ extern "C" PQC_POLY_HOT void pqc_poly_mul(
     )pqc"
         << generated_arguments(req.alias) << R"pqc() noexcept
 {
-)pqc" << generated_body(req, verdict)
+)pqc" << generated_body(req, analysis)
         << R"pqc(}
 
 #undef PQC_POLY_VECTOR_LOOP

@@ -2,7 +2,6 @@
 
 #include "pqc_poly/codegen.hpp"
 #include "pqc_poly/host_tuner.hpp"
-#include "pqc_poly/ir.hpp"
 
 #include "json.hpp"
 
@@ -59,10 +58,10 @@ void append_embedded_json(std::string &out, std::string_view value, std::size_t 
     }
 }
 
-[[nodiscard]] std::string plan_json(const request &req, const candidate_trial &trial,
+[[nodiscard]] std::string plan_json(const request &req, const candidate &selected,
                                     const benchmark_record *benchmark, latency_metric metric)
 {
-    const bool measured = benchmark != nullptr && fully_verified(*benchmark);
+    const bool measured = benchmark != nullptr && selectable(*benchmark);
     std::string out;
 
     out.reserve(1536);
@@ -71,20 +70,20 @@ void append_embedded_json(std::string &out, std::string_view value, std::size_t 
     request_json.pop_back();
     append_embedded_json(out, request_json, 2);
     out += ",\n  \"candidate\": ";
-    std::string candidate_json = candidate_to_json(trial);
+    std::string candidate_json = candidate_to_json(selected);
     candidate_json.pop_back();
     append_embedded_json(out, candidate_json, 2);
-    out += ",\n  \"verification\": {\n    \"analysis_consistency\": \"pass\",\n";
+    out += ",\n  \"verification\": {\n    \"plan_check\": \"pass\",\n";
     out += measured ? "    \"compile\": \"pass\",\n" : "    \"compile\": \"not_run\",\n";
-    out += measured ? "    \"differential_test\": \"pass\",\n"
-                    : "    \"differential_test\": \"not_run\",\n";
-    out += measured ? "    \"dynamic_sanitizers\": \"pass\",\n"
-                    : "    \"dynamic_sanitizers\": \"not_run\",\n";
+    out += measured ? "    \"differential_tests\": \"pass\",\n"
+                    : "    \"differential_tests\": \"not_run\",\n";
+    out += measured ? "    \"sanitizers\": \"pass\",\n"
+                    : "    \"sanitizers\": \"not_run\",\n";
     out += "    \"target_run\": \"not_run\"\n  },\n";
-    out += "  \"scratch_accounting\": \"explicit arrays only\",\n";
+    out += "  \"scratch_accounting\": \"generated arrays only\",\n";
     out += measured ? "  \"selection\": \"measured host proxy; not a target run\",\n"
-                    : "  \"selection\": \"static bootstrap; no target benchmark\",\n";
-    out += "  \"ir\": \"ir.json\",\n  \"host_measurement\": ";
+                    : "  \"selection\": \"static cost model; no target benchmark\",\n";
+    out += "  \"host_measurement\": ";
 
     if (!measured)
     {
@@ -98,7 +97,7 @@ void append_embedded_json(std::string &out, std::string_view value, std::size_t 
     out += benchmark->nanoseconds ? std::to_string(*benchmark->nanoseconds) : "null";
     out += ",\n    \"cycles\": ";
     out += benchmark->cycles ? std::to_string(*benchmark->cycles) : "null";
-    out += ",\n    \"peak_scratch_bytes\": " + std::to_string(benchmark->peak_scratch_bytes);
+    out += ",\n    \"scratch_bytes\": " + std::to_string(benchmark->scratch_bytes);
     out += ",\n    \"code_size_bytes\": " + std::to_string(benchmark->code_size_bytes);
     out += ",\n    \"target\": ";
     append_json_string(out, benchmark->provenance.target);
@@ -293,17 +292,17 @@ void write_text(const std::filesystem::path &path, std::string_view text)
     return result;
 }
 
-[[nodiscard]] const candidate_trial &select_plan(std::span<const candidate_trial> candidates,
-                                                 const arguments &args)
+[[nodiscard]] const candidate &select_plan(std::span<const candidate> candidates,
+                                           const arguments &args)
 {
     if (!args.has_plan)
     {
-        return pick(candidates);
+        return pick_static(candidates);
     }
 
     const auto found =
         std::find_if(candidates.begin(), candidates.end(),
-                     [&](const auto &trial) { return plan_id(trial.analysis.plan) == args.plan; });
+                     [&](const auto &item) { return plan_id(item.analysis.plan) == args.plan; });
 
     if (found == candidates.end())
     {
@@ -311,17 +310,17 @@ void write_text(const std::filesystem::path &path, std::string_view text)
     }
     if (!found->analysis.legal)
     {
-        throw explore_error("plan is illegal: " + join_errors(found->analysis.failure_reasons));
+        throw explore_error("plan is illegal: " + join_errors(found->analysis.rejections));
     }
     return *found;
 }
 
-[[nodiscard]] const candidate_trial &candidate_for_id(std::span<const candidate_trial> candidates,
-                                                      std::string_view id)
+[[nodiscard]] const candidate &candidate_for_id(std::span<const candidate> candidates,
+                                                std::string_view id)
 {
     const auto found = std::find_if(candidates.begin(), candidates.end(),
-                                    [id](const candidate_trial &trial)
-                                    { return plan_id(trial.analysis.plan) == id; });
+                                    [id](const candidate &item)
+                                    { return plan_id(item.analysis.plan) == id; });
 
     if (found == candidates.end())
     {
@@ -340,48 +339,49 @@ void write_text(const std::filesystem::path &path, std::string_view text)
 }
 
 [[nodiscard]] std::vector<benchmark_record> pending_benchmarks(
-    const request &req, std::span<const candidate_trial> candidates)
+    const request &req, std::span<const candidate> candidates)
 {
     std::vector<benchmark_record> records;
 
     records.reserve(candidates.size());
-    for (const candidate_trial &candidate : candidates)
+    for (const candidate &candidate : candidates)
     {
         benchmark_record record;
         record.plan_id = plan_id(candidate.analysis.plan);
-        record.status = benchmark_status::pending;
-        record.verification.independent_plan = check_trial(req, candidate).empty();
-        record.verification.ram_bound =
-            candidate.analysis.legal && candidate.analysis.temporary_bytes <= req.limits.ram;
-        record.peak_scratch_bytes =
-            candidate.analysis.temporary_bytes > std::numeric_limits<std::uint64_t>::max()
+        record.status =
+            candidate.analysis.legal ? benchmark_status::pending : benchmark_status::rejected;
+        record.verification.plan_check = check_candidate(req, candidate).empty();
+        record.verification.ram_check = candidate.analysis.scratch_bytes <= req.limits.ram;
+        record.scratch_bytes =
+            candidate.analysis.scratch_bytes > std::numeric_limits<std::uint64_t>::max()
                 ? std::numeric_limits<std::uint64_t>::max()
-                : static_cast<std::uint64_t>(candidate.analysis.temporary_bytes);
+                : static_cast<std::uint64_t>(candidate.analysis.scratch_bytes);
         record.provenance.compiler = "not_run";
         record.provenance.target = req.target.name;
         record.provenance.runner = "not_run";
+        record.rejection_reasons = candidate.analysis.rejections;
         records.push_back(std::move(record));
     }
     return records;
 }
 
-[[nodiscard]] std::string summary_json(const candidate_trial &selected,
-                                       std::span<const candidate_trial> candidates,
+[[nodiscard]] std::string summary_json(const candidate &selected,
+                                       std::span<const candidate> candidates,
                                        std::span<const benchmark_record> benchmarks,
                                        latency_metric metric, const std::filesystem::path &out_path)
 {
     const benchmark_record *measurement =
         benchmark_for_id(benchmarks, plan_id(selected.analysis.plan));
-    const bool measured = measurement != nullptr && fully_verified(*measurement) &&
+    const bool measured = measurement != nullptr && selectable(*measurement) &&
                           measured_latency(*measurement, metric).has_value();
     std::string out;
 
     out += "{\n  \"selected\": ";
     append_json_string(out, plan_id(selected.analysis.plan));
     out += ",\n  \"acc_bits\": " + std::to_string(selected.analysis.plan.acc_bits);
-    out += ",\n  \"tmp_bytes\": ";
-    out += wide_to_string(selected.analysis.temporary_bytes);
-    out += ",\n  \"need_bits\": " + std::to_string(selected.analysis.required_bits);
+    out += ",\n  \"scratch_bytes\": ";
+    out += wide_to_string(selected.analysis.scratch_bytes);
+    out += ",\n  \"required_bits\": " + std::to_string(selected.analysis.required_bits);
     out += ",\n  \"selection_mode\": ";
     append_json_string(out, measured ? "measured_host_proxy" : "static_model");
     out += ",\n  \"metric\": ";
@@ -399,31 +399,31 @@ void write_text(const std::filesystem::path &path, std::string_view text)
         }
         for (std::size_t i = 0; i < points.size(); ++i)
         {
-            append_indent(out, 2);
+            append_indent(out, 4);
             append_json_string(out, points[i]->plan_id);
             out += i + 1 == points.size() ? "\n" : ",\n";
         }
         if (!points.empty())
         {
-            append_indent(out, 1);
+            append_indent(out, 2);
         }
     }
     else
     {
-        const std::vector<const candidate_trial *> points = frontier(candidates);
+        const std::vector<const candidate *> points = static_frontier(candidates);
         if (!points.empty())
         {
             out += '\n';
         }
         for (std::size_t i = 0; i < points.size(); ++i)
         {
-            append_indent(out, 2);
+            append_indent(out, 4);
             append_json_string(out, plan_id(points[i]->analysis.plan));
             out += i + 1 == points.size() ? "\n" : ",\n";
         }
         if (!points.empty())
         {
-            append_indent(out, 1);
+            append_indent(out, 2);
         }
     }
     out += "],\n  \"out\": ";
@@ -432,21 +432,11 @@ void write_text(const std::filesystem::path &path, std::string_view text)
     return out;
 }
 
-}
-
-void emit(const std::filesystem::path &out, const request &req, const candidate_trial &selected,
-          std::span<const candidate_trial> candidates)
-{
-    const std::vector<benchmark_record> benchmarks = pending_benchmarks(req, candidates);
-
-    emit(out, req, selected, candidates, benchmarks, latency_metric::nanoseconds);
-}
-
-void emit(const std::filesystem::path &out, const request &req, const candidate_trial &selected,
-          std::span<const candidate_trial> candidates, std::span<const benchmark_record> benchmarks,
+void emit(const std::filesystem::path &out, const request &req, const candidate &selected,
+          std::span<const candidate> candidates, std::span<const benchmark_record> benchmarks,
           latency_metric metric)
 {
-    const auto errors = check_trial(req, selected);
+    const auto errors = check_candidate(req, selected);
 
     if (!errors.empty())
     {
@@ -455,14 +445,6 @@ void emit(const std::filesystem::path &out, const request &req, const candidate_
     if (!selected.analysis.legal)
     {
         throw explore_error("cannot emit an illegal plan");
-    }
-
-    const polynomial_ir graph = lower_ir(req, selected);
-    const std::vector<std::string> graph_errors = verify_ir(req, selected, graph);
-
-    if (!graph_errors.empty())
-    {
-        throw explore_error("bad ir: " + join_errors(graph_errors));
     }
 
     const benchmark_record *measurement =
@@ -479,10 +461,10 @@ void emit(const std::filesystem::path &out, const request &req, const candidate_
     write_text(out / "kernel.hpp", generate_header(req, selected));
     write_text(out / "kernel.cpp", generate_source(req, selected));
     write_text(out / "plan.json", plan_json(req, selected, measurement, metric));
-    write_text(out / "cands.json", candidates_to_json(candidates));
-    write_text(out / "ir.json", ir_to_json(graph));
+    write_text(out / "candidates.json", candidates_to_json(candidates));
     write_text(out / "benchmarks.json", benchmarks_to_json(benchmarks, metric));
-    write_text(out / "report.html", report_to_html(benchmarks, metric));
+}
+
 }
 
 int run(std::span<const std::string_view> arguments, std::ostream &standard_output,
@@ -492,8 +474,8 @@ int run(std::span<const std::string_view> arguments, std::ostream &standard_outp
     {
         const auto args = parse_arguments(arguments);
         const request req = load_request(args.specification);
-        const auto candidates = find(req);
-        const candidate_trial *selected = args.has_plan ? &select_plan(candidates, args) : nullptr;
+        const auto candidates = find_candidates(req);
+        const candidate *selected = args.has_plan ? &select_plan(candidates, args) : nullptr;
         std::vector<benchmark_record> benchmarks;
 
         if (args.tune_host)
@@ -508,12 +490,11 @@ int run(std::span<const std::string_view> arguments, std::ostream &standard_outp
             {
                 const benchmark_record *forced =
                     benchmark_for_id(benchmarks, plan_id(selected->analysis.plan));
-                if (forced == nullptr || !fully_verified(*forced) ||
+                if (forced == nullptr || !selectable(*forced) ||
                     !measured_latency(*forced, args.metric).has_value())
                 {
                     throw explore_error(
-                        "forced plan did not produce a fully verified host "
-                        "measurement");
+                        "forced plan did not produce a selectable host measurement");
                 }
             }
         }

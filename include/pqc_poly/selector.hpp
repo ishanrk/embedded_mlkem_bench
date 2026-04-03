@@ -90,11 +90,11 @@ struct schoolbook_plan
     friend bool operator==(const schoolbook_plan &, const schoolbook_plan &) = default;
 };
 
-struct analysis_verdict
+struct plan_analysis
 {
-    // every derived field is retained so an independent pass can check it.
+    // derived values make every selection decision visible in the artifacts
     schoolbook_plan plan{};
-    wide_uint temporary_bytes{0};
+    wide_uint scratch_bytes{0};
     bool alias_safe{false};
     wide_uint accumulator_bound{0};
     std::uint16_t required_bits{0};
@@ -102,25 +102,17 @@ struct analysis_verdict
     wide_uint additions{0};
     wide_uint reductions{0};
     bool legal{false};
-    std::vector<std::string> failure_reasons{};
+    std::vector<std::string> rejections{};
 
-    friend bool operator==(const analysis_verdict &, const analysis_verdict &) = default;
+    friend bool operator==(const plan_analysis &, const plan_analysis &) = default;
 };
 
-struct static_score
+struct candidate
 {
-    wide_uint cost{0};
-    std::string model{"starter-v0"};
+    plan_analysis analysis{};
+    wide_uint estimated_cost{0};
 
-    friend bool operator==(const static_score &, const static_score &) = default;
-};
-
-struct candidate_trial
-{
-    analysis_verdict analysis{};
-    static_score score{};
-
-    friend bool operator==(const candidate_trial &, const candidate_trial &) = default;
+    friend bool operator==(const candidate &, const candidate &) = default;
 };
 
 class spec_error final : public std::runtime_error
@@ -156,20 +148,16 @@ void validate_request(const request &req);
 [[nodiscard]] std::string plan_id(const schoolbook_plan &plan);
 [[nodiscard]] std::string wide_to_string(wide_uint value);
 [[nodiscard]] std::string request_to_json(const request &req);
-[[nodiscard]] std::string candidate_to_json(const candidate_trial &candidate);
-[[nodiscard]] std::string candidates_to_json(std::span<const candidate_trial> candidates);
+[[nodiscard]] std::string candidate_to_json(const candidate &candidate);
+[[nodiscard]] std::string candidates_to_json(std::span<const candidate> candidates);
 
-[[nodiscard]] std::vector<schoolbook_plan> generate_candidates(const request &req);
-[[nodiscard]] candidate_trial analyze(const request &req, const schoolbook_plan &plan);
-[[nodiscard]] std::vector<candidate_trial> find(const request &req);
+[[nodiscard]] std::vector<candidate> find_candidates(const request &req);
 // returned references and pointers remain valid while the input span remains alive.
-[[nodiscard]] const candidate_trial &pick(std::span<const candidate_trial> candidates);
-[[nodiscard]] std::vector<const candidate_trial *> frontier(
-    std::span<const candidate_trial> candidates);
+[[nodiscard]] const candidate &pick_static(std::span<const candidate> candidates);
+[[nodiscard]] std::vector<const candidate *> static_frontier(
+    std::span<const candidate> candidates);
 
-[[nodiscard]] std::vector<std::string> check_plan(const request &req,
-                                                  const analysis_verdict &verdict);
-[[nodiscard]] std::vector<std::string> check_trial(const request &req,
-                                                   const candidate_trial &trial);
+[[nodiscard]] std::vector<std::string> check_candidate(const request &req,
+                                                       const candidate &selected);
 
 }

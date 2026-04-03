@@ -1,7 +1,6 @@
 #include "pqc_poly/host_tuner.hpp"
 
 #include "pqc_poly/codegen.hpp"
-#include "pqc_poly/ir.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -383,13 +382,13 @@ void reject(benchmark_record &record, std::string reason)
     record.rejection_reasons.push_back(std::move(reason));
 }
 
-[[nodiscard]] std::uint64_t scratch_bytes(const candidate_trial &candidate) noexcept
+[[nodiscard]] std::uint64_t scratch_bytes(const candidate &candidate) noexcept
 {
-    if (candidate.analysis.temporary_bytes > std::numeric_limits<std::uint64_t>::max())
+    if (candidate.analysis.scratch_bytes > std::numeric_limits<std::uint64_t>::max())
     {
         return std::numeric_limits<std::uint64_t>::max();
     }
-    return static_cast<std::uint64_t>(candidate.analysis.temporary_bytes);
+    return static_cast<std::uint64_t>(candidate.analysis.scratch_bytes);
 }
 
 void parse_measurement(const std::filesystem::path &path, benchmark_record &record)
@@ -449,41 +448,34 @@ void parse_measurement(const std::filesystem::path &path, benchmark_record &reco
 }
 
 [[nodiscard]] benchmark_record tune_one(const std::filesystem::path &root, const request &req,
-                                        const candidate_trial &candidate,
+                                        const candidate &candidate,
                                         const host_tuning_options &options)
 {
     benchmark_record record;
     record.plan_id = plan_id(candidate.analysis.plan);
     record.status = benchmark_status::pending;
-    record.peak_scratch_bytes = scratch_bytes(candidate);
+    record.scratch_bytes = scratch_bytes(candidate);
     record.provenance.compiler = PQC_POLY_HOST_CXX;
     record.provenance.compiler_version = PQC_POLY_HOST_CXX_VERSION;
-    record.provenance.compiler_flags = "-std=c++20 -O3";
+    record.provenance.compiler_flags =
+        "-std=c++20 -O3 -DNDEBUG -Wall -Wextra -Wconversion -Werror";
     record.provenance.target = "host-proxy-for-" + req.target.name;
     record.provenance.runner =
         "local-process; cycles=rdtsc-on-x86; code-size=.text-or-object-fallback";
 
-    const std::vector<std::string> checker_errors = check_trial(req, candidate);
-    std::vector<std::string> ir_errors;
+    const std::vector<std::string> checker_errors = check_candidate(req, candidate);
+    record.verification.plan_check = checker_errors.empty();
+    record.verification.ram_check = candidate.analysis.scratch_bytes <= req.limits.ram;
 
-    if (checker_errors.empty() && candidate.analysis.legal)
+    if (!checker_errors.empty())
     {
-        const polynomial_ir graph = lower_ir(req, candidate);
-        ir_errors = verify_ir(req, candidate, graph);
-    }
-    record.verification.independent_plan =
-        checker_errors.empty() && ir_errors.empty() && candidate.analysis.legal;
-    record.verification.ram_bound =
-        candidate.analysis.legal && candidate.analysis.temporary_bytes <= req.limits.ram;
-
-    if (!checker_errors.empty() || !ir_errors.empty())
-    {
-        reject(record, "independent plan verification failed");
+        reject(record, "plan consistency check failed");
         return record;
     }
     if (!candidate.analysis.legal)
     {
-        reject(record, "candidate is illegal");
+        record.status = benchmark_status::rejected;
+        record.rejection_reasons = candidate.analysis.rejections;
         return record;
     }
 
@@ -528,7 +520,7 @@ void parse_measurement(const std::filesystem::path &path, benchmark_record &reco
         return record;
     }
     record.verification.differential_tests = true;
-    record.verification.memory_safety = true;
+    record.verification.sanitizers = true;
 
     std::ostringstream optimized_compile;
     optimized_compile << shell_quote(PQC_POLY_HOST_CXX)
@@ -578,9 +570,10 @@ void parse_measurement(const std::filesystem::path &path, benchmark_record &reco
 }
 
 std::vector<benchmark_record> tune_on_host(const request &req,
-                                           std::span<const candidate_trial> candidates,
+                                           std::span<const candidate> candidates,
                                            const host_tuning_options &options)
 {
+    validate_request(req);
     if (options.samples == 0 || options.iterations == 0)
     {
         throw std::invalid_argument("host tuning samples and iterations must be nonzero");
@@ -590,7 +583,7 @@ std::vector<benchmark_record> tune_on_host(const request &req,
     std::vector<benchmark_record> records;
 
     records.reserve(candidates.size());
-    for (const candidate_trial &candidate : candidates)
+    for (const candidate &candidate : candidates)
     {
         records.push_back(tune_one(workspace.path(), req, candidate, options));
     }
