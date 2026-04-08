@@ -33,7 +33,7 @@ static const int16_t pqc_zetas[128] = {
 
 PQC_FORCE_INLINE int16_t pqc_montgomery_reduce(int32_t a)
 {
-    const uint16_t inverted = (uint16_t)((uint16_t)a * UINT16_C(62209));
+    const uint16_t inverted = (uint16_t)((uint32_t)(uint16_t)a * UINT32_C(62209));
     const int32_t t = inverted <= INT16_MAX ? (int32_t)inverted : (int32_t)inverted - 65536;
     return (int16_t)((a - t * PQC_MLKEM_Q) >> 16);
 }
@@ -310,6 +310,22 @@ void append_base(std::string &out, const mlkem_plan &plan)
     out += "    }\n}\n\n";
 }
 
+void append_declarations(std::string &out, const mlkem_plan &plan)
+{
+    const unsigned k = mlkem_k(plan.level);
+    out +=
+        "void pqc_mlkem_ntt(int16_t r[256]);\n"
+        "void pqc_mlkem_intt(int16_t r[256]);\n"
+        "void pqc_mlkem_tomont(int16_t r[256]);\n"
+        "void pqc_mlkem_mulcache_one(int16_t *cache, const int16_t b[256]);\n"
+        "void pqc_mlkem_mulcache(int16_t *cache, const int16_t b[" +
+        std::to_string(k * 256U) +
+        "]);\n"
+        "void pqc_mlkem_basemul(int16_t r[256], const int16_t a[" +
+        std::to_string(k * 256U) + "], const int16_t b[" + std::to_string(k * 256U) +
+        "], const int16_t *cache);\n\n";
+}
+
 }
 
 std::string generate_mlkem_backend(const mlkem_request &request, const mlkem_candidate &candidate)
@@ -324,6 +340,7 @@ std::string generate_mlkem_backend(const mlkem_request &request, const mlkem_can
     std::string out;
     out.reserve(16384);
     out += prologue;
+    append_declarations(out, candidate.plan);
     out += forward_helpers;
     out += inverse_helpers;
     append_forward(out, candidate.plan);

@@ -62,9 +62,53 @@ int main()
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_plan_id"),
             "id mutation passed");
     candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.plan.level = static_cast<pqc_poly::mlkem_level>(99);
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_plan_id"),
+            "level mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.plan.forward = static_cast<pqc_poly::ntt_traversal>(99);
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_plan_id"),
+            "forward enum mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.plan.inverse = static_cast<pqc_poly::intt_traversal>(99);
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_plan_id"),
+            "inverse enum mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.plan.inverse_reduction = static_cast<pqc_poly::intt_sum_reduction>(99);
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_plan_id"),
+            "reduction enum mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.plan.basemul = static_cast<pqc_poly::basemul_schedule>(99);
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_plan_id"),
+            "base enum mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.plan.instruction = static_cast<pqc_poly::mlkem_instruction>(99);
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_plan_id"),
+            "instruction enum mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
     candidate.forward_records.front().zeta_index = 0;
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_twiddle_schedule"),
             "twiddle mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    ++candidate.forward_records.front().layer;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_twiddle_schedule"),
+            "forward layer mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    ++candidate.forward_records.front().block;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_twiddle_schedule"),
+            "forward block mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    ++candidate.forward_records.front().left_base;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "array_index"),
+            "forward left index mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    ++candidate.forward_records.front().right_base;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "array_index"),
+            "forward right index mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    ++candidate.forward_records.front().length;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "array_index"),
+            "forward length mutation passed");
     candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
     candidate.forward_records.pop_back();
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "missing_butterfly"),
@@ -77,6 +121,10 @@ int main()
     candidate.inverse_records.front().right_base = 256;
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "array_index"),
             "index mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    ++candidate.inverse_records.front().zeta_index;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_twiddle_schedule"),
+            "inverse twiddle mutation passed");
     candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
     ++candidate.forward_bound;
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "coefficient_storage_overflow"),
@@ -94,10 +142,47 @@ int main()
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "scratch_limit"),
             "scratch mutation passed");
     candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    ++candidate.mulcache_coefficients;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "array_index"),
+            "cache mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    ++candidate.caller_workspace_bytes;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "caller_workspace_limit"),
+            "caller mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
     candidate.ntt_in_place = false;
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "alias"), "alias mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.intt_in_place = false;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "alias"),
+            "inverse alias mutation passed");
     candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
     candidate.fixed_loop_structure = false;
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "constant_time_structure"),
             "loop mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.legal = false;
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "analysis_overflow"),
+            "legality mutation passed");
+    candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
+    candidate.rejections.emplace_back("alias");
+    require(has(pqc_poly::check_mlkem_plan(request, candidate), "analysis_overflow"),
+            "rejection mutation passed");
+
+    pqc_poly::mlkem_request limited{.scratch_limit = 0, .caller_workspace_limit = 0};
+    const auto custom =
+        std::find_if(plans.begin(), plans.end(),
+                     [](const pqc_poly::mlkem_plan &plan)
+                     {
+                         return plan.basemul == pqc_poly::basemul_schedule::cached_late32 &&
+                                plan.instruction == pqc_poly::mlkem_instruction::fqmul;
+                     });
+    require(custom != plans.end(), "custom plan is missing");
+    candidate = pqc_poly::analyze_mlkem_plan(limited, *custom);
+    require(
+        candidate.rejections == std::vector<std::string>{"scratch_limit", "caller_workspace_limit",
+                                                         "instruction_unavailable"},
+        "rejection order changed");
+    require(pqc_poly::check_mlkem_plan(limited, candidate).size() == 3,
+            "checked rejection order changed");
 }

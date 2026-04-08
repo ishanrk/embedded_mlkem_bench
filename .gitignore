@@ -19,3 +19,5 @@ baseline-*.jsonl
 nextpnr-*
 formal-*
 /synthesis
+!/results/raw/**/*.json
+!/results/raw/**/*.jsonl

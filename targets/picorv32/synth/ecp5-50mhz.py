@@ -39,7 +39,17 @@ def capture(command, output):
 
 
 def version(command):
-    return run(command).splitlines()[0]
+    lines = run(command).splitlines()
+    if not lines:
+        raise RuntimeError(f"version command produced no output: {shlex.join(command)}")
+    return lines[-1]
+
+
+def report_command(command, replacements):
+    result = shlex.join(command)
+    for source, replacement in sorted(replacements, key=lambda value: len(value[0]), reverse=True):
+        result = result.replace(source, replacement)
+    return result
 
 
 def resource_count(log, name):
@@ -83,6 +93,10 @@ def main():
     args = parse_args()
     work = pathlib.Path(args.work)
     work.mkdir(parents=True, exist_ok=True)
+    replacements = [
+        (str(pathlib.Path(__file__).resolve().parents[3]), "${PROJECT_SOURCE_DIR}"),
+        (str(pathlib.Path(args.yosys).resolve().parents[1]), "${PQC_OSS_CAD_SUITE_ROOT}"),
+    ]
     netlist_path = work / "core.json"
     yosys_log = work / "yosys.log"
     environment = os.environ.copy()
@@ -141,8 +155,8 @@ def main():
                 **counts,
                 "maximum_frequency_mhz": frequency,
                 "meets_50mhz": passed,
-                "command": shlex.join(command),
-                "ecppack_command": shlex.join(pack_command),
+                "command": report_command(command, replacements),
+                "ecppack_command": report_command(pack_command, replacements),
                 "nextpnr_returncode": route.returncode,
                 "ecppack_returncode": pack_returncode,
             }
@@ -155,7 +169,7 @@ def main():
         "yosys_version": version([args.yosys, "-V"]),
         "nextpnr_version": version([args.nextpnr, "--version"]),
         "ecppack_version": version([args.ecppack, "--version"]),
-        "yosys_command": shlex.join(yosys_command),
+        "yosys_command": report_command(yosys_command, replacements),
         "seeds": seeds,
     }
     pathlib.Path(args.output).write_text(

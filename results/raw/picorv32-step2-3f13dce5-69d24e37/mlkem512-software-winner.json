@@ -1,0 +1,47 @@
+{
+  "schema": "pqc-poly-bench/mlkem-winner-v1",
+  "level": "512",
+  "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone",
+  "project": {
+    "operations": [
+      {"name": "forward_ntt", "minimum_cycles": 76739, "median_cycles": 76868, "maximum_cycles": 76958, "minimum_instructions": 13811, "median_instructions": 13840, "maximum_instructions": 13870},
+      {"name": "inverse_ntt", "minimum_cycles": 120003, "median_cycles": 120118, "maximum_cycles": 120183, "minimum_instructions": 22074, "median_instructions": 22094, "maximum_instructions": 22106},
+      {"name": "mulcache", "minimum_cycles": 21480, "median_cycles": 21539, "maximum_cycles": 21601, "minimum_instructions": 3993, "median_instructions": 4007, "maximum_instructions": 4025},
+      {"name": "base_dot_k2", "minimum_cycles": 36235, "median_cycles": 36314, "maximum_cycles": 36368, "minimum_instructions": 6161, "median_instructions": 6172, "maximum_instructions": 6185},
+      {"name": "poly_tomont", "minimum_cycles": 21887, "median_cycles": 21932, "maximum_cycles": 21967, "minimum_instructions": 3459, "median_instructions": 3466, "maximum_instructions": 3475},
+      {"name": "keygen", "minimum_cycles": 3709964, "median_cycles": 3711104, "maximum_cycles": 3819737, "minimum_instructions": 691586, "median_instructions": 691941, "maximum_instructions": 712318},
+      {"name": "encapsulation", "minimum_cycles": 3946528, "median_cycles": 3947876, "maximum_cycles": 4056730, "minimum_instructions": 737910, "median_instructions": 738242, "maximum_instructions": 758571},
+      {"name": "decapsulation", "minimum_cycles": 4976219, "median_cycles": 4977755, "maximum_cycles": 5086651, "minimum_instructions": 927227, "median_instructions": 927537, "maximum_instructions": 947830}
+    ],
+    "complete_total_median_cycles": 12636735
+  },
+  "stock": {
+    "operations": [
+      {"name": "forward_ntt", "minimum_cycles": 76739, "median_cycles": 76868, "maximum_cycles": 76958, "minimum_instructions": 13811, "median_instructions": 13840, "maximum_instructions": 13870},
+      {"name": "inverse_ntt", "minimum_cycles": 120003, "median_cycles": 120118, "maximum_cycles": 120183, "minimum_instructions": 22074, "median_instructions": 22094, "maximum_instructions": 22106},
+      {"name": "mulcache", "minimum_cycles": 21480, "median_cycles": 21539, "maximum_cycles": 21601, "minimum_instructions": 3993, "median_instructions": 4007, "maximum_instructions": 4025},
+      {"name": "base_dot_k2", "minimum_cycles": 36235, "median_cycles": 36314, "maximum_cycles": 36368, "minimum_instructions": 6161, "median_instructions": 6172, "maximum_instructions": 6185},
+      {"name": "poly_tomont", "minimum_cycles": 21887, "median_cycles": 21932, "maximum_cycles": 21967, "minimum_instructions": 3459, "median_instructions": 3466, "maximum_instructions": 3475},
+      {"name": "keygen", "minimum_cycles": 3709964, "median_cycles": 3711104, "maximum_cycles": 3819737, "minimum_instructions": 691586, "median_instructions": 691941, "maximum_instructions": 712318},
+      {"name": "encapsulation", "minimum_cycles": 3946528, "median_cycles": 3947876, "maximum_cycles": 4056730, "minimum_instructions": 737910, "median_instructions": 738242, "maximum_instructions": 758571},
+      {"name": "decapsulation", "minimum_cycles": 4976219, "median_cycles": 4977755, "maximum_cycles": 5086651, "minimum_instructions": 927227, "median_instructions": 927537, "maximum_instructions": 947830}
+    ],
+    "complete_total_median_cycles": 12636735
+  },
+  "project_vs_stock_percent": 0.000000,
+  "memory": {
+    "explicit_scratch_bytes": 512,
+    "caller_working_bytes": 9888,
+    "compiler_frame_bytes": 16,
+    "static_callchain_stack_bytes": 11360,
+    "runtime_stack_high_water_bytes": 11284
+  },
+  "code_size": {
+    "text_bytes": 24748,
+    "rodata_bytes": 448,
+    "allocated_flash_bytes": 25196,
+    "data_bytes": 0,
+    "bss_bytes": 9892
+  },
+  "verified": true
+}

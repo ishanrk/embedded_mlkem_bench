@@ -177,6 +177,9 @@ if(BUILD_TESTING)
     target_compile_definitions(
         pqc-poly-mlkem-codegen-test
         PRIVATE PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}")
+    if(PQC_POLY_SANITIZE)
+        target_compile_definitions(pqc-poly-mlkem-codegen-test PRIVATE PQC_POLY_TEST_SANITIZE=1)
+    endif()
 
     add_test(NAME cli-help COMMAND pqc-poly-bench --help)
 endif()

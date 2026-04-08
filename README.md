@@ -190,9 +190,27 @@ emission. Candidate bounds keep explicit scratch and caller workspace separate.
 The pinned `mlkem-native` source is fetched only when
 `PQC_POLY_FETCH_MLKEM_NATIVE=ON`; normal host builds remain offline.
 
-Target-wide measurements and winner files are intentionally absent until all 72
-software candidates have completed the required PicoRV32 protocol. No partial or
-host-derived winner is emitted.
+The opt-in PicoRV32 flow pins `mlkem-native` at
+`69d24e37b8a04c6050ec55bc84a4228d7051bb4b` with archive SHA-256
+`5f83af0a01fbed2c2d6cc370b56909f3b062728cff0ec9f310314707f13a1f3e`.
+It measures the upstream portable implementation and every software schedule
+with 16 fixed kernel inputs and 30 fixed complete-operation inputs. Each input
+runs three times and unequal repeat cycles fail the run.
+
+```bash
+cmake -S . -B build/picorv32-mlkem -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_LTO=OFF \
+  -DPQC_POLY_PICORV32_MLKEM=ON
+cmake --build build/picorv32-mlkem --target pqc-picorv32-mlkem --parallel
+cmake --build build/picorv32-mlkem --target pqc-picorv32-mlkem-finalize
+```
+
+The first target emits winners only after all 72 software plans and all three
+portable baselines complete. It rejects unknown stack fields repeat drift and a
+project multiplier result more than two percent slower than the stock fast
+multiplier. The explicit finalize target then copies the complete raw experiment
+to `results/raw/picorv32-step2-<repository>-<mlkem-native>/`. Partial results are
+never selected or copied.
 
 ## Verification limits
 
@@ -202,6 +220,7 @@ formal proof. The project does not currently run CBMC or prove constant-time
 execution. Host measurements remain development proxies; only completed external
 RTL simulation may supply PicoRV32 cycle claims.
 
-After every Step 1 gate passes with the pinned tools, Step 2 can add complete
-software ML-KEM schedules and run the full software comparison. The custom
-`mlk.fqmul` instruction remains deferred until that comparison exists.
+The completed Step 2 records are retained under
+`results/raw/picorv32-step2-3f13dce5-69d24e37/`. All three parameter sets select
+the `ffuse2_ifuse2_rpair_bcachelate_xnone` schedule. The custom `mlk.fqmul`
+instruction remains deferred.
