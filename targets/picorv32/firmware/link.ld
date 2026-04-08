@@ -52,9 +52,9 @@ SECTIONS
     }
 
     __image_end = ALIGN(16);
-    __measured_stack_bottom = 0x00078000;
-    __measured_stack_top = 0x0007c000;
-    __monitor_stack_bottom = 0x0007c000;
+    __measured_stack_bottom = 0x00060000;
+    __measured_stack_top = 0x00070000;
+    __monitor_stack_bottom = 0x00070000;
     __monitor_stack_top = 0x00080000;
 
     ASSERT(__image_end <= __measured_stack_bottom, "firmware overlaps measured stack")

@@ -20,14 +20,21 @@ option(PQC_POLY_SANITIZE "enable address and undefined behavior sanitizers" OFF)
 option(PQC_POLY_WARNINGS_AS_ERRORS "treat compiler warnings as errors" ON)
 option(PQC_POLY_PICORV32 "enable the opt in picorv32 simulation target" OFF)
 option(PQC_POLY_PICORV32_SYNTHESIS "enable the opt in picorv32 synthesis target" OFF)
+option(PQC_POLY_PICORV32_MLKEM "enable the opt in picorv32 mlkem measurements" OFF)
+option(PQC_POLY_FETCH_MLKEM_NATIVE "fetch the pinned mlkem native source" OFF)
 
-if(PQC_POLY_PICORV32_SYNTHESIS)
+if(PQC_POLY_PICORV32_SYNTHESIS OR PQC_POLY_PICORV32_MLKEM)
     set(PQC_POLY_PICORV32 ON)
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(PQC_POLY_FETCH_MLKEM_NATIVE)
+    include("${PROJECT_SOURCE_DIR}/cmake/FetchPinned.cmake")
+    pqc_poly_fetch_mlkem_native()
+endif()
 
 set(PQC_POLY_IPO_SUPPORTED OFF)
 if(PQC_POLY_LTO AND NOT PQC_POLY_SANITIZE)
@@ -112,6 +119,9 @@ add_library(
         src/codegen.cpp
         src/explore.cpp
         src/host_tuner.cpp
+        src/mlkem_check.cpp
+        src/mlkem_codegen.cpp
+        src/mlkem_plan.cpp
         src/selector.cpp
         src/target_measurement.cpp
         src/tuning.cpp)
@@ -126,6 +136,10 @@ target_compile_definitions(
 add_executable(pqc-poly-bench src/main.cpp)
 pqc_poly_configure(pqc-poly-bench)
 target_link_libraries(pqc-poly-bench PRIVATE pqc_poly_compiler)
+
+add_executable(pqc-poly-mlkem src/mlkem_main.cpp src/mlkem_explore.cpp)
+pqc_poly_configure(pqc-poly-mlkem)
+target_link_libraries(pqc-poly-mlkem PRIVATE pqc_poly_compiler)
 
 add_executable(pqc-poly-formula-bench benchmarks/formula_bench.cpp)
 pqc_poly_configure(pqc-poly-formula-bench)
@@ -157,6 +171,12 @@ if(BUILD_TESTING)
     target_compile_definitions(
         pqc-poly-picorv32-manifest-test
         PRIVATE PQC_POLY_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    pqc_poly_add_test(mlkem-plan tests/mlkem_plan_test.cpp pqc_poly_compiler)
+    pqc_poly_add_test(mlkem-check tests/mlkem_check_test.cpp pqc_poly_compiler)
+    pqc_poly_add_test(mlkem-codegen tests/mlkem_codegen_test.cpp pqc_poly_compiler)
+    target_compile_definitions(
+        pqc-poly-mlkem-codegen-test
+        PRIVATE PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}")
 
     add_test(NAME cli-help COMMAND pqc-poly-bench --help)
 endif()

@@ -173,6 +173,27 @@ flops, 4 DSP blocks, and no block RAM; routed frequencies ranged from 66.39 to
 ML-KEM results. ML-KEM schedules and `mlk.fqmul` belong to later steps and are
 intentionally absent.
 
+## ML-KEM schedule search
+
+`pqc-poly-mlkem` is the isolated Step 2 schedule compiler. It enumerates 144
+stable plans across ML-KEM-512, ML-KEM-768, and ML-KEM-1024. The 72 software
+plans emit portable C backends for the standard bit-reversed NTT order; the 72
+`fqmul` plans remain visible and are rejected as `instruction_unavailable`.
+
+```bash
+./build/release/pqc-poly-mlkem examples/mlkem.json -o mlkem-out
+```
+
+The command writes one candidate file per level and one C backend per legal
+software plan. An independent arithmetic and memory consistency checker gates
+emission. Candidate bounds keep explicit scratch and caller workspace separate.
+The pinned `mlkem-native` source is fetched only when
+`PQC_POLY_FETCH_MLKEM_NATIVE=ON`; normal host builds remain offline.
+
+Target-wide measurements and winner files are intentionally absent until all 72
+software candidates have completed the required PicoRV32 protocol. No partial or
+host-derived winner is emitted.
+
 ## Verification limits
 
 A measured candidate is selectable only when plan consistency, scratch limits,

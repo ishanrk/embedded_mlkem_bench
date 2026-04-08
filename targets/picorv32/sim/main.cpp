@@ -189,6 +189,12 @@ struct options
     std::string disassembly{};
     std::string size_input{};
     std::string size_output{};
+    std::string plan_id{};
+    std::string level{};
+    std::string stack_root{"measured_multiply"};
+    unsigned repeat_count{0};
+    unsigned kernel_inputs{16};
+    unsigned operation_inputs{30};
     bool expect_trap{false};
 };
 
@@ -208,7 +214,10 @@ struct options
         }
         else if ((argument == "--output" || argument == "--stack-output" ||
                   argument == "--stack-usage" || argument == "--disassembly" ||
-                  argument == "--size-input" || argument == "--size-output") &&
+                  argument == "--size-input" || argument == "--size-output" ||
+                  argument == "--plan-id" || argument == "--level" || argument == "--stack-root" ||
+                  argument == "--repeat-count" || argument == "--kernel-inputs" ||
+                  argument == "--operation-inputs") &&
                  i + 1 < argc)
         {
             const std::string value = argv[++i];
@@ -232,9 +241,45 @@ struct options
             {
                 result.size_input = value;
             }
-            else
+            else if (argument == "--size-output")
             {
                 result.size_output = value;
+            }
+            else if (argument == "--plan-id")
+            {
+                result.plan_id = value;
+            }
+            else if (argument == "--level")
+            {
+                result.level = value;
+            }
+            else if (argument == "--stack-root")
+            {
+                result.stack_root = value;
+            }
+            else if (argument == "--repeat-count")
+            {
+                if (value != "3")
+                {
+                    fail("invalid repeat count");
+                }
+                result.repeat_count = 3;
+            }
+            else if (argument == "--kernel-inputs")
+            {
+                if (value != "1" && value != "16")
+                {
+                    fail("invalid kernel input count");
+                }
+                result.kernel_inputs = value == "1" ? 1U : 16U;
+            }
+            else
+            {
+                if (value != "1" && value != "30")
+                {
+                    fail("invalid operation input count");
+                }
+                result.operation_inputs = value == "1" ? 1U : 30U;
             }
         }
         else
@@ -245,6 +290,14 @@ struct options
     if (result.output.empty())
     {
         fail("missing --output");
+    }
+    if (result.plan_id.empty() != result.level.empty())
+    {
+        fail("incomplete mlkem simulation metadata");
+    }
+    if (!result.plan_id.empty() && result.repeat_count != 3)
+    {
+        fail("mlkem simulation requires three repeats");
     }
     return result;
 }
@@ -273,9 +326,13 @@ void write_stack(const options &settings, const std::vector<std::uint32_t> &stat
     std::uint32_t wrapper = 0;
     std::uint32_t raw = 0;
     std::uint32_t calibrated = 0;
+    std::uint32_t caller = 0;
+    std::uint32_t scratch = 0;
     bool have_wrapper = false;
     bool have_raw = false;
     bool have_calibrated = false;
+    bool have_caller = false;
+    bool have_scratch = false;
     for (std::size_t i = 0; i + 1 < status.size(); ++i)
     {
         if (status[i] == UINT32_C(0x53544100))
@@ -293,24 +350,36 @@ void write_stack(const options &settings, const std::vector<std::uint32_t> &stat
             calibrated = status[++i];
             have_calibrated = true;
         }
+        else if (status[i] == UINT32_C(0x53544103))
+        {
+            caller = status[++i];
+            have_caller = true;
+        }
+        else if (status[i] == UINT32_C(0x53544104))
+        {
+            scratch = status[++i];
+            have_scratch = true;
+        }
     }
     require(have_wrapper && have_raw && have_calibrated, "missing stack status records");
+    require(settings.plan_id.empty() || (have_caller && have_scratch),
+            "missing mlkem memory status records");
     require(raw >= wrapper && calibrated == raw - wrapper, "invalid stack calibration");
 
     const std::vector<pqc_poly::stack_frame> frames =
         pqc_poly::parse_stack_usage(read_file(settings.stack_usage));
     const auto measured = std::find_if(frames.begin(), frames.end(),
-                                       [](const pqc_poly::stack_frame &frame)
-                                       { return frame.function == "measured_multiply"; });
+                                       [&settings](const pqc_poly::stack_frame &frame)
+                                       { return frame.function == settings.stack_root; });
     require(measured != frames.end(), "measured compiler stack frame missing");
     const std::optional<std::uint64_t> callchain = pqc_poly::compute_callchain_stack_bound(
-        frames, read_file(settings.disassembly), "measured_multiply");
+        frames, read_file(settings.disassembly), settings.stack_root);
 
     std::ofstream output(settings.stack_output, std::ios::binary | std::ios::trunc);
     require(static_cast<bool>(output), "cannot open stack output");
     output << "{\n"
-           << "  \"explicit_scratch_bytes\": 0,\n"
-           << "  \"caller_working_bytes\": 4,\n"
+           << "  \"explicit_scratch_bytes\": " << scratch << ",\n"
+           << "  \"caller_working_bytes\": " << (have_caller ? caller : 4U) << ",\n"
            << "  \"compiler_frame_bytes\": " << measured->bytes << ",\n"
            << "  \"compiler_callchain_bound_bytes\": ";
     if (callchain)
@@ -326,6 +395,147 @@ void write_stack(const options &settings, const std::vector<std::uint32_t> &stat
            << "  \"raw_stack_high_water_bytes\": " << raw << ",\n"
            << "  \"raw_wrapper_high_water_bytes\": " << wrapper << "\n"
            << "}\n";
+}
+
+struct operation_position
+{
+    std::string_view name{};
+    unsigned input{0};
+    unsigned repeat{0};
+};
+
+[[nodiscard]] operation_position mlkem_position(std::size_t index, std::string_view level,
+                                                unsigned kernel_inputs, unsigned operation_inputs)
+{
+    const std::size_t kernel_span = static_cast<std::size_t>(kernel_inputs) * 3U;
+    const std::size_t operation_span = static_cast<std::size_t>(operation_inputs) * 3U;
+    if (index < kernel_span)
+    {
+        return {"forward_ntt", static_cast<unsigned>(index / 3U),
+                static_cast<unsigned>(index % 3U)};
+    }
+    index -= kernel_span;
+    if (index < kernel_span)
+    {
+        return {"inverse_ntt", static_cast<unsigned>(index / 3U),
+                static_cast<unsigned>(index % 3U)};
+    }
+    index -= kernel_span;
+    if (index < kernel_span)
+    {
+        return {"mulcache", static_cast<unsigned>(index / 3U), static_cast<unsigned>(index % 3U)};
+    }
+    index -= kernel_span;
+    if (index < kernel_span)
+    {
+        return {level == "512"   ? "base_dot_k2"
+                : level == "768" ? "base_dot_k3"
+                                 : "base_dot_k4",
+                static_cast<unsigned>(index / 3U), static_cast<unsigned>(index % 3U)};
+    }
+    index -= kernel_span;
+    if (index < kernel_span)
+    {
+        return {"poly_tomont", static_cast<unsigned>(index / 3U),
+                static_cast<unsigned>(index % 3U)};
+    }
+    index -= kernel_span;
+    if (index < operation_span)
+    {
+        return {"keygen", static_cast<unsigned>(index / 3U), static_cast<unsigned>(index % 3U)};
+    }
+    index -= operation_span;
+    if (index < operation_span)
+    {
+        return {"encapsulation", static_cast<unsigned>(index / 3U),
+                static_cast<unsigned>(index % 3U)};
+    }
+    index -= operation_span;
+    if (index < operation_span)
+    {
+        return {"decapsulation", static_cast<unsigned>(index / 3U),
+                static_cast<unsigned>(index % 3U)};
+    }
+    fail("unexpected mlkem measurement count");
+}
+
+[[nodiscard]] std::vector<std::pair<std::uint32_t, std::uint32_t> > instret_records(
+    const std::vector<std::uint32_t> &status, std::size_t count)
+{
+    std::vector<std::pair<std::uint32_t, std::uint32_t> > out;
+    require(status.size() >= count * 3U, "mlkem instruction status is incomplete");
+    out.reserve(count);
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        const std::size_t offset = i * 3U;
+        if (status[offset] != UINT32_C(0x494e5300))
+        {
+            fail("mlkem instruction status order changed at " + std::to_string(offset) + " value " +
+                 std::to_string(status[offset]));
+        }
+        out.emplace_back(status[offset + 1U], status[offset + 2U]);
+    }
+    return out;
+}
+
+void write_mlkem(const options &settings, std::span<const std::uint64_t> begins,
+                 std::span<const std::uint64_t> ends, const std::vector<std::uint32_t> &status)
+{
+    const std::size_t measurement_count =
+        5U * static_cast<std::size_t>(settings.kernel_inputs) * 3U +
+        3U * static_cast<std::size_t>(settings.operation_inputs) * 3U;
+    if (begins.size() != measurement_count + 1U || ends.size() != begins.size())
+    {
+        fail("mlkem benchmark marker count changed begins " + std::to_string(begins.size()) +
+             " ends " + std::to_string(ends.size()));
+    }
+    const std::vector<std::pair<std::uint32_t, std::uint32_t> > instret =
+        instret_records(status, begins.size());
+    if (instret.size() != begins.size())
+    {
+        fail("mlkem instruction record count changed records " + std::to_string(instret.size()) +
+             " markers " + std::to_string(begins.size()) + " status " +
+             std::to_string(status.size()));
+    }
+    require(ends[0] >= begins[0], "mlkem marker calibration is reversed");
+    const std::uint64_t cycle_overhead = ends[0] - begins[0];
+    const std::uint32_t instruction_overhead = instret[0].second - instret[0].first;
+
+    std::ofstream output(settings.output, std::ios::binary | std::ios::trunc);
+    require(static_cast<bool>(output), "cannot open simulation output");
+    std::uint64_t prior_cycles = 0;
+    std::uint32_t prior_instructions = 0;
+    for (std::size_t i = 0; i < measurement_count; ++i)
+    {
+        const std::size_t marker = i + 1U;
+        require(ends[marker] >= begins[marker] && ends[marker] - begins[marker] >= cycle_overhead,
+                "invalid mlkem cycle interval");
+        const std::uint64_t cycles = ends[marker] - begins[marker] - cycle_overhead;
+        const std::uint32_t raw_instructions = instret[marker].second - instret[marker].first;
+        require(raw_instructions >= instruction_overhead, "invalid mlkem instruction interval");
+        const std::uint32_t instructions = raw_instructions - instruction_overhead;
+        const operation_position position =
+            mlkem_position(i, settings.level, settings.kernel_inputs, settings.operation_inputs);
+        if (position.repeat != 0U)
+        {
+            require(cycles == prior_cycles && instructions == prior_instructions,
+                    "mlkem repeated measurement changed");
+        }
+        prior_cycles = cycles;
+        prior_instructions = instructions;
+        output << "{\"schema\":\"pqc-poly-bench/mlkem-measurement-v1\",\"plan_id\":\""
+               << settings.plan_id << "\",\"level\":\"" << settings.level << "\",\"operation\":\""
+               << position.name << "\",\"input\":" << position.input
+               << ",\"repeat\":" << position.repeat << ",\"begin_cycle\":" << begins[marker]
+               << ",\"end_cycle\":" << ends[marker]
+               << ",\"marker_overhead_cycles\":" << cycle_overhead
+               << ",\"calibrated_cycles\":" << cycles << ",\"instruction_count\":" << instructions
+#if defined(PQC_STOCK_MUL)
+               << ",\"multiplier\":\"stock\"}\n";
+#else
+               << ",\"multiplier\":\"project\"}\n";
+#endif
+    }
 }
 
 void write_size(const options &settings)
@@ -361,7 +571,7 @@ void simulate(const options &settings)
     }
     model.resetn = 1;
 
-    constexpr std::uint64_t cycle_limit = UINT64_C(250000000);
+    constexpr std::uint64_t cycle_limit = UINT64_C(5000000000);
     for (std::uint64_t i = 0; i < cycle_limit && model.trap == 0 && model.terminate == 0; ++i)
     {
         tick(model);
@@ -387,10 +597,18 @@ void simulate(const options &settings)
     {
         require(model.trap == 0, "unexpected processor trap");
         require(model.terminate != 0, "firmware did not terminate");
-        require(begins.size() == 2 && ends.size() == 2, "benchmark markers missing");
-        require(ends[0] >= begins[0] && ends[1] >= begins[1], "marker order changed");
+        require(begins.size() == ends.size() && !begins.empty(), "benchmark markers missing");
     }
 
+    if (!settings.plan_id.empty() && !settings.expect_trap)
+    {
+        write_mlkem(settings, begins, ends, status);
+        write_stack(settings, status);
+        write_size(settings);
+        return;
+    }
+
+    require(settings.expect_trap || begins.size() == 2, "smoke benchmark marker count changed");
     const std::uint64_t overhead = settings.expect_trap ? 0 : ends[0] - begins[0];
     const std::uint64_t begin = settings.expect_trap ? 0 : begins[1];
     const std::uint64_t end = settings.expect_trap ? 0 : ends[1];

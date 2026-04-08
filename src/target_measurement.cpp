@@ -625,8 +625,14 @@ struct call_graph
             graph.indirect.insert(current);
             continue;
         }
-        graph.calls[current].emplace_back(
-            instruction.substr(target_left + 1, target_right - target_left - 1));
+        const std::string_view target =
+            instruction.substr(target_left + 1, target_right - target_left - 1);
+        if (target.find("+0x") != std::string_view::npos ||
+            target.find("-0x") != std::string_view::npos)
+        {
+            continue;
+        }
+        graph.calls[current].emplace_back(target);
     }
     return graph;
 }
@@ -883,6 +889,56 @@ code_size_measurement parse_elf_size(std::string_view text)
     return result;
 }
 
+code_size_measurement parse_code_size_measurement(std::string_view text)
+{
+    const json_value root = json_parser(text).parse();
+    code_size_measurement result{
+        .code_text_bytes = uint_field(root, "code_text_bytes"),
+        .code_rodata_bytes = uint_field(root, "code_rodata_bytes"),
+        .data_bytes = uint_field(root, "data_bytes"),
+        .bss_bytes = uint_field(root, "bss_bytes"),
+        .allocated_flash_bytes = uint_field(root, "allocated_flash_bytes"),
+    };
+    if (result.allocated_flash_bytes !=
+        checked_add(checked_add(result.code_text_bytes, result.code_rodata_bytes,
+                                "allocated flash"),
+                    result.data_bytes, "allocated flash"))
+    {
+        fail("inconsistent allocated flash measurement");
+    }
+    return result;
+}
+
+stack_measurement parse_stack_measurement(std::string_view text)
+{
+    const json_value root = json_parser(text).parse();
+    stack_measurement result{
+        .explicit_scratch_bytes = uint_field(root, "explicit_scratch_bytes"),
+        .caller_working_bytes = uint_field(root, "caller_working_bytes"),
+        .compiler_frame_bytes = uint_field(root, "compiler_frame_bytes"),
+        .runtime_stack_high_water_bytes = uint_field(root, "runtime_stack_high_water_bytes"),
+        .raw_stack_high_water_bytes = uint_field(root, "raw_stack_high_water_bytes"),
+        .raw_wrapper_high_water_bytes = uint_field(root, "raw_wrapper_high_water_bytes"),
+    };
+    const json_value &callchain = object_field(root, "compiler_callchain_bound_bytes");
+    if (callchain.kind == json_kind::number)
+    {
+        result.compiler_callchain_bound_bytes =
+            unsigned_number(callchain, "compiler_callchain_bound_bytes");
+    }
+    else if (callchain.kind != json_kind::null_value)
+    {
+        fail("compiler callchain bound must be unsigned or null");
+    }
+    if (result.raw_stack_high_water_bytes < result.raw_wrapper_high_water_bytes ||
+        result.runtime_stack_high_water_bytes !=
+            result.raw_stack_high_water_bytes - result.raw_wrapper_high_water_bytes)
+    {
+        fail("inconsistent stack measurement");
+    }
+    return result;
+}
+
 cycle_measurement parse_simulation_measurement(std::string_view text)
 {
     const json_value root = json_parser(text).parse();
@@ -907,6 +963,70 @@ cycle_measurement parse_simulation_measurement(std::string_view text)
     if (reported_calibrated != result.calibrated_cycles)
     {
         fail("inconsistent calibrated cycle result");
+    }
+    return result;
+}
+
+std::vector<mlkem_cycle_measurement> parse_mlkem_cycle_measurements(std::string_view text)
+{
+    std::vector<mlkem_cycle_measurement> result;
+    for (const std::string_view line : lines(text))
+    {
+        if (trim(line).empty())
+        {
+            continue;
+        }
+        const json_value root = json_parser(line).parse();
+        if (string_field(root, "schema") != "pqc-poly-bench/mlkem-measurement-v1")
+        {
+            fail("invalid mlkem measurement schema");
+        }
+        const std::uint64_t input = uint_field(root, "input");
+        const std::uint64_t repeat = uint_field(root, "repeat");
+        if (input > std::numeric_limits<std::uint32_t>::max() ||
+            repeat > std::numeric_limits<std::uint32_t>::max())
+        {
+            fail("measurement integer overflow");
+        }
+        mlkem_cycle_measurement record{
+            .plan_id = string_field(root, "plan_id"),
+            .level = string_field(root, "level"),
+            .operation = string_field(root, "operation"),
+            .multiplier = string_field(root, "multiplier"),
+            .input = static_cast<std::uint32_t>(input),
+            .repeat = static_cast<std::uint32_t>(repeat),
+            .begin_cycle = uint_field(root, "begin_cycle"),
+            .end_cycle = uint_field(root, "end_cycle"),
+            .marker_overhead_cycles = uint_field(root, "marker_overhead_cycles"),
+            .calibrated_cycles = uint_field(root, "calibrated_cycles"),
+            .instruction_count = uint_field(root, "instruction_count"),
+        };
+        const bool full_operation = record.operation == "keygen" ||
+                                    record.operation == "encapsulation" ||
+                                    record.operation == "decapsulation";
+        const bool kernel = record.operation == "forward_ntt" ||
+                            record.operation == "inverse_ntt" ||
+                            record.operation == "mulcache" ||
+                            record.operation == "poly_tomont" ||
+                            record.operation == "base_dot_k2" ||
+                            record.operation == "base_dot_k3" ||
+                            record.operation == "base_dot_k4";
+        if ((record.level != "512" && record.level != "768" && record.level != "1024") ||
+            (!kernel && !full_operation) ||
+            (record.multiplier != "project" && record.multiplier != "stock") ||
+            record.repeat >= 3U || record.input >= (full_operation ? 30U : 16U) ||
+            record.end_cycle < record.begin_cycle ||
+            record.end_cycle - record.begin_cycle < record.marker_overhead_cycles ||
+            record.calibrated_cycles != record.end_cycle - record.begin_cycle -
+                                                record.marker_overhead_cycles)
+        {
+            fail("invalid mlkem measurement record");
+        }
+        result.push_back(std::move(record));
+    }
+    if (result.empty())
+    {
+        fail("empty mlkem measurement set");
     }
     return result;
 }

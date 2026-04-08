@@ -96,6 +96,11 @@ void test_source_pins()
     require(
         fetch.find("URL_HASH \"SHA256=${PQC_POLY_PICORV32_ARCHIVE_SHA256}\"") != std::string::npos,
         "fetch helper lacks hash verification");
+    require(fetch.find("69d24e37b8a04c6050ec55bc84a4228d7051bb4b") != std::string::npos,
+            "fetch helper lacks mlkem native commit");
+    require(fetch.find("5f83af0a01fbed2c2d6cc370b56909f3b062728cff0ec9f310314707f13a1f3e") !=
+                std::string::npos,
+            "fetch helper lacks mlkem native archive hash");
 
     const std::string target_cmake = read(root / "targets/picorv32/CMakeLists.txt");
     require(target_cmake.find("ae36abbec394b29643154c1b4a1322e829937d04e82f41b47f9c27d3bd68e543") !=
