@@ -143,7 +143,8 @@ public:
 [[nodiscard]] std::string serialize_mlkem_candidates(std::span<const mlkem_candidate> candidates);
 [[nodiscard]] const mlkem_measurement &select_measured_mlkem_plan(
     mlkem_level level, std::span<const mlkem_candidate> candidates,
-    std::span<const mlkem_measurement> measurements);
+    std::span<const mlkem_measurement> measurements,
+    mlkem_instruction instruction = mlkem_instruction::none);
 
 }
 

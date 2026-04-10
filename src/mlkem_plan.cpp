@@ -254,10 +254,6 @@ mlkem_candidate analyze_mlkem_plan(const mlkem_request &request, const mlkem_pla
     {
         out.rejections.emplace_back("caller_workspace_limit");
     }
-    if (plan.instruction == mlkem_instruction::fqmul)
-    {
-        out.rejections.emplace_back("instruction_unavailable");
-    }
     out.legal = out.rejections.empty();
     return out;
 }
@@ -329,21 +325,22 @@ std::string serialize_mlkem_candidates(std::span<const mlkem_candidate> candidat
 
 const mlkem_measurement &select_measured_mlkem_plan(mlkem_level level,
                                                     std::span<const mlkem_candidate> candidates,
-                                                    std::span<const mlkem_measurement> measurements)
+                                                    std::span<const mlkem_measurement> measurements,
+                                                    mlkem_instruction instruction)
 {
     std::vector<std::string_view> required;
     required.reserve(24);
     for (const mlkem_candidate &candidate : candidates)
     {
         if (candidate.plan.level == level && candidate.legal &&
-            candidate.plan.instruction == mlkem_instruction::none)
+            candidate.plan.instruction == instruction)
         {
             required.push_back(candidate.id);
         }
     }
     if (required.size() != 24)
     {
-        throw mlkem_error("software candidate set is incomplete");
+        throw mlkem_error("candidate set is incomplete");
     }
 
     const mlkem_measurement *winner = nullptr;
@@ -358,11 +355,11 @@ const mlkem_measurement &select_measured_mlkem_plan(mlkem_level level,
         }
         if (!measurement.verified)
         {
-            throw mlkem_error("software measurement is not verified");
+            throw mlkem_error("measurement is not verified");
         }
         if (std::find(seen.begin(), seen.end(), measurement.plan_id) != seen.end())
         {
-            throw mlkem_error("duplicate software measurement");
+            throw mlkem_error("duplicate measurement");
         }
         seen.push_back(measurement.plan_id);
         ++found;
@@ -373,7 +370,7 @@ const mlkem_measurement &select_measured_mlkem_plan(mlkem_level level,
                 value.decapsulation_cycles > std::numeric_limits<std::uint64_t>::max() -
                                                  value.keygen_cycles - value.encapsulation_cycles)
             {
-                throw mlkem_error("software cycle total overflow");
+                throw mlkem_error("cycle total overflow");
             }
             return value.keygen_cycles + value.encapsulation_cycles + value.decapsulation_cycles;
         };
@@ -388,7 +385,7 @@ const mlkem_measurement &select_measured_mlkem_plan(mlkem_level level,
     }
     if (found != required.size() || winner == nullptr)
     {
-        throw mlkem_error("software measurement set is incomplete");
+        throw mlkem_error("measurement set is incomplete");
     }
     return *winner;
 }

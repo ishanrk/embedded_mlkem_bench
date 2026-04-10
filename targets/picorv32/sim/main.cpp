@@ -3,6 +3,8 @@
 #include "pqc_poly/target_measurement.hpp"
 
 #include <algorithm>
+#include <array>
+#include <charconv>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
@@ -10,6 +12,7 @@
 #include <iterator>
 #include <limits>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -47,7 +50,8 @@ void tick(Vpqc_pcpi_mlkem &model)
     model.eval();
 }
 
-[[nodiscard]] std::uint32_t oracle(std::uint32_t left, std::uint32_t right, std::uint32_t funct3)
+[[nodiscard]] std::uint32_t multiply_oracle(std::uint32_t left, std::uint32_t right,
+                                            std::uint32_t funct3)
 {
     const std::uint64_t unsigned_product =
         static_cast<std::uint64_t>(left) * static_cast<std::uint64_t>(right);
@@ -70,8 +74,27 @@ void tick(Vpqc_pcpi_mlkem &model)
     }
 }
 
-void run_request(Vpqc_pcpi_mlkem &model, std::uint32_t left, std::uint32_t right,
-                 std::uint32_t funct3)
+[[nodiscard]] std::int32_t signed_low(std::uint32_t value)
+{
+    const std::uint32_t low = value & UINT32_C(0xffff);
+    return low < UINT32_C(0x8000) ? static_cast<std::int32_t>(low)
+                                  : static_cast<std::int32_t>(low) - INT32_C(65536);
+}
+
+[[nodiscard]] std::uint32_t fqmul_oracle(std::uint32_t left, std::uint32_t right)
+{
+    const std::int64_t product = static_cast<std::int64_t>(signed_low(left)) * signed_low(right);
+    const std::uint32_t low =
+        static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) & UINT64_C(0xffff));
+    const std::uint32_t inverse = low * UINT32_C(62209) & UINT32_C(0xffff);
+    const std::int64_t numerator =
+        product - static_cast<std::int64_t>(signed_low(inverse)) * INT64_C(3329);
+    require(numerator % INT64_C(65536) == 0, "fqmul oracle numerator is not divisible");
+    return static_cast<std::uint32_t>(static_cast<std::int32_t>(numerator / INT64_C(65536)));
+}
+
+void run_multiply_request(Vpqc_pcpi_mlkem &model, std::uint32_t left, std::uint32_t right,
+                          std::uint32_t funct3)
 {
     model.pcpi_valid = 1;
     model.pcpi_insn = UINT32_C(0x02000033) | (funct3 << 12U);
@@ -90,11 +113,44 @@ void run_request(Vpqc_pcpi_mlkem &model, std::uint32_t left, std::uint32_t right
             ++ready_count;
             ready_cycle = cycle;
             require(model.pcpi_wr != 0, "ready response did not write a result");
-            require(model.pcpi_rd == oracle(left, right, funct3), "multiply result mismatch");
+            require(model.pcpi_rd == multiply_oracle(left, right, funct3),
+                    "multiply result mismatch");
         }
     }
     require(ready_count == 1, "request did not produce exactly one response");
     require(ready_cycle == 2, "multiply latency changed");
+    model.pcpi_valid = 0;
+    tick(model);
+}
+
+void run_fqmul_request(Vpqc_pcpi_mlkem &model, std::uint32_t left, std::uint32_t right)
+{
+    model.pcpi_valid = 1;
+    model.pcpi_insn = UINT32_C(0x01f5850b);
+    model.pcpi_rs1 = left;
+    model.pcpi_rs2 = right;
+    model.eval();
+    require(model.pcpi_wait != 0, "fqmul request did not assert wait immediately");
+
+    unsigned ready_count = 0;
+    unsigned ready_cycle = 0;
+    for (unsigned cycle = 1; cycle <= 6; ++cycle)
+    {
+        tick(model);
+        if (model.pcpi_ready != 0)
+        {
+            ++ready_count;
+            ready_cycle = cycle;
+            require(model.pcpi_wr != 0, "fqmul response did not write a result");
+            require(model.pcpi_rd == fqmul_oracle(left, right), "fqmul result mismatch");
+        }
+        else if (cycle < 4)
+        {
+            require(model.pcpi_wait != 0, "fqmul wait dropped before response");
+        }
+    }
+    require(ready_count == 1, "fqmul request did not produce exactly one response");
+    require(ready_cycle == 4, "fqmul latency changed");
     model.pcpi_valid = 0;
     tick(model);
 }
@@ -131,7 +187,7 @@ void pcpi_test()
         {
             for (const std::uint32_t right : values)
             {
-                run_request(model, left, right, funct3);
+                run_multiply_request(model, left, right, funct3);
             }
         }
     }
@@ -139,7 +195,32 @@ void pcpi_test()
     std::uint32_t state = UINT32_C(0x243f6a88);
     for (unsigned i = 0; i < 10000; ++i)
     {
-        run_request(model, next_random(state), next_random(state), i & 3U);
+        run_multiply_request(model, next_random(state), next_random(state), i & 3U);
+    }
+
+    constexpr std::array<std::int32_t, 9> fqmul_values{0,
+                                                       1,
+                                                       -1,
+                                                       3328,
+                                                       -3328,
+                                                       -4096,
+                                                       4096,
+                                                       std::numeric_limits<std::int16_t>::min(),
+                                                       std::numeric_limits<std::int16_t>::max()};
+    for (const std::int32_t left : fqmul_values)
+    {
+        for (const std::int32_t right : fqmul_values)
+        {
+            run_fqmul_request(model, static_cast<std::uint32_t>(left),
+                              static_cast<std::uint32_t>(right));
+        }
+    }
+    for (unsigned i = 0; i < 10000U; ++i)
+    {
+        const std::uint32_t left = next_random(state);
+        const std::uint32_t right = next_random(state);
+        run_fqmul_request(model, left, right);
+        run_fqmul_request(model, left ^ UINT32_C(0xffff0000), right ^ UINT32_C(0x55550000));
     }
 
     model.pcpi_valid = 1;
@@ -161,7 +242,32 @@ void pcpi_test()
     tick(model);
 
     model.pcpi_valid = 1;
-    model.pcpi_insn = UINT32_C(0x02000033);
+    model.pcpi_insn = UINT32_C(0x0000000b);
+    model.pcpi_rs1 = UINT32_C(0x12348000);
+    model.pcpi_rs2 = UINT32_C(0x56787fff);
+    for (unsigned cycle = 0; cycle < 4; ++cycle)
+    {
+        tick(model);
+    }
+    require(model.pcpi_ready != 0 && model.pcpi_rd == fqmul_oracle(model.pcpi_rs1, model.pcpi_rs2),
+            "first back to back fqmul response failed");
+    tick(model);
+    model.pcpi_rs1 = UINT32_C(0xaaaaffff);
+    model.pcpi_rs2 = UINT32_C(0x55550001);
+    model.eval();
+    require(model.pcpi_wait != 0 && model.pcpi_ready == 0,
+            "second back to back fqmul was not accepted");
+    for (unsigned cycle = 0; cycle < 4; ++cycle)
+    {
+        tick(model);
+    }
+    require(model.pcpi_ready != 0 && model.pcpi_rd == fqmul_oracle(model.pcpi_rs1, model.pcpi_rs2),
+            "second back to back fqmul response failed");
+    model.pcpi_valid = 0;
+    tick(model);
+
+    model.pcpi_valid = 1;
+    model.pcpi_insn = UINT32_C(0x0000000b);
     model.pcpi_rs1 = 7;
     model.pcpi_rs2 = 9;
     tick(model);
@@ -172,11 +278,16 @@ void pcpi_test()
     tick(model);
     require(model.pcpi_ready == 0 && model.pcpi_wr == 0, "reset did not cancel request");
 
-    model.pcpi_valid = 1;
-    model.pcpi_insn = UINT32_C(0x00000013);
-    model.eval();
-    require(model.pcpi_wait == 0 && model.pcpi_ready == 0,
-            "unsupported instruction received a response");
+    for (const std::uint32_t instruction :
+         {UINT32_C(0x00000013), UINT32_C(0x0200000b), UINT32_C(0x0000100b), UINT32_C(0x0000002b)})
+    {
+        model.pcpi_valid = 1;
+        model.pcpi_insn = instruction;
+        model.eval();
+        require(model.pcpi_wait == 0 && model.pcpi_ready == 0,
+                "unsupported instruction received a response");
+        tick(model);
+    }
 }
 
 #else
@@ -315,6 +426,80 @@ void tick(Vpqc_picorv32_sim_top &model)
     std::ifstream input(path, std::ios::binary);
     require(static_cast<bool>(input), "cannot open measurement input");
     return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+
+void validate_instructions(const options &settings)
+{
+    if (settings.plan_id.empty() || settings.disassembly.empty())
+    {
+        return;
+    }
+    const bool expect_fqmul = settings.plan_id.ends_with("_xfqmul");
+    const std::array<std::string_view, 6> approved{"pqc_mlkem_ntt",          "pqc_mlkem_intt",
+                                                   "pqc_mlkem_mulcache_one", "pqc_mlkem_mulcache",
+                                                   "pqc_mlkem_basemul",      "pqc_mlkem_tomont"};
+    std::istringstream input(read_file(settings.disassembly));
+    std::string line;
+    std::string function;
+    std::size_t fqmul_count = 0;
+    while (std::getline(input, line))
+    {
+        const std::size_t left = line.find('<');
+        const std::size_t header = line.find(">:");
+        if (left != std::string::npos && header != std::string::npos && left < header)
+        {
+            function = line.substr(left + 1U, header - left - 1U);
+            require(!function.starts_with("__div") && !function.starts_with("__udiv") &&
+                        !function.starts_with("__mod") && !function.starts_with("__umod"),
+                    "software division helper found in mlkem firmware");
+            continue;
+        }
+        const std::size_t colon = line.find(':');
+        if (colon == std::string::npos)
+        {
+            continue;
+        }
+        std::string_view instruction(line);
+        instruction.remove_prefix(colon + 1U);
+        const std::size_t first = instruction.find_first_not_of(" \t");
+        if (first == std::string_view::npos)
+        {
+            continue;
+        }
+        instruction.remove_prefix(first);
+        const std::size_t end = instruction.find_first_of(" \t");
+        const std::string_view word_text = instruction.substr(0, end);
+        if (word_text.size() != 8U)
+        {
+            continue;
+        }
+        std::uint32_t word = 0;
+        const auto parsed =
+            std::from_chars(word_text.data(), word_text.data() + word_text.size(), word, 16);
+        if (parsed.ec != std::errc{} || parsed.ptr != word_text.data() + word_text.size())
+        {
+            fail("invalid raw instruction word");
+        }
+        if ((word & UINT32_C(0xfe00707f)) == UINT32_C(0x0000000b))
+        {
+            ++fqmul_count;
+            const bool allowed = std::any_of(
+                approved.begin(), approved.end(),
+                [&function](std::string_view name)
+                { return function == name || function.starts_with(std::string(name) + '.'); });
+            require(allowed, "fqmul word is outside an approved function");
+        }
+        const std::uint32_t decoded = word & UINT32_C(0xfe00707f);
+        const bool divide = decoded == UINT32_C(0x02004033) || decoded == UINT32_C(0x02005033) ||
+                            decoded == UINT32_C(0x02006033) || decoded == UINT32_C(0x02007033);
+        require(!divide, "division instruction found in mlkem firmware");
+        const bool indirect_call =
+            (word & UINT32_C(0x7f)) == UINT32_C(0x67) && ((word >> 7U) & UINT32_C(0x1f)) == 1U;
+        require(!indirect_call || function == "pqc_call_measured",
+                "unexpected indirect call in mlkem firmware");
+    }
+    require(expect_fqmul ? fqmul_count != 0U : fqmul_count == 0U,
+            "custom instruction presence does not match plan");
 }
 
 void write_stack(const options &settings, const std::vector<std::uint32_t> &status)
@@ -532,6 +717,8 @@ void write_mlkem(const options &settings, std::span<const std::uint64_t> begins,
                << ",\"calibrated_cycles\":" << cycles << ",\"instruction_count\":" << instructions
 #if defined(PQC_STOCK_MUL)
                << ",\"multiplier\":\"stock\"}\n";
+#elif defined(PQC_FQMUL)
+               << ",\"multiplier\":\"fqmul\"}\n";
 #else
                << ",\"multiplier\":\"project\"}\n";
 #endif
@@ -559,6 +746,7 @@ void write_size(const options &settings)
 
 void simulate(const options &settings)
 {
+    validate_instructions(settings);
     Vpqc_picorv32_sim_top model;
     std::vector<std::uint64_t> begins;
     std::vector<std::uint64_t> ends;
@@ -619,6 +807,8 @@ void simulate(const options &settings)
     output << "{\"begin_cycle\":" << begin << ",\"end_cycle\":" << end
 #if defined(PQC_STOCK_MUL)
            << ",\"multiplier\":\"stock\""
+#elif defined(PQC_FQMUL)
+           << ",\"multiplier\":\"fqmul\""
 #else
            << ",\"multiplier\":\"project\""
 #endif

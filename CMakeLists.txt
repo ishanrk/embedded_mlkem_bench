@@ -21,9 +21,11 @@ option(PQC_POLY_WARNINGS_AS_ERRORS "treat compiler warnings as errors" ON)
 option(PQC_POLY_PICORV32 "enable the opt in picorv32 simulation target" OFF)
 option(PQC_POLY_PICORV32_SYNTHESIS "enable the opt in picorv32 synthesis target" OFF)
 option(PQC_POLY_PICORV32_MLKEM "enable the opt in picorv32 mlkem measurements" OFF)
+option(PQC_POLY_PICORV32_FQMUL_VERIFY "enable the opt in fqmul formal and cbmc targets" OFF)
 option(PQC_POLY_FETCH_MLKEM_NATIVE "fetch the pinned mlkem native source" OFF)
 
-if(PQC_POLY_PICORV32_SYNTHESIS OR PQC_POLY_PICORV32_MLKEM)
+if(PQC_POLY_PICORV32_SYNTHESIS OR PQC_POLY_PICORV32_MLKEM OR
+   PQC_POLY_PICORV32_FQMUL_VERIFY)
     set(PQC_POLY_PICORV32 ON)
 endif()
 
@@ -173,10 +175,13 @@ if(BUILD_TESTING)
         PRIVATE PQC_POLY_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     pqc_poly_add_test(mlkem-plan tests/mlkem_plan_test.cpp pqc_poly_compiler)
     pqc_poly_add_test(mlkem-check tests/mlkem_check_test.cpp pqc_poly_compiler)
+    pqc_poly_add_test(fqmul tests/fqmul_test.cpp pqc_poly_compiler)
     pqc_poly_add_test(mlkem-codegen tests/mlkem_codegen_test.cpp pqc_poly_compiler)
     target_compile_definitions(
         pqc-poly-mlkem-codegen-test
-        PRIVATE PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}")
+        PRIVATE
+            PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}"
+            PQC_POLY_TEST_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     if(PQC_POLY_SANITIZE)
         target_compile_definitions(pqc-poly-mlkem-codegen-test PRIVATE PQC_POLY_TEST_SANITIZE=1)
     endif()

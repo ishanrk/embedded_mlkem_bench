@@ -34,7 +34,7 @@ int main()
     const pqc_poly::mlkem_request request{};
     const std::vector<pqc_poly::mlkem_plan> plans = pqc_poly::enumerate_mlkem_plans();
     unsigned safe = 0;
-    unsigned unavailable = 0;
+    unsigned custom_count = 0;
     for (const pqc_poly::mlkem_plan &plan : plans)
     {
         const pqc_poly::mlkem_candidate candidate = pqc_poly::analyze_mlkem_plan(request, plan);
@@ -46,12 +46,11 @@ int main()
         }
         else
         {
-            require(!candidate.legal && has(errors, "instruction_unavailable"),
-                    "custom plan lacks stable rejection");
-            ++unavailable;
+            require(candidate.legal && errors.empty(), "custom plan was rejected");
+            ++custom_count;
         }
     }
-    require(safe == 72 && unavailable == 72, "safe or rejected plan count changed");
+    require(safe == 72 && custom_count == 72, "software or custom plan count changed");
 
     pqc_poly::mlkem_candidate candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
     candidate.schema = "bad";
@@ -180,9 +179,8 @@ int main()
     require(custom != plans.end(), "custom plan is missing");
     candidate = pqc_poly::analyze_mlkem_plan(limited, *custom);
     require(
-        candidate.rejections == std::vector<std::string>{"scratch_limit", "caller_workspace_limit",
-                                                         "instruction_unavailable"},
+        candidate.rejections == std::vector<std::string>{"scratch_limit", "caller_workspace_limit"},
         "rejection order changed");
-    require(pqc_poly::check_mlkem_plan(limited, candidate).size() == 3,
+    require(pqc_poly::check_mlkem_plan(limited, candidate).size() == 2,
             "checked rejection order changed");
 }

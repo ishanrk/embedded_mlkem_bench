@@ -2,5 +2,8 @@ yosys read_verilog -sv $::env(PICORV32_SOURCE)
 yosys read_verilog -sv $::env(PQC_PCPI_SOURCE)
 yosys read_verilog -sv $::env(PQC_CORE_SOURCE)
 yosys chparam -set STOCK_MUL $::env(STOCK_MUL) pqc_picorv32_core_top
+if {$::env(ENABLE_FQMUL)} {
+    yosys chparam -set ENABLE_FQMUL 1 pqc_picorv32_core_top
+}
 yosys hierarchy -check -top pqc_picorv32_core_top
 yosys synth_ecp5 -top pqc_picorv32_core_top -json $::env(SYNTH_JSON)

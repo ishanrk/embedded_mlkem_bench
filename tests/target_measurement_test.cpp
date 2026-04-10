@@ -217,6 +217,11 @@ void test_mlkem_cycles()
     require(records.size() == 2 && records[0].calibrated_cycles == 18 && records[1].input == 29 &&
                 records[1].repeat == 2,
             "mlkem measurement parse changed");
+    require(
+        pqc_poly::parse_mlkem_cycle_measurements(
+            R"({"schema":"pqc-poly-bench/mlkem-measurement-v1","plan_id":"p","level":"512","operation":"forward_ntt","multiplier":"fqmul","input":0,"repeat":0,"begin_cycle":10,"end_cycle":30,"marker_overhead_cycles":2,"calibrated_cycles":18,"instruction_count":7})")
+                .size() == 1,
+        "fqmul measurement was rejected");
     require_error(
         []
         {

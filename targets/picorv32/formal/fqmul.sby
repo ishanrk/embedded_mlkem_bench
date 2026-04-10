@@ -1,0 +1,38 @@
+[tasks]
+pcpi
+m
+rvfi
+rvfi_cover
+
+[options]
+pcpi: mode prove
+pcpi: depth 8
+m: mode prove
+m: depth 8
+rvfi: mode bmc
+rvfi: depth 24
+rvfi_cover: mode cover
+rvfi_cover: depth 24
+
+[engines]
+pcpi: abc pdr
+m: abc pdr
+rvfi: abc bmc3
+rvfi_cover: smtbmc boolector
+
+[script]
+pcpi: read -formal -sv pqc_pcpi_mlkem.sv fqmul_properties.sv
+pcpi: prep -top fqmul_properties
+m: read -formal -sv pqc_pcpi_mlkem.sv fqmul_properties.sv
+m: prep -top fqmul_m_noninterference
+rvfi: read -formal -D RISCV_FORMAL -sv picorv32.v pqc_pcpi_mlkem.sv pqc_picorv32_core_top.sv rvfi_fqmul_monitor.sv
+rvfi: prep -top rvfi_fqmul_formal
+rvfi_cover: read -formal -D RISCV_FORMAL -sv picorv32.v pqc_pcpi_mlkem.sv pqc_picorv32_core_top.sv rvfi_fqmul_monitor.sv
+rvfi_cover: prep -top rvfi_fqmul_formal
+
+[files]
+picorv32.v
+pqc_pcpi_mlkem.sv
+pqc_picorv32_core_top.sv
+fqmul_properties.sv
+rvfi_fqmul_monitor.sv

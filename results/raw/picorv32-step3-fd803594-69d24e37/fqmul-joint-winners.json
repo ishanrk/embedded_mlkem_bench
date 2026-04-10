@@ -1,0 +1,53 @@
+{
+  "schema": "pqc-poly-bench/fqmul-joint-winners-v1",
+  "selections": [
+    {
+      "level": "512",
+      "result": {
+        "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+        "operations": {
+          "keygen": 3497610,
+          "encapsulation": 3664791,
+          "decapsulation": 4541105
+        },
+        "complete_total_median_cycles": 11703506,
+        "runtime_stack_high_water_bytes": 11284,
+        "explicit_scratch_bytes": 512,
+        "caller_working_bytes": 9888,
+        "allocated_flash_bytes": 23596
+      }
+    },
+    {
+      "level": "768",
+      "result": {
+        "plan_id": "mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul",
+        "operations": {
+          "keygen": 5618665,
+          "encapsulation": 6091140,
+          "decapsulation": 7313747
+        },
+        "complete_total_median_cycles": 19023552,
+        "runtime_stack_high_water_bytes": 16196,
+        "explicit_scratch_bytes": 0,
+        "caller_working_bytes": 13792,
+        "allocated_flash_bytes": 22758
+      }
+    },
+    {
+      "level": "1024",
+      "result": {
+        "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+        "operations": {
+          "keygen": 8879368,
+          "encapsulation": 9406970,
+          "decapsulation": 11031713
+        },
+        "complete_total_median_cycles": 29318051,
+        "runtime_stack_high_water_bytes": 22564,
+        "explicit_scratch_bytes": 1024,
+        "caller_working_bytes": 17856,
+        "allocated_flash_bytes": 23474
+      }
+    }
+  ]
+}

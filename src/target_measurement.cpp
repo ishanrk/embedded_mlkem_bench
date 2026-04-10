@@ -1036,7 +1036,8 @@ std::vector<mlkem_cycle_measurement> parse_mlkem_cycle_measurements(std::string_
                             record.operation == "base_dot_k3" || record.operation == "base_dot_k4";
         if ((record.level != "512" && record.level != "768" && record.level != "1024") ||
             (!kernel && !full_operation) ||
-            (record.multiplier != "project" && record.multiplier != "stock") ||
+            (record.multiplier != "project" && record.multiplier != "stock" &&
+             record.multiplier != "fqmul") ||
             record.repeat >= 3U || record.input >= (full_operation ? 30U : 16U) ||
             record.end_cycle < record.begin_cycle ||
             record.end_cycle - record.begin_cycle < record.marker_overhead_cycles ||

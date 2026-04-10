@@ -51,6 +51,52 @@ PQC_FORCE_INLINE int16_t pqc_barrett_reduce(int16_t a)
 
 )pqc";
 
+constexpr std::string_view custom_prologue = R"pqc(#include <stdint.h>
+
+#include "fqmul.h"
+
+#define PQC_MLKEM_N 256
+#define PQC_MLKEM_Q 3329
+#if defined(__GNUC__) || defined(__clang__)
+#define PQC_FORCE_INLINE static inline __attribute__((always_inline))
+#else
+#define PQC_FORCE_INLINE static inline
+#endif
+
+static const int16_t pqc_zetas[128] = {
+    -1044, -758, -359, -1517, 1493, 1422, 287, 202, -171, 622, 1577, 182, 962,
+    -1202, -1474, 1468, 573, -1325, 264, 383, -829, 1458, -1602, -130, -681,
+    1017, 732, 608, -1542, 411, -205, -1571, 1223, 652, -552, 1015, -1293,
+    1491, -282, -1544, 516, -8, -320, -666, -1618, -1162, 126, 1469, -853,
+    -90, -271, 830, 107, -1421, -247, -951, -398, 961, -1508, -725, 448,
+    -1065, 677, -1275, -1103, 430, 555, 843, -1251, 871, 1550, 105, 422,
+    587, 177, -235, -291, -460, 1574, 1653, -246, 778, 1159, -147, -777,
+    1483, -602, 1119, -1590, 644, -872, 349, 418, 329, -156, -75, 817,
+    1097, 603, 610, 1322, -1285, -1465, 384, -1215, -136, 1218, -1335,
+    -874, 220, -1187, -1659, -1185, -1530, -1278, 794, -1510, -854, -870,
+    478, -108, -308, 996, 991, 958, -1460, 1522, 1628,
+};
+
+PQC_FORCE_INLINE int16_t pqc_montgomery_reduce(int32_t a)
+{
+    const uint16_t inverted = (uint16_t)((uint32_t)(uint16_t)a * UINT32_C(62209));
+    const int32_t t = inverted <= INT16_MAX ? (int32_t)inverted : (int32_t)inverted - 65536;
+    return (int16_t)((a - t * PQC_MLKEM_Q) >> 16);
+}
+
+PQC_FORCE_INLINE int16_t pqc_fqmul(int16_t a, int16_t b)
+{
+    return (int16_t)pqc_mlk_fqmul((uint32_t)(int32_t)a, (uint32_t)(int32_t)b);
+}
+
+PQC_FORCE_INLINE int16_t pqc_barrett_reduce(int16_t a)
+{
+    const int32_t t = (INT32_C(20159) * a + (INT32_C(1) << 25)) >> 26;
+    return (int16_t)(a - t * PQC_MLKEM_Q);
+}
+
+)pqc";
+
 constexpr std::string_view forward_helpers =
     R"pqc(PQC_FORCE_INLINE void pqc_ntt_layer(int16_t r[256], unsigned length, unsigned zeta_index)
 {
@@ -331,15 +377,14 @@ void append_declarations(std::string &out, const mlkem_plan &plan)
 std::string generate_mlkem_backend(const mlkem_request &request, const mlkem_candidate &candidate)
 {
     const std::vector<std::string> errors = check_mlkem_plan(request, candidate);
-    if (!errors.empty() || !candidate.legal ||
-        candidate.plan.instruction != mlkem_instruction::none)
+    if (!errors.empty() || !candidate.legal)
     {
         throw mlkem_error("cannot generate rejected mlkem plan");
     }
 
     std::string out;
     out.reserve(16384);
-    out += prologue;
+    out += candidate.plan.instruction == mlkem_instruction::fqmul ? custom_prologue : prologue;
     append_declarations(out, candidate.plan);
     out += forward_helpers;
     out += inverse_helpers;
