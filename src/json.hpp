@@ -9,11 +9,6 @@
 namespace pqc_poly::detail
 {
 
-inline void append_indent(std::string &out, std::size_t count)
-{
-    out.append(count, ' ');
-}
-
 inline void append_hex_quad(std::string &out, std::uint16_t value)
 {
     constexpr std::string_view digits = "0123456789abcdef";

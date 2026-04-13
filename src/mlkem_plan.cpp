@@ -1,7 +1,5 @@
 #include "pqc_poly/mlkem_plan.hpp"
 
-#include "pqc_poly/selector.hpp"
-
 #include "json.hpp"
 
 #include <array>
@@ -159,17 +157,6 @@ unsigned mlkem_k(mlkem_level level) noexcept
             return 4;
     }
     return 0;
-}
-
-mlkem_request parse_mlkem_request(std::string_view json)
-{
-    const request parsed = parse_request(json);
-    if (parsed.op != operation::negacyclic_mul || parsed.n != 256 || parsed.q != 3329)
-    {
-        throw mlkem_error("mlkem request must use negacyclic_mul n 256 q 3329");
-    }
-    return {.scratch_limit = parsed.limits.ram,
-            .caller_workspace_limit = std::numeric_limits<std::uint64_t>::max()};
 }
 
 std::string mlkem_plan_id(const mlkem_plan &plan)

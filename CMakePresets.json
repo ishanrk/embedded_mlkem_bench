@@ -8,22 +8,12 @@
   "configurePresets": [
     {
       "name": "release",
-      "displayName": "portable release",
+      "displayName": "release",
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "PQC_POLY_LTO": "ON",
-        "PQC_POLY_NATIVE": "OFF"
-      }
-    },
-    {
-      "name": "release-native",
-      "displayName": "native release",
-      "inherits": "release",
-      "binaryDir": "${sourceDir}/build/release-native",
-      "cacheVariables": {
-        "PQC_POLY_NATIVE": "ON"
+        "PQC_POLY_LTO": "ON"
       }
     },
     {
@@ -34,7 +24,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "PQC_POLY_LTO": "OFF",
-        "PQC_POLY_NATIVE": "OFF",
         "PQC_POLY_SANITIZE": "ON"
       }
     },
@@ -46,7 +35,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "PQC_POLY_LTO": "OFF",
-        "PQC_POLY_NATIVE": "OFF",
         "PQC_POLY_PICORV32": "ON"
       }
     },
@@ -64,10 +52,6 @@
     {
       "name": "release",
       "configurePreset": "release"
-    },
-    {
-      "name": "release-native",
-      "configurePreset": "release-native"
     },
     {
       "name": "sanitize",
@@ -88,13 +72,6 @@
     {
       "name": "release",
       "configurePreset": "release",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "release-native",
-      "configurePreset": "release-native",
       "output": {
         "outputOnFailure": true
       }

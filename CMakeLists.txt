@@ -3,18 +3,12 @@ cmake_minimum_required(VERSION 3.20)
 project(
     pqc_poly_bench
     VERSION 0.3.0
-    DESCRIPTION "constraint-driven polynomial kernel compilation and autotuning"
+    DESCRIPTION "reproducible ML-KEM software and RISC-V ISA co-design experiments"
     LANGUAGES CXX)
 
 include(CheckIPOSupported)
 include(CTest)
 
-find_program(PQC_POLY_SIZE_TOOL NAMES llvm-size size)
-if(NOT PQC_POLY_SIZE_TOOL)
-    set(PQC_POLY_SIZE_TOOL size)
-endif()
-
-option(PQC_POLY_NATIVE "enable host-specific vector instructions" OFF)
 option(PQC_POLY_LTO "enable link-time optimization in release builds" ON)
 option(PQC_POLY_SANITIZE "enable address and undefined behavior sanitizers" OFF)
 option(PQC_POLY_WARNINGS_AS_ERRORS "treat compiler warnings as errors" ON)
@@ -87,96 +81,38 @@ function(pqc_poly_configure target)
     endif()
 endfunction()
 
-add_library(pqc_poly_ring STATIC src/ring.cpp)
-pqc_poly_configure(pqc_poly_ring)
-
-add_library(
-    pqc_poly_formula
-    STATIC
-        src/formula/formula.cpp
-        src/formula/karatsuba.cpp
-        src/formula/ntt.cpp
-        src/formula/schoolbook.cpp
-        src/formula/tmvp.cpp
-        src/formula/toom_cook.cpp)
-pqc_poly_configure(pqc_poly_formula)
-target_link_libraries(pqc_poly_formula PUBLIC pqc_poly_ring)
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(
-        pqc_poly_formula
-        PRIVATE
-            -fno-exceptions
-            -fno-rtti
-            -fno-semantic-interposition)
-
-    if(PQC_POLY_NATIVE)
-        target_compile_options(pqc_poly_formula PRIVATE -march=native)
-    endif()
-endif()
-
 add_library(
     pqc_poly_compiler
     STATIC
-        src/codegen.cpp
-        src/explore.cpp
-        src/host_tuner.cpp
         src/mlkem_check.cpp
         src/mlkem_codegen.cpp
         src/mlkem_plan.cpp
-        src/selector.cpp
-        src/target_measurement.cpp
-        src/tuning.cpp)
+        src/mlkem_request.cpp
+        src/target_measurement.cpp)
 pqc_poly_configure(pqc_poly_compiler)
-target_compile_definitions(
-    pqc_poly_compiler
-    PRIVATE
-        PQC_POLY_HOST_CXX="${CMAKE_CXX_COMPILER}"
-        PQC_POLY_HOST_CXX_VERSION="${CMAKE_CXX_COMPILER_VERSION}"
-        PQC_POLY_HOST_SIZE="${PQC_POLY_SIZE_TOOL}")
-
-add_executable(pqc-poly-bench src/main.cpp)
-pqc_poly_configure(pqc-poly-bench)
-target_link_libraries(pqc-poly-bench PRIVATE pqc_poly_compiler)
 
 add_executable(pqc-poly-mlkem src/mlkem_main.cpp src/mlkem_explore.cpp)
 pqc_poly_configure(pqc-poly-mlkem)
 target_link_libraries(pqc-poly-mlkem PRIVATE pqc_poly_compiler)
 
-add_executable(pqc-poly-formula-bench benchmarks/formula_bench.cpp)
-pqc_poly_configure(pqc-poly-formula-bench)
-target_link_libraries(pqc-poly-formula-bench PRIVATE pqc_poly_formula)
-
 if(BUILD_TESTING)
-    function(pqc_poly_add_test name source library)
+    function(pqc_poly_add_test name source)
         set(target pqc-poly-${name}-test)
         add_executable(${target} ${source})
         pqc_poly_configure(${target})
-        target_link_libraries(${target} PRIVATE ${library})
+        target_link_libraries(${target} PRIVATE pqc_poly_compiler)
         add_test(NAME ${name} COMMAND ${target})
     endfunction()
 
-    pqc_poly_add_test(ring tests/ring_test.cpp pqc_poly_ring)
-    pqc_poly_add_test(formula tests/formula_test.cpp pqc_poly_formula)
-    pqc_poly_add_test(selector tests/selector_tests.cpp pqc_poly_compiler)
-    pqc_poly_add_test(tuning tests/tuning_test.cpp pqc_poly_compiler)
-    pqc_poly_add_test(codegen tests/codegen_test.cpp pqc_poly_compiler)
-    target_compile_definitions(
-        pqc-poly-codegen-test
-        PRIVATE PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}")
-    pqc_poly_add_test(host-tuner tests/host_tuner_test.cpp pqc_poly_compiler)
-    pqc_poly_add_test(explore tests/explore_test.cpp pqc_poly_compiler)
-    pqc_poly_add_test(
-        target-measurement tests/target_measurement_test.cpp pqc_poly_compiler)
-    pqc_poly_add_test(
-        picorv32-manifest tests/picorv32_manifest_test.cpp pqc_poly_compiler)
+    pqc_poly_add_test(target-measurement tests/target_measurement_test.cpp)
+    pqc_poly_add_test(picorv32-manifest tests/picorv32_manifest_test.cpp)
     target_compile_definitions(
         pqc-poly-picorv32-manifest-test
         PRIVATE PQC_POLY_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
-    pqc_poly_add_test(mlkem-plan tests/mlkem_plan_test.cpp pqc_poly_compiler)
-    pqc_poly_add_test(mlkem-check tests/mlkem_check_test.cpp pqc_poly_compiler)
-    pqc_poly_add_test(fqmul tests/fqmul_test.cpp pqc_poly_compiler)
-    pqc_poly_add_test(mlkem-codegen tests/mlkem_codegen_test.cpp pqc_poly_compiler)
+    pqc_poly_add_test(mlkem-plan tests/mlkem_plan_test.cpp)
+    pqc_poly_add_test(mlkem-check tests/mlkem_check_test.cpp)
+    pqc_poly_add_test(fqmul tests/fqmul_test.cpp)
+    pqc_poly_add_test(mlkem-codegen tests/mlkem_codegen_test.cpp)
     target_compile_definitions(
         pqc-poly-mlkem-codegen-test
         PRIVATE
@@ -186,7 +122,7 @@ if(BUILD_TESTING)
         target_compile_definitions(pqc-poly-mlkem-codegen-test PRIVATE PQC_POLY_TEST_SANITIZE=1)
     endif()
 
-    add_test(NAME cli-help COMMAND pqc-poly-bench --help)
+    add_test(NAME cli-help COMMAND pqc-poly-mlkem --help)
 endif()
 
 if(PQC_POLY_PICORV32)

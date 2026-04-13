@@ -1,29 +1,14 @@
 # pqc-poly-bench
 
-`pqc-poly-bench` selects and emits small C++20 kernels for cyclic and negacyclic
-polynomial multiplication. A JSON request supplies the ring, coefficient range,
-aliasing contract, target integer widths, and scratch-RAM limit. The tool rejects
-plans that violate those constraints and either uses a static cost model or
-measures the legal plans on the host.
+`pqc-poly-bench` is a reproducible research harness for ML-KEM software scheduling and
+small RISC-V ISA extensions on a resource-constrained PicoRV32 target. It enumerates a
+fixed ML-KEM schedule space, independently checks arithmetic and memory invariants,
+generates C backends, measures every legal schedule end to end, and compares software
+winners against hardware/software co-design variants.
 
-This is an early compiler/autotuner prototype, not a complete PQC implementation.
-
-## What works
-
-The generic path supports three schoolbook schedules:
-
-- `sb_full`: accumulate a linear convolution, then fold it into the ring;
-- `sb_fold`: accumulate directly into the ring through fixed-size blocks;
-- `sb_out`: compute each output coefficient without scratch storage.
-
-For each supported 32- or 64-bit accumulator, the selector computes the signed
-accumulator bound, operation counts, alias safety, and explicit scratch use. A
-separate consistency pass recomputes those values before code generation.
-
-The repository also contains fixed NTRU-HPS-2048-509 formula experiments
-(schoolbook, Karatsuba, NTT, Toom-Cook, and TMVP). They are a separate benchmark:
-the JSON selector does not choose between them, and its RAM limit does not apply
-to their fixed internal storage.
+The repository is intentionally narrow. Earlier generic schoolbook polynomial-selection
+and fixed NTRU formula experiments have been removed from the active codebase because
+they are not part of the ML-KEM Step 1-3 results.
 
 ## Build and test
 
@@ -31,15 +16,6 @@ to their fixed internal storage.
 cmake --preset release
 cmake --build --preset release --parallel
 ctest --preset release
-```
-
-For host-native formula benchmarks:
-
-```bash
-cmake --preset release-native
-cmake --build --preset release-native --parallel
-ctest --preset release-native
-./build/release-native/pqc-poly-formula-bench 1000
 ```
 
 For ASan and UBSan:
@@ -50,96 +26,52 @@ cmake --build --preset sanitize --parallel
 ASAN_OPTIONS=detect_leaks=0 ctest --preset sanitize
 ```
 
-## Use
+Normal host builds are offline. PicoRV32 and `mlkem-native` are fetched only by the
+explicit opt-in target flows.
 
-Requests use one strict schema; duplicate or unknown fields are rejected:
+## ML-KEM schedule space
+
+`pqc-poly-mlkem` enumerates 144 stable plans over ML-KEM-512, ML-KEM-768, and
+ML-KEM-1024. Each level has 24 software plans and the same 24 plans using the Step 3
+`mlk.fqmul` instruction. The search dimensions are:
+
+- forward NTT traversal: stage-major or two-layer fusion;
+- inverse NTT traversal: stage-major or two-layer fusion;
+- inverse sum reduction: every layer or after each layer pair;
+- base multiplication: cached late reduction, cached eager reduction, or direct eager
+  reduction;
+- instruction set: baseline or `mlk.fqmul`.
+
+The input spec contains only the generated-kernel scratch limit:
 
 ```json
 {
-  "op": "negacyclic_mul",
-  "n": 256,
-  "q": 3329,
-  "input": "centered",
-  "output": "canonical",
-  "alias": "no",
-  "target": {
-    "name": "rv32im",
-    "word_bits": 32,
-    "size_bits": 32,
-    "acc_bits": [32, 64]
-  },
-  "limits": {"ram": 4096}
+  "scratch_limit": 4096
 }
 ```
 
-Static selection is deterministic and does not claim measured target performance:
+The ML-KEM ring, modulus, coefficient representation, and parameter dimensions are fixed
+by the experiment rather than repeated as generic polynomial-selector fields. Caller
+working storage remains a separate measured quantity and is not folded into
+`scratch_limit`.
+
+Generate all candidates and legal backends with:
 
 ```bash
-./build/release/pqc-poly-bench examples/mlkem.json -o out
+./build/release/pqc-poly-mlkem examples/mlkem.json -o mlkem-out
 ```
 
-Use `--plan PLAN_ID` to force a legal candidate. Use host tuning to compile,
-test, and measure every candidate locally:
+The independent checker validates plan identity, butterfly and twiddle schedules,
+fusion groupings, interval bounds, Montgomery and Barrett preconditions, explicit
+scratch, caller workspace, and the declared rejection set before code generation.
 
-```bash
-./build/release/pqc-poly-bench \
-  --tune-host \
-  --metric nanoseconds \
-  --samples 5 \
-  --iterations 16 \
-  examples/host-negacyclic.json \
-  -o out
-```
+## PicoRV32 Step 1
 
-Host tuning runs deterministic differential tests under ASan and UBSan, builds
-a separate `-O3` executable, records median latency and code size, and selects
-the fastest passing candidate. Results are labeled `host-proxy-for-*`; they are
-not results from the target named in a request.
-
-## Output
-
-A successful run writes:
-
-- `kernel.hpp`, `kernel.cpp`: standalone C++20 with the `pqc_poly_mul` entry point;
-- `plan.json`: the selected candidate and optional host measurement;
-- `candidates.json`: every candidate, its analysis, score, and rejection reasons;
-- `benchmarks.json`: checks, provenance, measurements, winner, and Pareto frontier.
-
-`scratch_bytes` is the size of arrays emitted inside `pqc_poly_mul`. It does not
-include input/output buffers, alignment or stack-frame overhead, compiler spills,
-or the separate fixed-formula benchmark.
-
-`limits.ram` has the same narrow meaning: maximum explicit scratch generated
-inside the selected kernel. PicoRV32 measurements keep caller working storage,
-compiler frames, proved call-chain bounds, runtime stack high water, text,
-read-only data, initialized data, and BSS in separate fields. They are never
-folded into an unexplained total RAM number.
-
-## Repository layout
-
-- `src/selector.cpp`: parse requests, enumerate plans, enforce bounds, and rank;
-- `src/codegen.cpp`: emit one standalone kernel from the selected plan;
-- `src/host_tuner.cpp`: compile, test, and measure generated kernels locally;
-- `src/tuning.cpp`: validate benchmark records and serialize results;
-- `src/target_measurement.cpp`: parse target cycles, stack, ELF, manifest, and synthesis data;
-- `src/explore.cpp`: CLI parsing and artifact orchestration;
-- `src/formula/`: fixed NTRU-509 formula experiments;
-- `targets/picorv32/`: opt-in firmware, RTL simulation, and ECP5 synthesis flow;
-- `tests/`: selector, generator, tuner, CLI, ring, and formula tests.
-
-## PicoRV32 step 1
-
-The opt-in target flow pins PicoRV32 at
-`a473fc8fca393771d83b0ffcf0b14db3393339d8` with an archive hash, builds bare
-metal RV32IMC smoke firmware, and provides a project PCPI implementation of the
-four standard multiply instructions. PicoRV32 remains unmodified and supplies
-division. The project multiplier has the same two-clock issue-to-ready latency as
-PicoRV32's stock fast multiplier. The Verilator harness models a deterministic
-one-cycle memory response and records benchmark marker handshakes rather than
-using host or ISS timing.
-
-The target flow is excluded from normal host presets and performs no download
-unless explicitly enabled:
+The target flow pins PicoRV32 at
+`a473fc8fca393771d83b0ffcf0b14db3393339d8`. It builds bare-metal RV32IMC smoke
+firmware, supplies a project PCPI implementation of the four standard multiply
+instructions, and compares it with PicoRV32's stock fast multiplier. PicoRV32 itself
+remains unmodified and supplies division.
 
 ```bash
 cmake --preset picorv32-sim
@@ -150,53 +82,23 @@ cmake --build --preset picorv32-synthesis
 cmake --build build/picorv32-synthesis --target pqc-picorv32-finalize
 ```
 
-The simulation preset requires `riscv32-unknown-elf-gcc`, `ld`, `objcopy`,
-`objdump`, and `size` from RISC-V GNU toolchain release `2026.07.15`, plus
-Verilator from OSS CAD Suite `2026-07-29`. Synthesis additionally requires
-Yosys, `nextpnr-ecp5`, `ecppack`, and Z3 from that CAD release. Missing tools
-cause configuration to fail with the exact executable and required release;
-the build never installs a toolchain.
+The completed Step 1 run measured 3249 calibrated cycles for both project and stock
+multipliers, 32 bytes of runtime stack high water, and 1288 allocated flash bytes. Five
+ECP5 seeds used 3583 LUT4, 970 flip-flops, 4 DSP blocks, and no block RAM; routed
+frequencies ranged from 66.39 to 70.68 MHz. These are substrate measurements, not
+ML-KEM performance results.
 
-When those pinned tools are present the simulation target builds project and
-stock-fast-multiplier configurations, checks deterministic repeated cycles,
-runs trap firmware, calibrates marker overhead, scans a separate measured stack,
-and records final ELF section sizes. The synthesis target retains seeds 1 through
-5 for `LFE5U-45F-6BG381C` at 50 MHz and fails if any seed misses timing.
-The explicit finalize target copies only a fully completed compact experiment to
-`results/raw/picorv32-step1-<repository>-<picorv32>/`.
+Historical Step 1 records remain under `results/raw/` with their original commit IDs.
+They are retained as provenance rather than rewritten by this cleanup.
 
-The completed local Step 1 run measured 3249 calibrated cycles for both the
-project and stock multipliers. It used 32 bytes of measured stack high water and
-1288 allocated flash bytes. All five synthesis seeds used 3583 LUT4, 970 flip
-flops, 4 DSP blocks, and no block RAM; routed frequencies ranged from 66.39 to
-70.68 MHz. These are substrate measurements for the fixed smoke workload, not
-ML-KEM results. ML-KEM schedules and `mlk.fqmul` belong to later steps and are
-intentionally absent.
+## Step 2: software schedule search
 
-## ML-KEM schedule search
-
-`pqc-poly-mlkem` is the isolated ML-KEM schedule compiler. It enumerates 144
-stable plans across ML-KEM-512, ML-KEM-768, and ML-KEM-1024: 72 software plans
-and 72 plans using the Step 3 `mlk.fqmul` instruction. The committed Step 2
-experiment measured only the software plans; Step 3 enables the existing
-`fqmul` plans without adding a search dimension.
-
-```bash
-./build/release/pqc-poly-mlkem examples/mlkem.json -o mlkem-out
-```
-
-The command writes one candidate file per level and one C backend per legal
-plan. An independent arithmetic and memory consistency checker gates emission.
-Candidate bounds keep explicit scratch and caller workspace separate.
-The pinned `mlkem-native` source is fetched only when
-`PQC_POLY_FETCH_MLKEM_NATIVE=ON`; normal host builds remain offline.
-
-The opt-in PicoRV32 flow pins `mlkem-native` at
+The ML-KEM flow pins `mlkem-native` at
 `69d24e37b8a04c6050ec55bc84a4228d7051bb4b` with archive SHA-256
 `5f83af0a01fbed2c2d6cc370b56909f3b062728cff0ec9f310314707f13a1f3e`.
-It measures the upstream portable implementation and every software schedule
-with 16 fixed kernel inputs and 30 fixed complete-operation inputs. Each input
-runs three times and unequal repeat cycles fail the run.
+It measures the upstream portable implementation and every software schedule with 16
+fixed kernel inputs and 30 fixed complete-operation inputs. Every input runs three times;
+repeat drift fails the run.
 
 ```bash
 cmake -S . -B build/picorv32-mlkem -G Ninja \
@@ -206,49 +108,61 @@ cmake --build build/picorv32-mlkem --target pqc-picorv32-mlkem --parallel
 cmake --build build/picorv32-mlkem --target pqc-picorv32-mlkem-finalize
 ```
 
-The first target emits winners only after all 72 software plans and all three
-portable baselines complete. It rejects unknown stack fields repeat drift and a
-project multiplier result more than two percent slower than the stock fast
-multiplier. The explicit finalize target then copies the complete raw experiment
-to `results/raw/picorv32-step2-<repository>-<mlkem-native>/`. Partial results are
-never selected or copied.
+All three parameter sets selected the software schedule
+`ffuse2_ifuse2_rpair_bcachelate_xnone`. The completed records are retained under
+`results/raw/picorv32-step2-3f13dce5-69d24e37/`.
 
-## PicoRV32 step 3
+## Step 3: `mlk.fqmul`
 
-Step 3 adds `mlk.fqmul`, a four-cycle signed-low-half Montgomery multiplication
-implemented in the existing project PCPI multiplier. The final campaign ran all
-72 custom plans with 16 kernel inputs, 30 complete-operation inputs, and three
-identical repeats. The jointly selected plans are:
+Step 3 adds `mlk.fqmul`, a four-cycle signed-low-half Montgomery multiplication in the
+existing project PCPI multiplier. The full 72-plan custom-instruction space was measured
+with the same input and repeat protocol as Step 2.
 
-| level | plan | complete cycles | versus software |
+| level | jointly selected plan | complete cycles | versus software |
 |---|---|---:|---:|
 | 512 | `mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul` | 11,703,506 | 7.39% faster |
 | 768 | `mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul` | 19,023,552 | 5.56% faster |
 | 1024 | `mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul` | 29,318,051 | 5.32% faster |
 
-The nine-point operation speedup has geometric mean 1.063700672. Joint schedule
-selection improves on staged `fqmul` by geometric mean 1.005931394, below the
-3% threshold, but selects a different faster schedule at every level. The 10%
-material-improvement threshold fails.
+The nine operation-level comparisons have geometric-mean speedup 1.063700672. Joint
+schedule selection improves on staged `fqmul` by geometric mean 1.005931394, below the
+declared 3% co-tuning threshold, although the fastest schedule changes at every level.
+The declared 10% material-improvement threshold also fails.
 
-Five-seed ECP5 synthesis keeps 4 DSP blocks and no block RAM and every seed
-exceeds 50 MHz. It nevertheless fails the declared hardware gates: median LUT4
-rises from 3583 to 3788, median flip-flops from 970 to 1053, and median routed
-frequency falls from 68.70 to 60.51 MHz. Therefore Step 3 does not recommend
-`fqmul`. The canonical records are under
+Five-seed ECP5 synthesis keeps 4 DSP blocks and no block RAM, and every seed remains
+above 50 MHz. The hardware gates nevertheless reject the instruction: median LUT4 rises
+from 3583 to 3788, median flip-flops from 970 to 1053, and median routed frequency falls
+from 68.70 to 60.51 MHz. The project therefore does not recommend `fqmul` on this target.
+Canonical Step 3 records are under
 `results/raw/picorv32-step3-fd803594-69d24e37/`.
 
 ## Verification limits
 
-A measured candidate is selectable only when plan consistency, scratch limits,
-differential tests, and ASan/UBSan all pass. Step 3 additionally checks the
-portable `fqmul` fallback with CBMC 6.10.0, proves the PCPI arithmetic and
-handshake properties with SymbiYosys, and performs a bounded RVFI retirement
-check. These results do not prove complete ML-KEM, constant-time C execution, or
-physical side-channel resistance. Reported PicoRV32 cycles come only from the
-completed RTL simulations, not host timing.
+A selectable plan must pass the independent ML-KEM plan checker and the measurement
+completeness checks. Generated backends are differentially tested, including ASan and
+UBSan host tests. Step 3 additionally checks the portable `fqmul` model with CBMC 6.10.0,
+proves PCPI arithmetic and handshake properties with SymbiYosys, and performs a bounded
+RVFI retirement check.
 
-The completed Step 2 records are retained under
-`results/raw/picorv32-step2-3f13dce5-69d24e37/`. All three parameter sets select
-the `ffuse2_ifuse2_rpair_bcachelate_xnone` schedule. The Step 4 `red32`
-comparison and a publication-quality comparison with prior work remain undone.
+These checks do not prove complete ML-KEM, constant-time C execution, or physical
+side-channel resistance. Reported target cycles come from the pinned RTL simulation,
+not host timing or an instruction-set simulator.
+
+## Repository layout
+
+- `src/mlkem_plan.cpp`: stable schedule enumeration, bounds, scratch accounting, and
+  measured-plan selection;
+- `src/mlkem_check.cpp`: independent reconstruction and consistency checks;
+- `src/mlkem_codegen.cpp`: C backend generation for software and `fqmul` plans;
+- `src/mlkem_explore.cpp`: experiment artifact generation and Step 2/3 selection;
+- `src/target_measurement.cpp`: target cycle, stack, ELF, manifest, and synthesis parsers;
+- `targets/picorv32/`: firmware, RTL, simulation, formal checks, and ECP5 synthesis;
+- `results/raw/`: retained completed experiment records;
+- `tests/`: ML-KEM, target-measurement, generated-backend, and `fqmul` tests.
+
+## Remaining research work
+
+The next planned comparison is Step 4 `red32`, run through the same complete software
+re-search, end-to-end measurement, verification, and hardware-gating pipeline. A
+publication-quality comparison against prior RISC-V ML-KEM implementations also remains
+to be completed.
