@@ -1,6 +1,7 @@
 module pqc_picorv32_core_top #(
     parameter STOCK_MUL = 1'b0,
-    parameter ENABLE_FQMUL = 1'b0
+    parameter ENABLE_FQMUL = 1'b0,
+    parameter ENABLE_RED32 = 1'b0
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -37,7 +38,12 @@ module pqc_picorv32_core_top #(
     output logic [31:0] formal_fqmul_left,
     output logic [31:0] formal_fqmul_right,
     output logic [212:0] formal_fqmul_state,
-    output logic signed [31:0] formal_fqmul_result
+    output logic signed [31:0] formal_fqmul_result,
+    output logic        formal_red32_accept,
+    output logic [31:0] formal_red32_left,
+    output logic [31:0] formal_red32_right,
+    output logic [212:0] formal_red32_state,
+    output logic signed [31:0] formal_red32_result
 `endif
 );
 
@@ -55,13 +61,14 @@ logic pcpi_wait;
 logic pcpi_ready;
 `ifdef RISCV_FORMAL
 logic [212:0] project_formal_state;
-logic signed [31:0] project_formal_fqmul_result;
+logic signed [31:0] project_formal_result;
 logic [31:0] core_rvfi_rs1_rdata;
 logic [31:0] core_rvfi_rs2_rdata;
 `endif
 
 pqc_pcpi_mlkem #(
-    .ENABLE_FQMUL(ENABLE_FQMUL)
+    .ENABLE_FQMUL(ENABLE_FQMUL),
+    .ENABLE_RED32(ENABLE_RED32)
 ) project_pcpi (
     .clk(clk),
     .resetn(resetn),
@@ -75,7 +82,7 @@ pqc_pcpi_mlkem #(
     .pcpi_ready(project_ready)
 `ifdef RISCV_FORMAL
     , .formal_state(project_formal_state),
-    .formal_fqmul_result(project_formal_fqmul_result)
+    .formal_fqmul_result(project_formal_result)
 `endif
 );
 
@@ -188,7 +195,8 @@ always_comb
 begin
     rvfi_rs1_rdata = core_rvfi_rs1_rdata;
     rvfi_rs2_rdata = core_rvfi_rs2_rdata;
-    if (rvfi_valid && (rvfi_insn & 32'hfe00_707f) == 32'h0000_000b)
+    if (rvfi_valid && ((rvfi_insn & 32'hfe00_707f) == 32'h0000_000b ||
+                       (rvfi_insn & 32'hfe00_707f) == 32'h0000_100b))
     begin
         rvfi_rs1_rdata = project_formal_state[175:144];
         rvfi_rs2_rdata = project_formal_state[143:112];
@@ -200,7 +208,14 @@ assign formal_fqmul_accept = pcpi_valid &&
 assign formal_fqmul_left = pcpi_rs1;
 assign formal_fqmul_right = pcpi_rs2;
 assign formal_fqmul_state = project_formal_state;
-assign formal_fqmul_result = project_formal_fqmul_result;
+assign formal_fqmul_result = project_formal_result;
+assign formal_red32_accept = pcpi_valid &&
+                             (pcpi_insn & 32'hfe00_707f) == 32'h0000_100b &&
+                             project_wait && project_formal_state[212:210] == 3'd0;
+assign formal_red32_left = pcpi_rs1;
+assign formal_red32_right = pcpi_rs2;
+assign formal_red32_state = project_formal_state;
+assign formal_red32_result = project_formal_result;
 `endif
 
 endmodule

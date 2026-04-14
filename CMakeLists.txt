@@ -88,12 +88,19 @@ add_library(
         src/mlkem_codegen.cpp
         src/mlkem_plan.cpp
         src/mlkem_request.cpp
+        src/mlkem_red32.cpp
+        src/mlkem_red32_check.cpp
+        src/mlkem_red32_codegen.cpp
         src/target_measurement.cpp)
 pqc_poly_configure(pqc_poly_compiler)
 
 add_executable(pqc-poly-mlkem src/mlkem_main.cpp src/mlkem_explore.cpp)
 pqc_poly_configure(pqc-poly-mlkem)
 target_link_libraries(pqc-poly-mlkem PRIVATE pqc_poly_compiler)
+
+add_executable(pqc-poly-red32 src/mlkem_red32_main.cpp src/mlkem_red32_explore.cpp)
+pqc_poly_configure(pqc-poly-red32)
+target_link_libraries(pqc-poly-red32 PRIVATE pqc_poly_compiler)
 
 if(BUILD_TESTING)
     function(pqc_poly_add_test name source)
@@ -113,16 +120,25 @@ if(BUILD_TESTING)
     pqc_poly_add_test(mlkem-check tests/mlkem_check_test.cpp)
     pqc_poly_add_test(fqmul tests/fqmul_test.cpp)
     pqc_poly_add_test(mlkem-codegen tests/mlkem_codegen_test.cpp)
+    pqc_poly_add_test(mlkem-red32 tests/mlkem_red32_test.cpp)
+    pqc_poly_add_test(mlkem-red32-codegen tests/mlkem_red32_codegen_test.cpp)
     target_compile_definitions(
         pqc-poly-mlkem-codegen-test
         PRIVATE
             PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}"
             PQC_POLY_TEST_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+    target_compile_definitions(
+        pqc-poly-mlkem-red32-codegen-test
+        PRIVATE
+            PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}"
+            PQC_POLY_TEST_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     if(PQC_POLY_SANITIZE)
         target_compile_definitions(pqc-poly-mlkem-codegen-test PRIVATE PQC_POLY_TEST_SANITIZE=1)
+        target_compile_definitions(pqc-poly-mlkem-red32-codegen-test PRIVATE PQC_POLY_TEST_SANITIZE=1)
     endif()
 
     add_test(NAME cli-help COMMAND pqc-poly-mlkem --help)
+    add_test(NAME red32-cli-help COMMAND pqc-poly-red32 --help)
 endif()
 
 if(PQC_POLY_PICORV32)

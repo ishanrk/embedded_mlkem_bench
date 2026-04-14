@@ -87,7 +87,11 @@ def parse_args():
     parser.add_argument("--work", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--enable-fqmul", action="store_true")
-    return parser.parse_args()
+    parser.add_argument("--enable-red32", action="store_true")
+    args = parser.parse_args()
+    if args.enable_fqmul and args.enable_red32:
+        parser.error("fqmul and red32 are separate synthesis experiments")
+    return args
 
 
 def main():
@@ -108,6 +112,7 @@ def main():
             "PQC_CORE_SOURCE": str(pathlib.Path(args.core).resolve()),
             "STOCK_MUL": "0",
             "ENABLE_FQMUL": "1" if args.enable_fqmul else "0",
+            "ENABLE_RED32": "1" if args.enable_red32 else "0",
             "SYNTH_JSON": str(netlist_path.resolve()),
         }
     )
@@ -169,6 +174,7 @@ def main():
         "target_frequency_mhz": 50,
         "period_ns": 20,
         "fqmul_enabled": args.enable_fqmul,
+        "red32_enabled": args.enable_red32,
         "yosys_version": version([args.yosys, "-V"]),
         "nextpnr_version": version([args.nextpnr, "--version"]),
         "ecppack_version": version([args.ecppack, "--version"]),
