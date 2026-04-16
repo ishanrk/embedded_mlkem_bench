@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="220" viewBox="0 0 1200 220">
+<rect width="1200" height="220" fill="#fff"/>
+<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#111"/></marker></defs>
+<style>.b{fill:#fff;stroke:#111;stroke-width:2}.t{font:18px Arial,sans-serif;fill:#111}.s{font:14px Arial,sans-serif;fill:#555}.l{stroke:#111;stroke-width:2;marker-end:url(#a)}</style>
+<text x="36" y="38" class="t" font-weight="700">Experiment path</text>
+<g transform="translate(35 78)">
+<rect class="b" x="0" y="0" width="170" height="82"/><text class="t" x="85" y="30" text-anchor="middle">schedule</text><text class="s" x="85" y="55" text-anchor="middle">NTT · reduction · basemul</text>
+<line class="l" x1="170" y1="41" x2="215" y2="41"/>
+<rect class="b" x="215" y="0" width="170" height="82"/><text class="t" x="300" y="30" text-anchor="middle">checker</text><text class="s" x="300" y="55" text-anchor="middle">bounds · memory · indices</text>
+<line class="l" x1="385" y1="41" x2="430" y2="41"/>
+<rect class="b" x="430" y="0" width="170" height="82"/><text class="t" x="515" y="30" text-anchor="middle">C backend</text><text class="s" x="515" y="55" text-anchor="middle">generated arithmetic</text>
+<line class="l" x1="600" y1="41" x2="645" y2="41"/>
+<rect class="b" x="645" y="0" width="170" height="82"/><text class="t" x="730" y="30" text-anchor="middle">RV32 firmware</text><text class="s" x="730" y="55" text-anchor="middle">mlkem-native + backend</text>
+<line class="l" x1="815" y1="41" x2="860" y2="41"/>
+<rect class="b" x="860" y="0" width="145" height="82"/><text class="t" x="932" y="30" text-anchor="middle">PicoRV32 RTL</text><text class="s" x="932" y="55" text-anchor="middle">Verilator cycles</text>
+<line class="l" x1="1005" y1="41" x2="1050" y2="41"/>
+<rect class="b" x="1050" y="0" width="115" height="82"/><text class="t" x="1107" y="30" text-anchor="middle">ECP5</text><text class="s" x="1107" y="55" text-anchor="middle">area · Fmax</text>
+</g></svg>
