@@ -70,6 +70,9 @@ def main():
 
     levels = {}
     for level in LEVELS:
+        portable = best_plan(
+            read_measurements(mlkem / f"mlk{level}_portable-project.jsonl")
+        )
         software = best_plan(
             read_measurements(mlkem / f"mlkem{level}-software-measurements.jsonl")
         )
@@ -79,9 +82,28 @@ def main():
         red = best_plan(
             read_measurements(red32 / f"mlkem{level}-red32-measurements.jsonl")
         )
-        fqmul["fewer_cycles_percent"] = percent_less(software["total"], fqmul["total"])
-        red["fewer_cycles_percent"] = percent_less(software["total"], red["total"])
-        levels[level] = {"software": software, "fqmul": fqmul, "red32": red}
+
+        software["fewer_cycles_vs_portable_percent"] = percent_less(
+            portable["total"], software["total"]
+        )
+        fqmul["fewer_cycles_vs_portable_percent"] = percent_less(
+            portable["total"], fqmul["total"]
+        )
+        fqmul["fewer_cycles_vs_software_percent"] = percent_less(
+            software["total"], fqmul["total"]
+        )
+        red["fewer_cycles_vs_portable_percent"] = percent_less(
+            portable["total"], red["total"]
+        )
+        red["fewer_cycles_vs_software_percent"] = percent_less(
+            software["total"], red["total"]
+        )
+        levels[level] = {
+            "portable": portable,
+            "software": software,
+            "fqmul": fqmul,
+            "red32": red,
+        }
 
     baseline = median_synthesis(synth / "baseline-synthesis.json")
     fqmul_synth = median_synthesis(synth / "fqmul-synthesis.json")
@@ -97,7 +119,7 @@ def main():
         )
 
     report = {
-        "schema": "pqc-poly-bench/current-comparison-v1",
+        "schema": "pqc-poly-bench/current-comparison-v2",
         "measurement_protocol": {
             "plans_per_level": 24,
             "kernel_inputs": 16,
