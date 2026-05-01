@@ -1,5 +1,5 @@
 {
-  "schema": "pqc-poly-bench/current-comparison-v1",
+  "schema": "pqc-poly-bench/current-comparison-v2",
   "measurement_protocol": {
     "plans_per_level": 24,
     "kernel_inputs": 16,
@@ -10,12 +10,20 @@
   },
   "levels": {
     "512": {
+      "portable": {
+        "plan": "mlk512_portable",
+        "keygen": 3766309,
+        "encapsulation": 4077697,
+        "decapsulation": 5160554,
+        "total": 13004560
+      },
       "software": {
         "plan": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone",
         "keygen": 3711104,
         "encapsulation": 3947876,
         "decapsulation": 4977755,
-        "total": 12636735
+        "total": 12636735,
+        "fewer_cycles_vs_portable_percent": 2.8284309503743303
       },
       "fqmul": {
         "plan": "mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
@@ -23,7 +31,8 @@
         "encapsulation": 3664791,
         "decapsulation": 4541105,
         "total": 11703506,
-        "fewer_cycles_percent": 7.385048432209744
+        "fewer_cycles_vs_portable_percent": 10.00459838702732,
+        "fewer_cycles_vs_software_percent": 7.385048432209744
       },
       "red32": {
         "plan": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xred32",
@@ -31,16 +40,25 @@
         "encapsulation": 3711506,
         "decapsulation": 4610961,
         "total": 11847177,
-        "fewer_cycles_percent": 6.24811709670259
+        "fewer_cycles_vs_portable_percent": 8.899824369298154,
+        "fewer_cycles_vs_software_percent": 6.24811709670259
       }
     },
     "768": {
+      "portable": {
+        "plan": "mlk768_portable",
+        "keygen": 5992621,
+        "encapsulation": 6586321,
+        "decapsulation": 8079618,
+        "total": 20658560
+      },
       "software": {
         "plan": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone",
         "keygen": 5897792,
         "encapsulation": 6419627,
         "decapsulation": 7825937,
-        "total": 20143356
+        "total": 20143356,
+        "fewer_cycles_vs_portable_percent": 2.4939008333591497
       },
       "fqmul": {
         "plan": "mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul",
@@ -48,7 +66,8 @@
         "encapsulation": 6091140,
         "decapsulation": 7313747,
         "total": 19023552,
-        "fewer_cycles_percent": 5.559172960056904
+        "fewer_cycles_vs_portable_percent": 7.914433532637318,
+        "fewer_cycles_vs_software_percent": 5.559172960056904
       },
       "red32": {
         "plan": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xred32",
@@ -56,16 +75,25 @@
         "encapsulation": 6133342,
         "decapsulation": 7393513,
         "total": 19187466,
-        "fewer_cycles_percent": 4.745435666231585
+        "fewer_cycles_vs_portable_percent": 7.120990039964063,
+        "fewer_cycles_vs_software_percent": 4.745435666231585
       }
     },
     "1024": {
+      "portable": {
+        "plan": "mlk1024_portable",
+        "keygen": 9402982,
+        "encapsulation": 10065013,
+        "decapsulation": 12011597,
+        "total": 31479592
+      },
       "software": {
         "plan": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone",
         "keygen": 9299335,
         "encapsulation": 9899724,
         "decapsulation": 11765022,
-        "total": 30964081
+        "total": 30964081,
+        "fewer_cycles_vs_portable_percent": 1.6376038164662363
       },
       "fqmul": {
         "plan": "mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
@@ -73,7 +101,8 @@
         "encapsulation": 9406970,
         "decapsulation": 11031713,
         "total": 29318051,
-        "fewer_cycles_percent": 5.315933645826595
+        "fewer_cycles_vs_portable_percent": 6.8664835300279625,
+        "fewer_cycles_vs_software_percent": 5.315933645826595
       },
       "red32": {
         "plan": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xred32",
@@ -81,7 +110,8 @@
         "encapsulation": 9503283,
         "decapsulation": 11165455,
         "total": 29614042,
-        "fewer_cycles_percent": 4.360016368643397
+        "fewer_cycles_vs_portable_percent": 5.926220390658176,
+        "fewer_cycles_vs_software_percent": 4.360016368643397
       }
     }
   },
