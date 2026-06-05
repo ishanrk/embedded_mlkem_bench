@@ -49,7 +49,13 @@ def main():
             "max_gain_vs_portable_percent": 100.0 * (portable[level] - zero) / portable[level],
             "passes_10_percent": removed * 10 >= software,
         }
-    print(json.dumps({"schema": "pqc-poly-bench/basmul2-bound-v1", "levels": levels}, indent=2))
+    out = {
+        "schema": "pqc-poly-bench/basmul2-bound-v1",
+        "model": "zero_cost_base_dot_and_mulcache_using_peak_observed_kernel_cycles",
+        "levels": levels,
+        "decision": "reject",
+    }
+    print(json.dumps(out, indent=2))
 
 
 if __name__ == "__main__":
