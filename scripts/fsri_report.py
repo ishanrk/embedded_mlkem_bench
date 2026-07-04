@@ -88,15 +88,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("build", type=Path)
     parser.add_argument("--reference", type=Path, required=True)
+    parser.add_argument("--combinational", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
     reference = json.loads(args.reference.read_text(encoding="utf-8"))
+    combinational = json.loads(args.combinational.read_text(encoding="utf-8"))
     model = json.loads(args.model.read_text(encoding="utf-8"))
-    model_cpi = model["pico_rv32_cpi"]["combinational_pcpi_instruction"]
+    model_cpi = model["pico_rv32_cpi"]["multiplier_reuse_pcpi_instruction"]
     levels = {}
     speedups = []
+    combinational_speedups = []
     fqmul_speedups = []
     red32_speedups = []
     counts = []
@@ -109,17 +112,21 @@ def main():
         portable = reference["levels"][level]["portable"]
         fqmul = reference["levels"][level]["fqmul"]
         red32 = reference["levels"][level]["red32"]
+        fast = combinational["levels"][level]
         count = instruction_count(
             args.build / f"mlk{level}_ffuse2_ifuse2_rpair_bcachelate_xfsri.dis"
         )
-        prediction = model["levels"][level]["latency_sweep"][str(model_cpi)]
+        prediction = model["levels"][level]["multiplier_reuse_prediction"]
+        gain = fewer(software["total"], result["total"])
+        fast_gain = fewer(software["total"], fast["total"])
         result.update(
             {
                 "fewer_cycles_vs_portable_percent": fewer(
                     portable["total"], result["total"]
                 ),
-                "fewer_cycles_vs_software_percent": fewer(
-                    software["total"], result["total"]
+                "fewer_cycles_vs_software_percent": gain,
+                "fewer_cycles_vs_combinational_percent": fewer(
+                    fast["total"], result["total"]
                 ),
                 "fewer_cycles_vs_fqmul_percent": fewer(
                     fqmul["total"], result["total"]
@@ -127,15 +134,17 @@ def main():
                 "fewer_cycles_vs_red32_percent": fewer(
                     red32["total"], result["total"]
                 ),
-                "model_combinational_pcpi_cpi": model_cpi,
-                "model_combinational_pcpi_gain_percent": prediction[
-                    "gain_percent"
+                "retained_combinational_gain_percent": 100.0 * gain / fast_gain,
+                "model_multiplier_reuse_pcpi_cpi": model_cpi,
+                "model_multiplier_reuse_gain_percent": prediction[
+                    "gain_vs_software_percent"
                 ],
                 "static_fsri_instructions": count,
             }
         )
         levels[level] = result
         speedups.append(software["total"] / result["total"])
+        combinational_speedups.append(software["total"] / fast["total"])
         fqmul_speedups.append(software["total"] / fqmul["total"])
         red32_speedups.append(software["total"] / red32["total"])
         counts.append(count)
@@ -148,6 +157,7 @@ def main():
 
     baseline = synthesis(args.build / "results" / "baseline-synthesis.json")
     fsri = synthesis(args.build / "results" / "fsri-synthesis.json")
+    fast = combinational["synthesis"]
     fqmul = reference["synthesis"]["fqmul"]
     red32 = reference["synthesis"]["red32"]
     fsri.update(
@@ -160,6 +170,15 @@ def main():
             ),
             "fmax_change_vs_baseline_percent": change(
                 baseline["median_fmax_mhz"], fsri["median_fmax_mhz"]
+            ),
+            "lut4_change_vs_combinational_percent": change(
+                fast["lut4"], fsri["lut4"]
+            ),
+            "flip_flop_change_vs_combinational_percent": change(
+                fast["flip_flops"], fsri["flip_flops"]
+            ),
+            "fmax_change_vs_combinational_percent": change(
+                fast["median_fmax_mhz"], fsri["median_fmax_mhz"]
             ),
             "lut4_change_vs_fqmul_percent": change(fqmul["lut4"], fsri["lut4"]),
             "fmax_change_vs_fqmul_percent": change(
@@ -175,6 +194,10 @@ def main():
     static_count_passed = all(count == EXPECTED_STATIC_FSRI for count in counts)
     all_levels_faster_than_software = all(
         levels[level]["fewer_cycles_vs_software_percent"] > 0.0 for level in LEVELS
+    )
+    all_levels_faster_than_combinational = all(
+        levels[level]["fewer_cycles_vs_combinational_percent"] > 0.0
+        for level in LEVELS
     )
     all_levels_faster_than_fqmul = all(
         levels[level]["fewer_cycles_vs_fqmul_percent"] > 0.0 for level in LEVELS
@@ -193,26 +216,31 @@ def main():
     strict_cycle_winner = all_levels_faster_than_fqmul and all_levels_faster_than_red32
 
     report = {
-        "schema": "pqc-poly-bench/fsri-comparison-v2",
+        "schema": "pqc-poly-bench/fsri-comparison-v3",
+        "architecture": "multiplier_reuse",
         "levels": levels,
         "three_level_geometric_mean_speedup": math.prod(speedups) ** (1.0 / 3.0),
         "reference_geometric_mean_speedup": {
+            "combinational_fsri": math.prod(combinational_speedups) ** (1.0 / 3.0),
             "fqmul": math.prod(fqmul_speedups) ** (1.0 / 3.0),
             "red32": math.prod(red32_speedups) ** (1.0 / 3.0),
         },
         "synthesis": {
             "baseline": baseline,
             "fsri": fsri,
+            "combinational_fsri_reference": fast,
             "fqmul_reference": fqmul,
             "red32_reference": red32,
         },
         "gates": {
             "static_instruction_count_passed": static_count_passed,
             "all_levels_faster_than_software": all_levels_faster_than_software,
+            "all_levels_faster_than_combinational": all_levels_faster_than_combinational,
             "all_levels_faster_than_fqmul": all_levels_faster_than_fqmul,
             "all_levels_faster_than_red32": all_levels_faster_than_red32,
             "no_operation_regression_over_two_percent": no_operation_regression,
             **gates,
+            "fewer_lut4_than_combinational": fsri["lut4"] < fast["lut4"],
             "fewer_lut4_than_fqmul": fsri["lut4"] < fqmul["lut4"],
             "fewer_lut4_than_red32": fsri["lut4"] < red32["lut4"],
             "strict_cycle_winner": strict_cycle_winner,
