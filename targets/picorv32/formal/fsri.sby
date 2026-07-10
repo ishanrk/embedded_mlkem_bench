@@ -1,0 +1,26 @@
+[tasks]
+pcpi
+rvfi
+
+[options]
+pcpi: mode bmc
+pcpi: depth 8
+rvfi: mode bmc
+rvfi: depth 22
+
+[engines]
+pcpi: abc bmc3
+rvfi: abc bmc3
+
+[script]
+pcpi: read -formal -sv pqc_pcpi_mlkem.sv fsri_properties.sv
+pcpi: prep -top fsri_properties
+rvfi: read -formal -D RISCV_FORMAL -sv picorv32.v pqc_pcpi_mlkem.sv pqc_picorv32_core_top.sv rvfi_fsri_monitor.sv
+rvfi: prep -top rvfi_fsri_formal
+
+[files]
+picorv32.v
+pqc_pcpi_mlkem.sv
+pqc_picorv32_core_top.sv
+fsri_properties.sv
+rvfi_fsri_monitor.sv
