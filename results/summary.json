@@ -1,0 +1,130 @@
+{
+  "schema": "pqc-poly-bench/summary-v1",
+  "platform": {
+    "core": "PicoRV32",
+    "isa": "RV32IMC",
+    "fpga": "LFE5U-45F-6BG381C",
+    "target_frequency_mhz": 50,
+    "routing_seeds": [1, 2, 3, 4, 5],
+    "picorv32_sha": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
+    "mlkem_native_sha": "69d24e37b8a04c6050ec55bc84a4228d7051bb4b"
+  },
+  "budget": {
+    "max_lut4_increase_percent": 5.0,
+    "max_flip_flop_increase_percent": 5.0,
+    "max_median_fmax_loss_percent": 2.0,
+    "extra_dsp": 0,
+    "extra_bram": 0,
+    "all_seeds_must_meet_50mhz": true
+  },
+  "levels": {
+    "512": {
+      "portable": 13004560,
+      "software": 12636735,
+      "fqmul": 11703506,
+      "red32": 11847177,
+      "fsri_combinational": 8700799,
+      "fsri_multiplier_reuse": 9055759,
+      "gain_vs_software_percent": {
+        "fqmul": 7.385048432209744,
+        "red32": 6.24811709670259,
+        "fsri_combinational": 31.146779607232407,
+        "fsri_multiplier_reuse": 28.337826186906664
+      }
+    },
+    "768": {
+      "portable": 20658560,
+      "software": 20143356,
+      "fqmul": 19023552,
+      "red32": 19187466,
+      "fsri_combinational": 13604448,
+      "fsri_multiplier_reuse": 14189088,
+      "gain_vs_software_percent": {
+        "fqmul": 5.559172960056904,
+        "red32": 4.745435666231585,
+        "fsri_combinational": 32.461859880746786,
+        "fsri_multiplier_reuse": 29.559463676261295
+      }
+    },
+    "1024": {
+      "portable": 31479592,
+      "software": 30964081,
+      "fqmul": 29318051,
+      "red32": 29614042,
+      "fsri_combinational": 20711107,
+      "fsri_multiplier_reuse": 21634003,
+      "gain_vs_software_percent": {
+        "fqmul": 5.315933645826595,
+        "red32": 4.360016368643397,
+        "fsri_combinational": 33.11247635607206,
+        "fsri_multiplier_reuse": 30.131939003776665
+      }
+    }
+  },
+  "hardware": {
+    "baseline": {
+      "lut4": 3583,
+      "flip_flops": 970,
+      "dsp": 4,
+      "bram": 0,
+      "median_fmax_mhz": 68.7,
+      "all_seeds_meet_50mhz": true
+    },
+    "fqmul": {
+      "lut4": 3788,
+      "flip_flops": 1053,
+      "dsp": 4,
+      "bram": 0,
+      "median_fmax_mhz": 60.51,
+      "all_seeds_meet_50mhz": true,
+      "lut4_change_percent": 5.721462461624337,
+      "flip_flop_change_percent": 8.556701030927835,
+      "fmax_change_percent": -11.92139737991267,
+      "budget_pass": false
+    },
+    "red32": {
+      "lut4": 3816,
+      "flip_flops": 1053,
+      "dsp": 4,
+      "bram": 0,
+      "median_fmax_mhz": 60.2,
+      "all_seeds_meet_50mhz": true,
+      "lut4_change_percent": 6.502930505163271,
+      "flip_flop_change_percent": 8.556701030927835,
+      "fmax_change_percent": -12.372634643377001,
+      "budget_pass": false
+    },
+    "fsri_combinational": {
+      "lut4": 4018,
+      "flip_flops": 970,
+      "dsp": 4,
+      "bram": 0,
+      "median_fmax_mhz": 66.72,
+      "all_seeds_meet_50mhz": true,
+      "commit": "1b1d01aaaffe48a0bfff3cdc096cca526f8a40ca",
+      "lut4_change_percent": 12.140664247837009,
+      "flip_flop_change_percent": 0.0,
+      "fmax_change_percent": -2.8820960698690015,
+      "budget_pass": false
+    },
+    "fsri_multiplier_reuse": {
+      "lut4": 3905,
+      "flip_flops": 1037,
+      "dsp": 4,
+      "bram": 0,
+      "median_fmax_mhz": 50.25,
+      "all_seeds_meet_50mhz": false,
+      "lut4_change_percent": 8.986882500697739,
+      "flip_flop_change_percent": 6.907216494845361,
+      "fmax_change_percent": -26.85589519650655,
+      "budget_pass": false
+    }
+  },
+  "geometric_mean_speedup_vs_software": {
+    "fqmul": 1.0648638187235022,
+    "red32": 1.0539780611625218,
+    "fsri_combinational": 1.4759121545744727,
+    "fsri_multiplier_reuse": 1.4153686083693011
+  },
+  "conclusion": "no tested custom instruction meets the full hardware budget"
+}
