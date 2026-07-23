@@ -107,7 +107,6 @@ add_custom_command(
 
 set(pqc_fsri_binaries)
 set(pqc_fsri_measurements)
-set(pqc_fsri_disassemblies)
 foreach(pqc_level IN ITEMS 512 768 1024)
     if(pqc_level EQUAL 512)
         set(pqc_k 2)
@@ -227,7 +226,6 @@ foreach(pqc_level IN ITEMS 512 768 1024)
     list(APPEND pqc_fsri_binaries "${pqc_elf}")
     list(APPEND pqc_fsri_measurements "${pqc_result}" "${pqc_stack_result}"
          "${pqc_size_result}")
-    list(APPEND pqc_fsri_disassemblies "${pqc_dis}")
 endforeach()
 
 add_custom_target(pqc-picorv32-fsri-build DEPENDS ${pqc_fsri_binaries})
@@ -259,29 +257,4 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
         VERBATIM)
     add_custom_target(pqc-picorv32-fsri-synthesis DEPENDS "${pqc_fsri_synthesis}")
     add_dependencies(pqc-picorv32-fsri-synthesis pqc-picorv32-synthesis)
-
-    set(pqc_fsri_report "${pqc_fsri_results}/fsri-comparison.json")
-    add_custom_command(
-        OUTPUT "${pqc_fsri_report}"
-        COMMAND
-            "${PQC_PYTHON}" "${PROJECT_SOURCE_DIR}/scripts/fsri_report.py"
-            "${pqc_target_dir}" --reference
-            "${PROJECT_SOURCE_DIR}/results/current-comparison.json" --combinational
-            "${PROJECT_SOURCE_DIR}/results/fsri-combinational.json" --model
-            "${PROJECT_SOURCE_DIR}/results/fsri-model.json" --output "${pqc_fsri_report}"
-        DEPENDS
-            ${pqc_fsri_measurements}
-            ${pqc_fsri_disassemblies}
-            "${pqc_results}/baseline-synthesis.json"
-            "${pqc_fsri_synthesis}"
-            "${PROJECT_SOURCE_DIR}/scripts/fsri_report.py"
-            "${PROJECT_SOURCE_DIR}/results/current-comparison.json"
-            "${PROJECT_SOURCE_DIR}/results/fsri-combinational.json"
-            "${PROJECT_SOURCE_DIR}/results/fsri-model.json"
-        VERBATIM)
-    add_custom_target(pqc-picorv32-fsri-report DEPENDS "${pqc_fsri_report}")
-    add_dependencies(
-        pqc-picorv32-fsri-report
-        pqc-picorv32-fsri
-        pqc-picorv32-fsri-synthesis)
 endif()
