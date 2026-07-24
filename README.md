@@ -1,10 +1,6 @@
 # ML-KEM software and custom RISC-V instructions on PicoRV32
 
-This repository evaluates ML-KEM software schedules and custom RISC-V instructions on a small RV32 PicoRV32 core. The ML-KEM implementation is a pinned `mlkem-native` revision. Every target variant is compiled as bare-metal RV32IMC firmware, executed on PicoRV32 RTL with Verilator, and synthesized and routed for an ECP5 FPGA.
-
-The question is deliberately narrow:
-
-> Can one custom instruction beat tuned software while staying inside a strict hardware budget?
+This repository evaluates ML-KEM software schedules and custom RISC-V instructions on a small RV32 PicoRV32 core to give me experience with custom instruction design and seeing the associated hardware/software tradeoff. Every custom instruction variant is compiled as  RV32IMC firmware, executed on PicoRV32 RTL with Verilator, and synthesized and routed for an ECP5 FPGA.
 
 The hardware budget is **at most +5% LUT4, +5% flip-flops, -2% median Fmax, no extra DSP or BRAM, with all five routing seeds meeting 50 MHz**.
 
@@ -22,7 +18,7 @@ The table reports key generation + encapsulation + decapsulation. Percentages ar
 
 ![End-to-end ML-KEM cycle counts](docs/figures/performance.svg)
 
-The polynomial instructions help, but only modestly after software scheduling. FQMUL reduces cycles by 5.32-7.39% relative to tuned software; RED32 reduces them by 4.36-6.25%.
+The polynomial instructions were designed fqmula nd red, but only modestly after software scheduling. FQMUL reduces cycles by 5.32-7.39% relative to tuned software; RED32 reduces them by 4.36-6.25%.
 
 FSRI is different. Two FSRIs replace one 64-bit Keccak rotation on RV32. The combinational implementation reduces end-to-end cycles by **31.15-33.11% relative to tuned software**. A slower multiplier-reuse implementation still retains about 91% of that gain.
 
