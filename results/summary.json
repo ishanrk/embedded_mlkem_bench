@@ -25,6 +25,28 @@
       "red32": 11847177,
       "fsri_combinational": 8700799,
       "fsri_multiplier_reuse": 9055759,
+      "operation_cycles": {
+        "software": {
+          "keygen": 3711104,
+          "encapsulation": 3947876,
+          "decapsulation": 4977755
+        },
+        "fqmul": {
+          "keygen": 3497610,
+          "encapsulation": 3664791,
+          "decapsulation": 4541105
+        },
+        "red32": {
+          "keygen": 3524710,
+          "encapsulation": 3711506,
+          "decapsulation": 4610961
+        },
+        "fsri_multiplier_reuse": {
+          "keygen": 2571127,
+          "encapsulation": 2858621,
+          "decapsulation": 3626011
+        }
+      },
       "gain_vs_software_percent": {
         "fqmul": 7.385048432209744,
         "red32": 6.24811709670259,
@@ -39,6 +61,28 @@
       "red32": 19187466,
       "fsri_combinational": 13604448,
       "fsri_multiplier_reuse": 14189088,
+      "operation_cycles": {
+        "software": {
+          "keygen": 5897792,
+          "encapsulation": 6419627,
+          "decapsulation": 7825937
+        },
+        "fqmul": {
+          "keygen": 5618665,
+          "encapsulation": 6091140,
+          "decapsulation": 7313747
+        },
+        "red32": {
+          "keygen": 5660611,
+          "encapsulation": 6133342,
+          "decapsulation": 7393513
+        },
+        "fsri_multiplier_reuse": {
+          "keygen": 4069679,
+          "encapsulation": 4540833,
+          "decapsulation": 5578576
+        }
+      },
       "gain_vs_software_percent": {
         "fqmul": 5.559172960056904,
         "red32": 4.745435666231585,
@@ -53,6 +97,28 @@
       "red32": 29614042,
       "fsri_combinational": 20711107,
       "fsri_multiplier_reuse": 21634003,
+      "operation_cycles": {
+        "software": {
+          "keygen": 9299335,
+          "encapsulation": 9899724,
+          "decapsulation": 11765022
+        },
+        "fqmul": {
+          "keygen": 8879368,
+          "encapsulation": 9406970,
+          "decapsulation": 11031713
+        },
+        "red32": {
+          "keygen": 8945304,
+          "encapsulation": 9503283,
+          "decapsulation": 11165455
+        },
+        "fsri_multiplier_reuse": {
+          "keygen": 6390918,
+          "encapsulation": 6953092,
+          "decapsulation": 8289993
+        }
+      },
       "gain_vs_software_percent": {
         "fqmul": 5.315933645826595,
         "red32": 4.360016368643397,
@@ -68,6 +134,8 @@
       "dsp": 4,
       "bram": 0,
       "median_fmax_mhz": 68.7,
+      "fmax_by_seed_mhz": [69.9, 70.68, 68.7, 66.39, 66.99],
+      "seeds_meeting_50mhz": 5,
       "all_seeds_meet_50mhz": true
     },
     "fqmul": {
@@ -76,6 +144,8 @@
       "dsp": 4,
       "bram": 0,
       "median_fmax_mhz": 60.51,
+      "fmax_by_seed_mhz": [60.51, 60.68, 57.4, 54.38, 62.12],
+      "seeds_meeting_50mhz": 5,
       "all_seeds_meet_50mhz": true,
       "lut4_change_percent": 5.721462461624337,
       "flip_flop_change_percent": 8.556701030927835,
@@ -88,6 +158,8 @@
       "dsp": 4,
       "bram": 0,
       "median_fmax_mhz": 60.2,
+      "fmax_by_seed_mhz": [60.2, 60.5, 56.33, 53.67, 61.44],
+      "seeds_meeting_50mhz": 5,
       "all_seeds_meet_50mhz": true,
       "lut4_change_percent": 6.502930505163271,
       "flip_flop_change_percent": 8.556701030927835,
@@ -113,6 +185,8 @@
       "dsp": 4,
       "bram": 0,
       "median_fmax_mhz": 50.25,
+      "fmax_by_seed_mhz": [52.4, 50.25, 45.42, 47.2, 50.26],
+      "seeds_meeting_50mhz": 3,
       "all_seeds_meet_50mhz": false,
       "lut4_change_percent": 8.986882500697739,
       "flip_flop_change_percent": 6.907216494845361,
