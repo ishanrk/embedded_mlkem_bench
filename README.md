@@ -12,13 +12,7 @@ The goal of this project was to see whether adding small RISC-V hardware extensi
 
 I used PicoRV32 as the processor and `mlkem-native` [5] as the ML-KEM implementation. \
 
-Before adding any custom hardware I first tried different ways of arranging the main ML-KEM polynomial operations in software.
-
-The idea is that the same arithmetic can sometimes be carried out with fewer instructions if you are careful about when reductions happen.
-
-For example, suppose several operations eventually need to be reduced modulo $q$. You could reduce after every operation. This keeps the value small, but it means doing more reductions. You could instead keep the intermediate value in a larger register, do several operations, and reduce only once at the end. This saves instructions, but if you wait for too long the value can get large enough to overflow the register. So there is a limit to how far you can push this.
-
-Just rearranging the software already saves around 2% of the complete ML-KEM cycles. So when I test the hardware instructions I compare them against this version rather than giving the hardware credit for something that could already have been done in software.
+I optimized the non instruction added runs with some basic ideas. For example, suppose several operations eventually need to be reduced modulo $q$. You could reduce after every operation. This keeps the value small, but it means doing more reductions. You could instead keep the intermediate value in a larger register, do several operations, and reduce only once at the end. This saves instructions, but if you wait for too long the value can get large enough to overflow the register. So there is a limit to how far you can push this.
 
 I then implemented three custom RISC-V instructions that I thought could help.
 
