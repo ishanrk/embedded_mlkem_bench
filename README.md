@@ -1,4 +1,4 @@
-# Project Idea
+# Project Idea: Accelerate ML-KEM on a RISC-V Processor With Custom Instructions
 
 ML-KEM is a post-quantum key encapsulation algorithm. It is useful for allowing two parties to establish a shared secret, which can then be used to set up an encrypted communication channel.
 
