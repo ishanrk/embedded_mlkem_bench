@@ -1,279 +1,224 @@
-# pqc-poly-bench
-
 # Project Idea
 
-ML-KEM is a post-quantum key encapsulation mechanism used to establish a shared secret between two parties, which can then be used to set up an encrypted communication channel. It has three parameter sets, ML-KEM-512, ML-KEM-768, and ML-KEM-1024. A large part of its runtime on a small processor comes from two kinds of operations [1].
+ML-KEM is a post-quantum key encapsulation algorithm. It is useful for allowing two parties to establish a shared secret, which can then be used to set up an encrypted communication channel.
 
-1. The first is polynomial arithmetic such as the number theoretic transform (NTT), inverse NTT, field multiplication, and Montgomery reduction. The NTT is a transform that makes polynomial multiplication cheaper. Montgomery reduction is a way of avoiding expensive division when repeatedly reducing values modulo the ML-KEM field order $q=3329$.
+ML-KEM spends a lot of its runtime doing two things on a processor.
 
-2. The second is SHA-3/SHAKE [2]. These hash and extendable-output functions are used throughout ML-KEM. In the pinned source, SHAKE128 generates the public matrix, SHAKE256 samples secret and error polynomials, SHA3-256 hashes the public key, SHA3-512 derives seeds and encapsulation key material, and SHAKE256 derives the rejection secret during failed decapsulation. They all use Keccak-f[1600], a 24-round permutation whose state contains 25 lanes of 64 bits. Its round function performs many rotations on those lanes [3].
+a) The first is polynomial arithmetic such as the NTT [1], inverse NTT, field multiplication, and Montgomery reduction. Montgomery reduction is basically a way of avoiding expensive division operations when repeatedly reducing values modulo the field order $q=3329$.
 
-The goal of this project was to see whether small RISC-V hardware extensions [4], which can be thought of as specialized instructions that the processor is allowed to execute, could make complete ML-KEM faster on an embedded processor without adding too much hardware area or making the processor's critical path significantly slower.
+b) The second is SHA-3/SHAKE [2]. These are used for things like generating the public matrix, hashing values, deriving randomness, and deriving the final shared secret. They use the Keccak permutation [3], which performs a large number of rotations on 64-bit values.
 
-I used PicoRV32 as the reference processor and `mlkem-native` as the ML-KEM implementation. Both are pinned to exact commits [5, 7]. The processor configuration is RV32IMC with a dual-port register file, compressed instructions, a barrel shifter, division, and normal hardware multiplication. Including ordinary `MUL` matters. Otherwise a multiply/reduce instruction would be compared with a processor that has no hardware multiplier and would receive an unfair advantage.
+The goal of this project was to see whether adding small RISC-V hardware extensions [4], which can be thought of as more specialized instructions that a processor is allowed to execute, could make complete ML-KEM faster on an embedded processor without adding too much hardware area or delay.
 
-Before adding custom hardware, I generated and tested different ways of implementing the main ML-KEM polynomial operations in software. A software implementation here means ordinary C and RV32IMC instructions that compute the same required result. The basic idea is that mathematically equivalent operations can be reordered or combined to execute fewer instructions.
+I used PicoRV32 as the processor and `mlkem-native` [5] as the ML-KEM implementation. PicoRV32 is configured as RV32IMC here, so it already has normal hardware multiplication. This matters because otherwise an instruction such as FQMUL would look much better partly because I had added a multiplier to a processor that did not have one before.
 
-For example, suppose several arithmetic operations eventually need reduction modulo $q$. Reducing after every operation keeps intermediate values small, but performs more reductions. Another option is to keep an intermediate value in a 32-bit register, perform several operations, and reduce once at the end. This saves instructions, but a value can overflow if reduction is delayed for too long. The generator checks bounds before accepting a choice.
+Before adding any custom hardware I first tried different ways of arranging the main ML-KEM polynomial operations in software.
 
-The project tries 24 legal arithmetic arrangements per parameter set:
+The idea is that the same arithmetic can sometimes be carried out with fewer instructions if you are careful about when reductions happen.
 
-* two forward NTT traversals, either stage by stage or with two layers fused;
-* two inverse NTT traversals with the same choice;
-* reduction of inverse-NTT sums after every layer or after a safe pair of layers;
-* three base-multiplication strategies: cache a multiplied coefficient and reduce late, cache it and reduce products eagerly, or recompute it and reduce eagerly.
+For example, suppose several operations eventually need to be reduced modulo $q$. You could reduce after every operation. This keeps the value small, but it means doing more reductions. You could instead keep the intermediate value in a larger register, do several operations, and reduce only once at the end. This saves instructions, but if you wait for too long the value can get large enough to overflow the register. So there is a limit to how far you can push this.
 
-An arithmetic schedule does not mean that two versions run at the same time. Each schedule is a separate generated C implementation, built and measured by itself. PicoRV32 is not a dual-issue processor. The schedule changes the order and grouping of work, which changes the number of reductions, loads, stores, branches, and loop operations. Fusing two NTT layers, for example, can keep more intermediate values in registers. Delaying the final base-multiplication reduction can replace several reductions with one safe 32-bit accumulation.
+For each ML-KEM parameter set I tested 24 different software implementations. The things I changed were:
 
-All 24 choices pass the static legality checks and host reference tests for all three parameter sets. I select the one with the smallest sum of measured key-generation, encapsulation, and decapsulation medians. The best no-extension implementation uses fused forward and inverse traversals, paired inverse reduction, and cached late base multiplication. The `mlk.fqmul` search is rerun with the instruction enabled, so its best base-multiplication choice is allowed to differ. This gives me a tuned software implementation to compare the custom instructions against instead of an unnecessarily slow baseline.
+| Part                | What I changed                                   |
+| ------------------- | ------------------------------------------------ |
+| forward NTT         | one layer at a time or two layers fused together |
+| inverse NTT         | one layer at a time or two layers fused together |
+| inverse reductions  | reduce every layer or after each pair of layers  |
+| base multiplication | cached late, cached eager, or direct eager       |
 
-I then implemented three custom RISC-V instructions that target different expensive parts of ML-KEM:
+The same combination ended up being fastest for ML-KEM-512, ML-KEM-768, and ML-KEM-1024. Its internal name is `ffuse2_ifuse2_rpair_bcachelate`.
 
-1. `mlk.fqmul` combines coefficient multiplication and Montgomery reduction. It targets polynomial arithmetic used in the NTT, inverse NTT, base multiplication, multiplication caches, and Montgomery-domain conversion.
+Just rearranging the software already saves around 2% of the complete ML-KEM cycles. So when I test the hardware instructions I compare them against this version rather than giving the hardware credit for something that could already have been done in software.
 
-2. `mlk.red32` performs Montgomery reduction on an already computed 32-bit product. Multiplication is still an ordinary RISC-V `MUL`; only reduction moves into the custom operation. This is an independently implemented comparison to the standalone reduction approach studied by Bevin, Khalid, Imran, and O'Neill [6].
+I then implemented three custom RISC-V instructions that I thought could help.
 
-3. `fsri` is a funnel-shift-right instruction based on an earlier RISC-V Bitmanip design [12]. Keccak uses 64-bit lanes, but PicoRV32 has 32-bit integer registers, so each lane is held in two pieces. A 64-bit rotation otherwise requires several 32-bit shifts and logical operations. FSRI combines the relevant pieces and therefore targets SHA-3/SHAKE rather than polynomial arithmetic.
+1. `mlk.fqmul` combines coefficient multiplication and Montgomery reduction. This mainly speeds up the polynomial arithmetic used in the NTT and inverse NTT.
 
-The experiment runs complete ML-KEM key generation, encapsulation, and decapsulation with tuned software and with each extension. It compares both processor cycles saved and the additional hardware area and timing cost. The acceptance budget is strict: at most 5% more LUT4s, 5% more flip-flops, 2% lower median maximum frequency, no extra DSP or BRAM, and all five routing seeds must meet 50 MHz.
+2. `mlk.red32` performs Montgomery reduction on an already-computed 32-bit product. The multiplication still uses the normal RISC-V `MUL` instruction.
+
+3. `fsri` is a funnel-shift-right-immediate instruction. Keccak uses 64-bit rotations, but PicoRV32 only has 32-bit registers. FSRI makes these rotations much cheaper and therefore speeds up the SHA-3/SHAKE part of ML-KEM.
+
+I then run complete key generation, encapsulation, and decapsulation using each version and compare two things. The first is how many processor cycles are saved. The second is how much extra hardware and delay the instruction adds.
 
 # Instruction Design and Source Code
 
-The custom instructions are written in SystemVerilog and connected to PicoRV32 through its Pico Co-Processor Interface (PCPI). PCPI lets an external unit receive an unsupported instruction, read the two source registers, hold the processor while it works, and return a destination value [7]. The pinned PicoRV32 core itself is Verilog. I did not modify GCC or add assembler mnemonics. The C wrappers use GNU assembler's R-type `.insn` directive to place operands into the custom instruction word [4].
+All three instructions are connected to PicoRV32 through its Pico Co-Processor Interface, or PCPI.
 
-The main source locations are:
+PCPI lets PicoRV32 give an instruction and its source registers to an external hardware unit. The hardware performs the operation and returns the result to the processor.
 
-* [`targets/picorv32/rtl/pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv) implements the shared multiplier and custom-instruction state machine.
-* [`targets/picorv32/rtl/pqc_picorv32_core_top.sv`](targets/picorv32/rtl/pqc_picorv32_core_top.sv) connects that unit to PicoRV32. In extension builds, the project PCPI unit also handles standard RISC-V M multiplication.
-* [`targets/picorv32/mlkem/`](targets/picorv32/mlkem/) contains the C models, `.insn` wrappers, and `mlkem-native` arithmetic integration.
-* [`src/mlkem_codegen.cpp`](src/mlkem_codegen.cpp) and [`src/mlkem_red32_codegen.cpp`](src/mlkem_red32_codegen.cpp) generate the tuned software and instruction-enabled arithmetic backends.
-* [`targets/picorv32/sim/`](targets/picorv32/sim/) contains direct PCPI tests, while [`targets/picorv32/firmware/mlkem_bench.c`](targets/picorv32/firmware/mlkem_bench.c) contains the complete ML-KEM benchmark.
-* [`targets/picorv32/formal/`](targets/picorv32/formal/) contains the instruction properties and bounded architectural monitors.
+The main custom instruction logic is in [`targets/picorv32/rtl/pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv). The PicoRV32 integration is in [`targets/picorv32/rtl/pqc_picorv32_core_top.sv`](targets/picorv32/rtl/pqc_picorv32_core_top.sv).
 
-![The inputs, operations, outputs, and direct PCPI latencies of the three instructions](docs/figures/instruction-designs.svg)
+PicoRV32 itself is written in Verilog. The custom instruction hardware I added is written in SystemVerilog. The C implementations and inline instruction wrappers are under [`targets/picorv32/mlkem/`](targets/picorv32/mlkem/), and the complete ML-KEM benchmark is in [`targets/picorv32/firmware/mlkem_bench.c`](targets/picorv32/firmware/mlkem_bench.c).
 
-## 1. `mlk.fqmul`
+## 1. FQMUL
 
-ML-KEM represents many coefficients in the Montgomery domain, where $R=2^{16}$. `mlk.fqmul` reads the signed low 16 bits of `rs1` and `rs2`; the upper halves do not affect the result. For inputs $a$ and $b$, it returns the signed result $r$ satisfying
+ML-KEM repeatedly multiplies two coefficients and then Montgomery-reduces the result modulo 3329.
 
-$$
-r \equiv abR^{-1} \pmod q, \qquad q=3329.
-$$
-
-The exact wrapper in [`fqmul.h`](targets/picorv32/mlkem/fqmul.h) is:
-
-```c
-__asm__ volatile(".insn r 0x0b, 0, 0, %0, %1, %2"
-                 : "=r"(r) : "r"(a), "r"(b));
-```
-
-This selects 32-bit `custom-0` opcode `0x0b`, `funct3=0`, and `funct7=0`. Its arithmetic is:
+FQMUL combines these into one instruction.
 
 ```text
-t  = sign16(rs1) * sign16(rs2)
-u  = sign16((low16(t) * 62209) mod 2^16)
+a = sign16(rs1)
+b = sign16(rs2)
+t = a * b
+u = sign16((low16(t) * 62209) mod 2^16)
 rd = (t - u * 3329) / 2^16
 ```
 
-The PCPI unit responds exactly four rising edges after accepting the request. The state machine performs the three products in sequence: $a b$, `low16(t) * 62209`, and $u * 3329$, followed by the response. There is one multiplier expression in the RTL. In extension configurations that expression is shared with the unit's implementation of normal M-extension multiplication, so `mlk.fqmul` does not place a second multiplier beside an ordinary one. The synthesis result confirms that the complete system still uses four DSP blocks, the same as the baseline.
+The low 16 bits of `rs1` and `rs2` hold the two coefficients. The instruction multiplies them, performs the same Montgomery reduction used by ML-KEM, and returns the result in `rd`.
 
-The generated backend calls this operation inside forward and inverse NTT butterflies, multiplication-cache generation, base multiplication, and conversion into the Montgomery domain. The code generator still searches all safe arithmetic arrangements because reducing the cost of field multiplication can change which arrangement wins.
+This is useful throughout the NTT, inverse NTT, and other polynomial arithmetic where the same multiply-and-reduce operation occurs repeatedly.
 
-## 2. `mlk.red32`
+FQMUL takes four PCPI cycles.
 
-`mlk.red32` tests a smaller operation boundary. The processor first executes an ordinary RISC-V `MUL`. That signed 32-bit product or accumulator is then passed in `rs1` to `mlk.red32`, which performs the same Montgomery reduction used above. `rs2` is ignored and the wrapper encodes it canonically as `x0`:
+It also does not get a completely separate multiplier. It reuses the multiplier hardware already needed for normal RV32M multiplication. Otherwise a large part of the hardware cost would just be the cost of adding another multiplier rather than the ML-KEM-specific logic.
 
-```c
-__asm__ volatile(".insn r 0x0b, 1, 0, %0, %1, x0"
-                 : "=r"(r) : "r"(t));
-```
+## 2. RED32
 
-The encoding is `custom-0`, `funct3=1`, `funct7=0`. For signed input $t$ it computes
+RED32 tests a smaller version of the same idea.
+
+Instead of putting multiplication and reduction into one instruction, the processor first performs a normal RISC-V `MUL`. RED32 then takes that 32-bit result and performs only the Montgomery reduction.
 
 ```text
-u  = sign16((low16(t) * 62209) mod 2^16)
+t = sign32(rs1)
+u = sign16((low16(t) * 62209) mod 2^16)
 rd = (t - u * 3329) / 2^16
 ```
 
-It responds three rising edges after acceptance. It skips the initial $a b$ state used by `mlk.fqmul`, then uses the shared multiplier for the two constant products. The C bridge in [`red32.h`](targets/picorv32/mlkem/red32.h) makes the division of work explicit: ordinary `MUL` first, custom `mlk.red32` second.
-
-The RED32 generator replaces each software Montgomery reduction with this wrapper, including reductions reached from NTT, inverse NTT, base multiplication, caches, and Montgomery conversion. This makes it useful as an independently implemented comparable baseline for prior work on a single Montgomery-reduction RISC-V extension [6]. It is not claimed to reproduce that paper's Ibex microarchitecture or encoding.
-
-## 3. `fsri`
-
-Keccak-f[1600] operates on 64-bit lanes [3]. On RV32 a lane is held as a low word and a high word. A logical right funnel shift takes two words, treats them as one 64-bit concatenation, shifts it, and returns the low word:
-
-$$
-\operatorname{fsri}(rs1,rs2,s)
-= \operatorname{low}_{32}\left(\{rs2,rs1\} \mathbin{\gg} s\right).
-$$
-
-Equivalently, for $1\le s\le31$,
-
-$$
-rd=(rs1\mathbin{\gg}s)\;|\;(rs2\mathbin{\ll}(32-s)),
-$$
-
-and for $s=0$, `rd=rs1`. For example, `rs1=0x89abcdef`, `rs2=0x01234567`, and $s=8$ produce `rd=0x6789abcd`.
-
-The wrapper in [`fsri.h`](targets/picorv32/mlkem/fsri.h) uses `custom-0`, `funct3=2`, and places the constant shift amount in the R-type `funct7` operand:
-
-```c
-__asm__ volatile(".insn r 0x0b, 2, %3, %0, %1, %2"
-                 : "=r"(r) : "r"(a), "r"(b), "i"(s));
-```
-
-Only shifts 0 through 31 are valid, so bits 29:25 hold $s$ and bits 31:30 remain zero. The RTL decode mask enforces those two zero bits. Two FSRI operations, with the word order selected from the rotation amount, produce the low and high halves of one 64-bit rotate. A conceptual comparison for one pair of result halves is:
+So a normal field multiplication becomes roughly:
 
 ```text
-ordinary RV32                         FSRI form
-srli  out_lo, in_lo, s               fsri  out_lo, in_lo, in_hi, s
-slli  tmp,    in_hi, 32-s            fsri  out_hi, in_hi, in_lo, s
-or    out_lo, out_lo, tmp
-repeat with the halves exchanged
+MUL
+RED32
 ```
 
-The compiler can interleave the ordinary shifts with surrounding Keccak work, so this is a semantic comparison rather than a claim that every rotation always has one fixed instruction sequence.
+RED32 takes three PCPI cycles.
 
-The build replaces only `MLK_KECCAK_ROL` in the pinned serial Keccak source; it keeps the same tuned polynomial backend. The two-round-unrolled function contains 58 static rotate calls. They compile to 116 static FSRI words, two for each call. At runtime the loop performs 696 rotations per permutation, or 1,392 FSRI executions. All occurrences are inside `mlk_keccakf1600_permute_c`.
+I included it for two reasons. First, some parts of the polynomial arithmetic can keep ordinary multiplication in the existing RISC-V path and only accelerate the reduction. Second, standalone Montgomery-reduction instructions have already been studied for lattice cryptography [6], so this gives a useful comparison with that direction.
 
-The current RTL is the multiplier-reuse FSRI. For nonzero $s$, it forms $2^{32-s}$, then obtains the two funnel-shift pieces from the high half of `rs1 * 2^(32-s)` and the low half of `rs2 * 2^(32-s)`. The zero-shift case returns `rs1`. This keeps one shared multiplier expression, responds after three PCPI edges, and costs six whole-core PicoRV32 cycles per retired FSRI in the experiment model. The faster combinational FSRI was measured at commit `1b1d01aaaffe48a0bfff3cdc096cca526f8a40ca`; it is retained only as a historical result, not as the checked-out implementation.
+## 3. FSRI
+
+FSRI targets a completely different part of ML-KEM.
+
+SHA-3 and SHAKE use Keccak-f[1600]. Keccak works on 64-bit words and performs many fixed rotations on them.
+
+PicoRV32 is a 32-bit processor. So one 64-bit value has to be stored using two 32-bit registers, and a 64-bit rotation normally turns into several shifts and OR operations.
+
+FSRI performs a funnel shift:
+
+```text
+fsri rd, rs1, rs2, shamt
+rd = low32(({rs2, rs1} >> shamt))
+```
+
+The instruction treats `rs1` and `rs2` as two pieces of a larger value and directly returns the shifted 32-bit piece. Swapping the two source registers gives the other half needed for the 64-bit rotation, so one Keccak rotation uses two FSRIs.
+
+The idea of a funnel-shift instruction itself is not new. FSRI is a small project-specific version of an earlier RISC-V Bitmanip funnel-shift proposal [7]. What I wanted to measure here was whether it was actually useful for complete ML-KEM on a small RV32 processor.
+
+I tried two hardware designs for FSRI.
+
+a) The first directly implements the funnel shift using combinational logic.
+
+b) The second tries to reuse the existing multiplier hardware to save some area.
+
+The direct version gives the better ML-KEM result and keeps the clock frequency fairly close to the normal processor, but it uses more LUTs. The multiplier-reuse version uses somewhat less area but makes the longest path through the processor much slower.
+
+The current RTL contains the multiplier-reuse version. The direct FSRI results are kept in `results/summary.json` and correspond to commit `1b1d01aaaffe48a0bfff3cdc096cca526f8a40ca`.
 
 # Testing and Results
 
-## Measurement method
+I care about two things here. One is whether the instructions reduce the number of cycles needed for complete ML-KEM. The other is what they cost in actual hardware.
 
-The benchmark compiles pinned `mlkem-native` as freestanding RV32IMC firmware with GCC `-O3`, `-march=rv32imc`, and `-mabi=ilp32`. Link-time optimization is disabled for the reported experiment. Verilator compiles the real PicoRV32 and custom SystemVerilog into an executable cycle model [8]. The reported values are therefore RTL processor cycles, not host timings and not estimates made from instruction counts.
+The cycle numbers below add together key generation, encapsulation, and decapsulation.
 
-Each implementation runs five arithmetic kernels on 16 deterministic inputs with three repeats, then key generation, encapsulation, and decapsulation on 30 inputs with three repeats. That is 510 measured regions per implementation. The firmware measures and subtracts an empty marker region. Repeated measurements of one input must agree in cycles and retired instructions. Complete-operation values below are medians over 90 observations. A displayed total is the key-generation median plus the encapsulation median plus the decapsulation median; it is a compact comparison metric, not one combined API call.
+| Parameter set | Original `mlkem-native` | Best software version |      FQMUL |      RED32 |    FSRI direct | FSRI multiplier reuse |
+| ------------- | ----------------------: | --------------------: | ---------: | ---------: | -------------: | --------------------: |
+| ML-KEM-512    |              13,004,560 |            12,636,735 | 11,703,506 | 11,847,177 |  **8,700,799** |             9,055,759 |
+| ML-KEM-768    |              20,658,560 |            20,143,356 | 19,023,552 | 19,187,466 | **13,604,448** |            14,189,088 |
+| ML-KEM-1024   |              31,479,592 |            30,964,081 | 29,318,051 | 29,614,042 | **20,711,107** |            21,634,003 |
 
-The tuned software winner, `mlk.fqmul`, `mlk.red32`, and current FSRI all use the same processor settings and pinned source. The result source is [`results/summary.json`](results/summary.json). It records PicoRV32 commit `a473fc8fca393771d83b0ffcf0b14db3393339d8`, `mlkem-native` commit `69d24e37b8a04c6050ec55bc84a4228d7051bb4b`, RISC-V toolchain release `2026.07.15`, and OSS CAD Suite release `2026-07-29`.
+Before adding hardware I could already save around 2% of the cycles just by rearranging the software operations.
 
-The essential commands are:
+After that:
 
-```bash
-cmake --preset release
-cmake --build --preset release --parallel
-ctest --preset release
+1. FQMUL saves another 5.32% to 7.39% of the complete ML-KEM cycles depending on the parameter set.
 
-cmake -S . -B build/picorv32 -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DPQC_POLY_LTO=OFF \
-  -DPQC_POLY_PICORV32_MLKEM=ON \
-  -DPQC_POLY_PICORV32_SYNTHESIS=ON
-cmake --build build/picorv32 --parallel 8 --target \
-  pqc-picorv32-mlkem pqc-picorv32-fqmul \
-  pqc-picorv32-red32 pqc-picorv32-fsri
+2. RED32 saves another 4.36% to 6.25%.
 
-python3 scripts/readme_figures.py
-```
+3. The direct FSRI design saves around 31.15% to 33.11%.
 
-## Instruction latency
+The result I found most interesting was FSRI. The two instructions aimed directly at the polynomial arithmetic definitely help, but the improvement is much smaller once I compare them against software that has already been rearranged reasonably well.
 
-Direct Verilator tests measure the PCPI handshake from request acceptance to `pcpi_ready`:
+FSRI instead attacks the 64-bit rotations inside Keccak. On a 32-bit processor those rotations are expensive enough that replacing them has a much larger effect on complete ML-KEM.
 
-| Instruction | Direct PCPI response latency | Work performed |
-|---|---:|---|
-| `mlk.fqmul` | 4 rising edges | three sequential products and response |
-| `mlk.red32` | 3 rising edges | two sequential products and response |
-| `fsri` | 3 rising edges | two multiplier-derived pieces and response |
+I also checked the generated disassembly and the number of retired custom instructions to make sure this result was actually coming from replacing the Keccak rotation code and not from a problem with the benchmark counters.
 
-These unit latencies should not be confused with the CPI of the complete processor. PicoRV32 also has decode and retirement overhead; the current FSRI occupies six core cycles. Complete firmware measurements are the authoritative performance comparison. A four-edge operation can still reduce total cycles when it replaces a longer series of ordinary instructions.
+## Hardware area and delay
 
-## Complete ML-KEM cycles
+Reducing the number of cycles is only half the problem. A new instruction means adding actual hardware to the processor. This can increase the FPGA area and can also make the longest path through the processor slower, which means the processor cannot be clocked as fast.
 
-| Parameter set | Design | Key generation | Encapsulation | Decapsulation | Total | Fewer total cycles vs software |
-|---|---|---:|---:|---:|---:|---:|
-| 512 | tuned software | 3,711,104 | 3,947,876 | 4,977,755 | 12,636,735 | 0.00% |
-| 512 | `mlk.fqmul` | 3,497,610 | 3,664,791 | 4,541,105 | 11,703,506 | 7.39% |
-| 512 | `mlk.red32` | 3,524,710 | 3,711,506 | 4,610,961 | 11,847,177 | 6.25% |
-| 512 | `fsri` | 2,571,127 | 2,858,621 | 3,626,011 | 9,055,759 | 28.34% |
-| 768 | tuned software | 5,897,792 | 6,419,627 | 7,825,937 | 20,143,356 | 0.00% |
-| 768 | `mlk.fqmul` | 5,618,665 | 6,091,140 | 7,313,747 | 19,023,552 | 5.56% |
-| 768 | `mlk.red32` | 5,660,611 | 6,133,342 | 7,393,513 | 19,187,466 | 4.75% |
-| 768 | `fsri` | 4,069,679 | 4,540,833 | 5,578,576 | 14,189,088 | 29.56% |
-| 1024 | tuned software | 9,299,335 | 9,899,724 | 11,765,022 | 30,964,081 | 0.00% |
-| 1024 | `mlk.fqmul` | 8,879,368 | 9,406,970 | 11,031,713 | 29,318,051 | 5.32% |
-| 1024 | `mlk.red32` | 8,945,304 | 9,503,283 | 11,165,455 | 29,614,042 | 4.36% |
-| 1024 | `fsri` | 6,390,918 | 6,953,092 | 8,289,993 | 21,634,003 | 30.13% |
+I use Yosys to synthesize each design and nextpnr to place and route it on an ECP5 FPGA.
 
-![Normalized complete-operation cycle totals for all three parameter sets](docs/figures/mlkem-cycle-comparison.svg)
+LUT4s are the main configurable logic blocks on the FPGA, so more LUTs roughly means more hardware area. `Fmax` is the highest clock frequency the routed design can meet, so higher is better.
 
-The result I found most interesting is that FSRI gives a larger complete-program cycle reduction than either finite-field instruction. ML-KEM is strongly associated with NTT and modular arithmetic, but on this small RV32 processor SHA-3/SHAKE accounts for enough work that cheaper Keccak rotations have a larger effect on the complete KEM. Across the three levels, geometric-mean cycle speedups are 1.065x for `mlk.fqmul`, 1.054x for `mlk.red32`, and 1.415x for the current FSRI.
+I also run five different place-and-route seeds rather than reporting one lucky placement.
 
-The historical combinational FSRI reduced totals by 31.15%, 32.46%, and 33.11% for ML-KEM-512, 768, and 1024. The current multiplier-reuse version reduces them by 28.34%, 29.56%, and 30.13%, retaining about 91% of that cycle-count gain.
+| Design                |            LUT4 |     Flip-flops | DSP | BRAM |         Median Fmax | 50 MHz seeds |
+| --------------------- | --------------: | -------------: | --: | ---: | ------------------: | -----------: |
+| normal PicoRV32       |           3,583 |            970 |   4 |    0 |           68.70 MHz |          5/5 |
+| FQMUL                 |  3,788 (+5.72%) | 1,053 (+8.56%) |   4 |    0 | 60.51 MHz (-11.92%) |          5/5 |
+| RED32                 |  3,816 (+6.50%) | 1,053 (+8.56%) |   4 |    0 | 60.20 MHz (-12.37%) |          5/5 |
+| FSRI direct           | 4,018 (+12.14%) |   970 (+0.00%) |   4 |    0 |  66.72 MHz (-2.88%) |          5/5 |
+| FSRI multiplier reuse |  3,905 (+8.99%) | 1,037 (+6.91%) |   4 |    0 | 50.25 MHz (-26.86%) |          3/5 |
 
-## Area and timing
+The direct FSRI design gives the best cycle result and barely changes the clock frequency, but it uses 12.14% more LUTs.
 
-Fewer cycles do not automatically mean less wall-clock time because an extension can lower the maximum clock frequency:
+I then tried reusing the multiplier to reduce this cost. That brings the LUT increase down to 8.99%, but the timing becomes much worse. Only three out of the five FPGA placements can still meet 50 MHz.
 
-$$
-T \approx \frac{\text{processor cycles}}{\text{clock frequency}}.
-$$
+FQMUL and RED32 use less area than direct FSRI, but both still add more hardware than I originally wanted and both reduce the maximum clock frequency by around 12%.
 
-Yosys synthesizes the Verilog/SystemVerilog design [9]. nextpnr places and routes it for a Lattice ECP5 `LFE5U-45F-6BG381C` at a 50 MHz target [10]. The flow records LUT4s, flip-flops, DSP blocks, BRAM blocks, and routed maximum frequency. It uses seeds 1 through 5 because placement and routing are heuristic, so one netlist can have different critical paths and timing results across runs.
+So under the hardware limits I originally set, none of the three instructions passes every requirement.
 
-| Design | LUT4 | FF | DSP | BRAM | Median Fmax | Fmax range | 50 MHz seeds | Full budget |
-|---|---:|---:|---:|---:|---:|---:|---:|:---:|
-| baseline | 3,583 | 970 | 4 | 0 | 68.70 MHz | 66.39 to 70.68 | 5/5 | reference |
-| `mlk.fqmul` | 3,788 (+5.72%) | 1,053 (+8.56%) | 4 | 0 | 60.51 MHz | 54.38 to 62.12 | 5/5 | no |
-| `mlk.red32` | 3,816 (+6.50%) | 1,053 (+8.56%) | 4 | 0 | 60.20 MHz | 53.67 to 61.44 | 5/5 | no |
-| `fsri` multiplier reuse | 3,905 (+8.99%) | 1,037 (+6.91%) | 4 | 0 | 50.25 MHz | 45.42 to 52.40 | 3/5 | no |
+That does not mean the experiment failed. FSRI still gives the strongest reduction in complete ML-KEM cycles by a large margin. The issue is that the direct version costs too much area, while the smaller multiplier-reuse version gives up too much timing.
 
-![Logic growth and all five routed maximum-frequency measurements](docs/figures/hardware-tradeoff.svg)
+The complete machine-readable results are in [`results/summary.json`](results/summary.json).
 
-The current FSRI misses 50 MHz on seeds 3 and 4. Its synthesis target intentionally returns a failure after writing the JSON, so those failed seeds cannot be hidden by reporting only the median. `mlk.fqmul` and `mlk.red32` meet 50 MHz on all seeds, but both exceed the area limits and lose much more than the permitted 2% median Fmax. The historical combinational FSRI used 4,018 LUT4s, 970 flip-flops, four DSPs, no BRAM, and had a 66.72 MHz median with 5/5 seeds passing. It also failed the area and median-Fmax limits.
+## Testing
 
-As a rough timing-adjusted estimate, I can multiply each cycle speedup by its median-Fmax ratio to the baseline. The three-level ratios are 0.938x for `mlk.fqmul`, 0.924x for `mlk.red32`, and 1.035x for current FSRI, where values above one favor the extension. This estimate suggests only a small FSRI wall-clock advantage at each design's median routed frequency, not a 28% to 30% time reduction. It is not a board measurement, and FSRI's two failed 50 MHz seeds remain disqualifying under the stated gate.
+I tested the project at several levels because saving cycles is not useful if the arithmetic or the hardware is wrong.
 
-## Correctness and verification
+1. The different software implementations are compared against the reference ML-KEM arithmetic.
 
-Correctness is checked at several levels:
+2. Complete key generation, encapsulation, and decapsulation are run and the resulting shared secret is checked.
 
-1. The host code-generation test compiles every one of the 24 schedules for each parameter set and compares NTT, inverse NTT, base multiplication, caches, and Montgomery conversion with independent reference equations. The RED32 differential test compares all 72 generated RED32 choices with their software counterparts on deterministic randomized inputs.
+3. The custom instructions are tested directly under Verilator. These tests cover the arithmetic, fixed latency, reset, back-to-back instructions, and instruction decoding.
 
-2. The bare-metal firmware checks complete deterministic key generation, encapsulation, decapsulation, and equality of the two shared secrets. It repeats inputs to check determinism and flips a ciphertext bit to require the implicit-rejection path to produce a different fallback secret. These are complete-operation correctness tests, not a claim that this benchmark is an official NIST KAT harness.
+4. Every hardware design is synthesized and placed/routed five times on the ECP5 target so the reported area and timing numbers are not coming from one placement.
 
-3. Direct Verilator PCPI tests cover boundary values, random values, reset cancellation, back-to-back requests, invalid decodes, and normal M multiplication [8]. RED32 additionally checks all 65,536 possible low halves and 100,000 random words. FSRI checks every shift amount with boundary pairs and 100,000 random pairs.
+5. FSRI also has targeted formal checks for its PCPI behavior and for how the instruction retires through PicoRV32.
 
-4. SystemVerilog properties run through SymbiYosys [11]. The recorded FQMUL results pass direct semantics and fixed-latency proof, standard-M non-interference proof, bounded RVFI retirement, and non-vacuity cover. RED32's direct PCPI check and bounded RVFI/cover pass, but its attempted unbounded non-interference run has no PASS result. FSRI's bounded direct PCPI check passes; its depth-22 whole-core RVFI task currently fails with a counterexample to the destination-address and result assertions. That unresolved failure is a verification limitation of the checked-out project.
+The targeted FSRI PCPI bounded model check passes. The RVFI harness had a later reset-gating fix and still needs to be rerun before I claim a final RVFI PASS. So I am not calling the whole design formally verified.
 
-5. Binary scans confirm that software-only arithmetic contains no custom arithmetic words, while instruction-enabled binaries place them only in approved functions. RED32 encodings require `rs2=x0`. The FSRI result records 116 static instruction words inside the Keccak permutation.
+The formal files are under [`targets/picorv32/formal/`](targets/picorv32/formal/) and the FSRI task is [`targets/picorv32/formal/fsri.sby`](targets/picorv32/formal/fsri.sby).
 
-These checks cover generated arithmetic, complete KEM behavior in the harness, instruction semantics, latency, handshake, reset, decode separation, and some architectural retirement behavior. They do not formally verify the complete ML-KEM algorithm, physical timing, constant-time behavior, or side-channel resistance.
-
-The concrete conclusions are:
-
-1. Both finite-field instructions reduce polynomial-arithmetic cost, but neither produces the largest complete-program cycle reduction.
-
-2. FSRI makes Keccak's 64-bit rotations cheaper and wins the complete-cycle comparison for every parameter set.
-
-3. The multiplier-reuse FSRI lowers LUT use relative to the combinational reference, but adds state and creates a much worse routed timing result.
-
-4. No tested instruction meets the complete hardware acceptance budget. The experimental answer is therefore no, even though all three reduce processor cycles.
+All performance numbers above are processor-cycle counts from running PicoRV32 RTL under Verilator. They are not host-machine timings.
 
 # Citations
 
-[1] National Institute of Standards and Technology, [FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard](https://doi.org/10.6028/NIST.FIPS.203), 2024.
+[1] NIST, FIPS 203, Module-Lattice-Based Key-Encapsulation Mechanism Standard.
 
-[2] National Institute of Standards and Technology, [FIPS 202: SHA-3 Standard, Permutation-Based Hash and Extendable-Output Functions](https://doi.org/10.6028/NIST.FIPS.202), 2015.
+[2] NIST, FIPS 202, SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions.
 
-[3] Bertoni, Daemen, Hoffert, Peeters, Van Assche, and Van Keer, [Keccak specifications summary](https://keccak.team/keccak_specs_summary.html), including Keccak-f[1600] lanes, rounds, and rotation offsets.
+[3] Keccak-f[1600], as specified by FIPS 202.
 
-[4] RISC-V International, [The RISC-V Instruction Set Manual, Volume I](https://docs.riscv.org/reference/isa/_attachments/riscv-unprivileged.pdf), custom opcode spaces; GNU Binutils, [RISC-V `.insn` formats](https://sourceware.org/binutils/docs/as/RISC_002dV_002dFormats.html).
+[4] RISC-V Instruction Set Manual and RISC-V custom instruction encoding documentation.
 
-[5] `pq-code-package/mlkem-native`, [commit `69d24e37b8a04c6050ec55bc84a4228d7051bb4b`](https://github.com/pq-code-package/mlkem-native/tree/69d24e37b8a04c6050ec55bc84a4228d7051bb4b).
+[5] `mlkem-native`, the ML-KEM implementation used by this project. The pinned revision used in the experiments is `69d24e37b8a04c6050ec55bc84a4228d7051bb4b`.
 
-[6] Ryan Bevin, Ayesha Khalid, Malik Imran, and Máire O'Neill, [“Accelerating CRYSTALS-Kyber and Dilithium via a Single Montgomery Reduction ISE on RISC-V”](https://doi.org/10.1109/SOCC66126.2025.11235487), IEEE International System-on-Chip Conference, 2025, pp. 1-6.
+[6] E. Alkim, H. Evkan, N. Lahr, R. Niederhagen, and R. Petri, "ISA Extensions for Finite Field Arithmetic: Accelerating Kyber and NewHope on RISC-V," TCHES 2020.
 
-[7] YosysHQ, [PicoRV32 commit `a473fc8fca393771d83b0ffcf0b14db3393339d8`](https://github.com/YosysHQ/picorv32/tree/a473fc8fca393771d83b0ffcf0b14db3393339d8), including the PCPI interface.
+[7] RISC-V Bitmanip v0.93 funnel-shift specification.
 
-[8] [Verilator](https://github.com/verilator/verilator), open-source Verilog/SystemVerilog simulator and compiled cycle-model tool.
+[8] PicoRV32, pinned at `a473fc8fca393771d83b0ffcf0b14db3393339d8`.
 
-[9] [Yosys](https://github.com/YosysHQ/yosys), open-source RTL synthesis framework.
-
-[10] [nextpnr](https://github.com/YosysHQ/nextpnr), timing-driven FPGA place-and-route tool with ECP5 support.
-
-[11] [SymbiYosys](https://github.com/YosysHQ/sby), front end for Yosys-based formal hardware verification flows.
-
-[12] RISC-V Bitmanip, [version 0.93 release](https://github.com/riscv/riscv-bitmanip/releases/tag/v0.93), earlier draft funnel-shift instructions.
+[9] Verilator, Yosys, and nextpnr, used for RTL simulation, synthesis, and ECP5 place and route.
