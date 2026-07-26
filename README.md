@@ -120,7 +120,7 @@ The cycle numbers below add together key generation, encapsulation, and decapsul
 | ML-KEM-768    |              20,658,560 |            20,143,356 | 19,023,552 | 19,187,466 | **13,604,448** |            14,189,088 |
 | ML-KEM-1024   |              31,479,592 |            30,964,081 | 29,318,051 | 29,614,042 | **20,711,107** |            21,634,003 |
 
-![End-to-end ML-KEM cycle counts](docs/figures/performance.svg)
+![End-to-end ML-KEM cycle counts](docs/figures/mlkem-cycle-comparison.svg)
 
 Before adding hardware I could already save around 2% of the cycles just by rearranging the software operations.
 
