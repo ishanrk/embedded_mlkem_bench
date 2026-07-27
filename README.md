@@ -30,7 +30,7 @@ All three instructions are connected to PicoRV32 through its Pico Co-Processor I
 
 PCPI lets PicoRV32 give an instruction and its source registers to an external hardware unit. The hardware performs the operation and returns the result to the processor.
 
-The main custom instruction logic is in [`targets/picorv32/rtl/pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv). The PicoRV32 integration is in [`targets/picorv32/rtl/pqc_picorv32_core_top.sv`](targets/picorv32/rtl/pqc_picorv32_core_top.sv).
+The main custom instruction logic for all 3 instructions is in [`targets/picorv32/rtl/pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv). The PicoRV32 integration is in [`targets/picorv32/rtl/pqc_picorv32_core_top.sv`](targets/picorv32/rtl/pqc_picorv32_core_top.sv).
 
 PicoRV32 itself is written in Verilog. The custom instruction hardware I added is written in SystemVerilog. The C implementations and inline instruction wrappers are under [`targets/picorv32/mlkem/`](targets/picorv32/mlkem/), and the complete ML-KEM benchmark is in [`targets/picorv32/firmware/mlkem_bench.c`](targets/picorv32/firmware/mlkem_bench.c).
 
