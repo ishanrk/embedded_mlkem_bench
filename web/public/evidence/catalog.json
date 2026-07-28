@@ -1,0 +1,114 @@
+{
+  "schema": "pqc-poly-bench/workbench-v1",
+  "repository_sha": "6a4ae402f75192e6084f37400692e8769fcb8bab",
+  "dirty": true,
+  "inputs": {
+    "targets/picorv32/rtl/pqc_pcpi_mlkem.sv": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+    "scripts/workbench/observe.sv": "3a4ae06f43fee915d5c499e849093a557bb24b62523d7eb8af266324999c2aef",
+    "scripts/workbench/trace.cpp": "be17ab07fb11e845f9c6af29591b753e6c4fdd2c90c5592d5214fb777c157044",
+    "scripts/workbench_data.py": "f8486e347484c7c93c4ebdb57caa696f3cde0ace618c783c78bc7e88c5e4b311",
+    "results/summary.json": "70260758751f5c25dfdcae2774ee919ab268ef42a87884ea6602fcbb7a31d7bb",
+    "targets/picorv32/mlkem/fqmul.h": "2c5f9b2c2f328359736f16346fe8c8659e406fb87eaf525e70bd6f2a5062b11e",
+    "targets/picorv32/mlkem/red32.h": "244a80908ee5f8e0ac409b746a4dce14f59d65615159e5bca9362f653c5b3f61",
+    "targets/picorv32/mlkem/fsri.h": "104eff9afc068b3f6e104b01d3647b4534b0ab40f817c6ee97460bf90f729453"
+  },
+  "traces": [
+    {
+      "id": "fqmul-0",
+      "variant": "fqmul",
+      "file": "fqmul-0.json"
+    },
+    {
+      "id": "fqmul-1",
+      "variant": "fqmul",
+      "file": "fqmul-1.json"
+    },
+    {
+      "id": "red32-0",
+      "variant": "red32",
+      "file": "red32-0.json"
+    },
+    {
+      "id": "red32-1",
+      "variant": "red32",
+      "file": "red32-1.json"
+    },
+    {
+      "id": "fsri_multiplier_reuse-0",
+      "variant": "fsri_multiplier_reuse",
+      "file": "fsri_multiplier_reuse-0.json"
+    },
+    {
+      "id": "fsri_multiplier_reuse-1",
+      "variant": "fsri_multiplier_reuse",
+      "file": "fsri_multiplier_reuse-1.json"
+    },
+    {
+      "id": "fsri_multiplier_reuse-2",
+      "variant": "fsri_multiplier_reuse",
+      "file": "fsri_multiplier_reuse-2.json"
+    },
+    {
+      "id": "fsri_combinational-0",
+      "variant": "fsri_combinational",
+      "file": "fsri_combinational-0.json"
+    },
+    {
+      "id": "fsri_combinational-1",
+      "variant": "fsri_combinational",
+      "file": "fsri_combinational-1.json"
+    },
+    {
+      "id": "fsri_combinational-2",
+      "variant": "fsri_combinational",
+      "file": "fsri_combinational-2.json"
+    }
+  ],
+  "execution": "recorded native verilator playback",
+  "wasm": "unavailable emcc not installed",
+  "upstream": {
+    "core": "PicoRV32",
+    "isa": "RV32IMC",
+    "fpga": "LFE5U-45F-6BG381C",
+    "target_frequency_mhz": 50,
+    "routing_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "picorv32_sha": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
+    "mlkem_native_sha": "69d24e37b8a04c6050ec55bc84a4228d7051bb4b"
+  },
+  "artifacts": {
+    "fsri_combinational-0.json": "9e6e86315396fe041ad9481c85b27196fb3dfc3369ef1a489eb899e24e443f29",
+    "fqmul-1.vcd": "20fea161ac353dbd130eb94328ca0bd111501aa8d4e5ea11257d05005364ff6e",
+    "fsri_combinational-1.json": "bf776a587e8ad49363204920b663f6d1ebe3eca033fbd216494e41ce72825c34",
+    "fsri_multiplier_reuse-2.json": "db16bf7f7e0023059694bbd5764ab4c0ae7d34e0dee27be15730bb9685517d85",
+    "red32-0.vcd": "3a9feaecbf8cddebd23d753e84d689522afc8d6aca31c55ea7515f0d9ae39ea0",
+    "fsri_combinational-0.vcd": "791bf676be4a3b0a6d11f3154e512277b8f492e001b6e6b558f0f37fb678a2bd",
+    "fsri_combinational-1.vcd": "e43e621177ff4d1553b56a97449fd9894209a52c0d0b635bd28d86c876ea868f",
+    "red32.h": "244a80908ee5f8e0ac409b746a4dce14f59d65615159e5bca9362f653c5b3f61",
+    "fsri_multiplier_reuse-0.vcd": "6845d832fc8d40542ae95bb3ca852dbb966db6547d1adf6e0158b780f5e7171d",
+    "fqmul.sv": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+    "red32.sv": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+    "fsri_combinational-2.json": "8ada42cfd10334687a7f2c2f89fc1d3251a69afeae1fba4fa640246aade63c4d",
+    "red32-1.json": "5c7a03ebb92de1a890dc2e87dbf73da0f6a9a9397728a4d511858da9884c1ab8",
+    "fsri_multiplier_reuse-1.json": "ddd6d9107f5c7f984e572f5839cd816ea446e1dea4ce94b76c2485bb594d8d88",
+    "red32-0.json": "a8bec65ddee34e12ba2cfc447a89bda31dbacd8f329b79444338ab6581e469f5",
+    "fqmul-1.json": "241abd4211fdc2c465dff19f5f3a1094dbc3cd8e1cb5b90b505e70faabdaefc1",
+    "fsri.h": "104eff9afc068b3f6e104b01d3647b4534b0ab40f817c6ee97460bf90f729453",
+    "fsri_multiplier_reuse-0.json": "441e99b0b6757399981476d0d8bd83af3eaef0e7ab24d5991d3ca6fcd8145f43",
+    "fqmul.h": "2c5f9b2c2f328359736f16346fe8c8659e406fb87eaf525e70bd6f2a5062b11e",
+    "fqmul-0.vcd": "6588f7956b531986145b8c6fd61be1ddb2a5e036f66e17aff9618ae7e4dbd20d",
+    "fsri_multiplier_reuse-1.vcd": "aa3378998f7954998846bd5f28f4ee0537e9dab6107689379d84083bd5a5a41f",
+    "fqmul-0.json": "81f2f2ab0054418d10a7550ddf35c7ba1eb3178d925d6c51b8a1df19b066d5a3",
+    "fsri_multiplier_reuse.sv": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+    "red32-1.vcd": "3766c2c6f039bd27701c3d6725778d4d9da34e16961a416e6512aa89878b15c9",
+    "fsri_combinational-2.vcd": "7db6842602f3557bc8ba356b217ec6ba261ad615fb7b0f207e1766248ff0b191",
+    "fsri_multiplier_reuse-2.vcd": "501d8da37ab17814d74c84a6bbc046e8275066f46c6b38828c65ae0d874e3cb1",
+    "summary.json": "70260758751f5c25dfdcae2774ee919ab268ef42a87884ea6602fcbb7a31d7bb",
+    "fsri_combinational.sv": "b3302d1705b2bba65e0bbd5b584a08ac6b17b909210d113739c08fa56afcdde1"
+  }
+}
