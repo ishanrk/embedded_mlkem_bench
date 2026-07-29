@@ -1,0 +1,99 @@
+{
+  "schema": "pqc-poly-bench/packed-feasibility-v1",
+  "status": "compiled software comparison and independent model only",
+  "model": "83225 packed range and independent modular identities passed",
+  "compiler": "riscv32-unknown-elf-gcc (g6afcc4f6d) 16.1.0",
+  "packing": "rs1 low16 is a high16 is b rs2 low signed16 is zeta rd low16 is a plus t high16 is a minus t",
+  "encoding_proposal": "custom-0 mask 0xfe00707f match 0x0000300b currently unimplemented",
+  "contract": "absolute a and b at most 26632 absolute zeta at most 1664 signed17 additions checked before signed16 packing",
+  "range_derivation": "ceil((26632 * 1664 + 32768 * 3329) / 65536) = 2341 hence abs a plus or minus t at most 28973 less than 32768",
+  "latency_assumption": "optimistic packed ready at four recorded edges same as fqmul no measured packed rtl latency",
+  "sources": {
+    "scripts/workbench/packed.cpp": "b956fb009bb1e65f379f93d5334d66ec1b5840d1c985a7efe4a581ad56581e9c",
+    "scripts/workbench/packed.c": "ee9309c07d2fdf741b96a979712c40c552487476942e1841592a995cd7033cc9",
+    "src/mlkem_check.cpp": "0cc34d697a119d68593d14cef8a85c6830a304e0d00b60ecd7b65f745ad26cae",
+    "src/mlkem_codegen.cpp": "339f8296cb2da2a8c6674849f12df8e63f8e66ba0a254bab296da7fa88eb9ca8"
+  },
+  "variants": {
+    "fqmul": {
+      "command": [
+        "riscv32-unknown-elf-gcc",
+        "-O3",
+        "-std=c11",
+        "-march=rv32imc",
+        "-mabi=ilp32",
+        "-ffreestanding",
+        "-fno-unroll-loops",
+        "-DPQC_POLY_HAVE_MLK_FQMUL",
+        "-I",
+        "/home/ishan/code/pqc-poly-bench/targets/picorv32/mlkem",
+        "-c",
+        "/home/ishan/code/pqc-poly-bench/scripts/workbench/packed.c",
+        "-o",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/fqmul-butterfly.o"
+      ],
+      "object_sha256": "8b6847f6d4c8e24e925cb7ef7aa5ff0f9b5ae6a3378d7fb98d6412b9d8947eba",
+      "disassembly": "fqmul-butterfly.dis.txt",
+      "loops": {
+        "pqc_forward_layer": {
+          "instructions_per_iteration": 9,
+          "loop_iterations": 128,
+          "custom_per_iteration": 1,
+          "loads_per_iteration": 2,
+          "stores_per_iteration": 2,
+          "stack_accesses": 0
+        },
+        "pqc_forward_pair": {
+          "instructions_per_iteration": 26,
+          "loop_iterations": 64,
+          "custom_per_iteration": 4,
+          "loads_per_iteration": 4,
+          "stores_per_iteration": 4,
+          "stack_accesses": 0
+        }
+      }
+    },
+    "packed": {
+      "command": [
+        "riscv32-unknown-elf-gcc",
+        "-O3",
+        "-std=c11",
+        "-march=rv32imc",
+        "-mabi=ilp32",
+        "-ffreestanding",
+        "-fno-unroll-loops",
+        "-DPQC_POLY_HAVE_MLK_FQMUL",
+        "-I",
+        "/home/ishan/code/pqc-poly-bench/targets/picorv32/mlkem",
+        "-c",
+        "/home/ishan/code/pqc-poly-bench/scripts/workbench/packed.c",
+        "-o",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/packed-butterfly.o",
+        "-DPQC_PACKED"
+      ],
+      "object_sha256": "0f135a72cb21d48110dcc5abc5098b17e3896e8b0879a62351e4b2f9559049f8",
+      "disassembly": "packed-butterfly.dis.txt",
+      "loops": {
+        "pqc_forward_layer": {
+          "instructions_per_iteration": 10,
+          "loop_iterations": 128,
+          "custom_per_iteration": 1,
+          "loads_per_iteration": 2,
+          "stores_per_iteration": 2,
+          "stack_accesses": 0
+        },
+        "pqc_forward_pair": {
+          "instructions_per_iteration": 27,
+          "loop_iterations": 64,
+          "custom_per_iteration": 4,
+          "loads_per_iteration": 4,
+          "stores_per_iteration": 4,
+          "stack_accesses": 0
+        }
+      }
+    }
+  },
+  "decision": "no go for rtl both compiled loop bodies execute more instructions with unchanged custom transaction counts even at optimistic equal pcpi latency",
+  "limitation": "static disassembly comparison not measured packed cpu cycles includes pack unpack memory and loop instructions no claim about a different compiler or core",
+  "register_pressure": "neither loop spills to stack packed fused loop keeps an extra mask constant live and adds setup outside the loop"
+}
