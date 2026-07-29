@@ -25,7 +25,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0x0",
       "multiply_result": "0x0",
-      "numerator": "0x0"
+      "numerator": "0x0",
+      "fsri_window": "0x0",
+      "fsri_shifted": "0x0"
     },
     {
       "edge": 1,
@@ -44,7 +46,9 @@
       "multiply_left": "0x89abcdef",
       "multiply_right": "0x80000",
       "multiply_result": "0x44d5e6f780000",
-      "numerator": "0x1fff80000"
+      "numerator": "0x1fff80000",
+      "fsri_window": "0x89abcdef",
+      "fsri_shifted": "0x44d5e"
     },
     {
       "edge": 2,
@@ -63,7 +67,9 @@
       "multiply_left": "0x12345678",
       "multiply_right": "0x80000",
       "multiply_result": "0x91a2b3c00000",
-      "numerator": "0x1fff80000"
+      "numerator": "0x1fff80000",
+      "fsri_window": "0x567889ab",
+      "fsri_shifted": "0x2b3c4"
     },
     {
       "edge": 3,
@@ -82,7 +88,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0x0",
       "multiply_result": "0x0",
-      "numerator": "0x1fff80000"
+      "numerator": "0x1fff80000",
+      "fsri_window": "0x89abcdef",
+      "fsri_shifted": "0x44d5e"
     }
   ],
   "accepted_edge": 1,
@@ -90,14 +98,16 @@
   "sampling": "edge zero is settled request before first rising edge then settled post rising edge snapshots",
   "latency": "first settled ready assertion indexed from request at edge zero direct is combinational at zero and can be consumed at edge one sequential snapshots include capture edge cpu issue and retirement excluded",
   "source": "fsri_multiplier_reuse.sv",
-  "source_sha256": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+  "source_sha256": "4cc9c251efe0716df91655d958a7d5e806e909873fb516731f7289f983ad2414",
   "source_revision": null,
   "parameters": {
     "ENABLE_FQMUL": 0,
     "ENABLE_RED32": 0,
-    "ENABLE_FSRI": 1
+    "ENABLE_FSRI": 1,
+    "FSRI_IMPL": 0
   },
   "tool": "Verilator 5.051 devel rev v5.050-108-gcac2c3df1 (mod)",
+  "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
   "build_command": [
     "verilator",
     "--cc",
@@ -118,7 +128,9 @@
     "-std=c++20 -O2",
     "/home/ishan/code/pqc-poly-bench/web/public/evidence/fsri_multiplier_reuse.sv",
     "/home/ishan/code/pqc-poly-bench/scripts/workbench/observe.sv",
-    "/home/ishan/code/pqc-poly-bench/scripts/workbench/trace.cpp"
+    "/home/ishan/code/pqc-poly-bench/scripts/workbench/trace.cpp",
+    "-DPQC_FSRI_PARAMETER",
+    "-GFSRI_IMPL=0"
   ],
   "command": [
     "/home/ishan/code/pqc-poly-bench/build/workbench/fsri_multiplier_reuse/Vpqc_pcpi_observe",
@@ -127,7 +139,7 @@
     "0x12345678",
     "/home/ishan/code/pqc-poly-bench/web/public/evidence/fsri_multiplier_reuse-1.vcd"
   ],
-  "binary_sha256": "eec9ed0fdb2596c847faa433c6add4f70ec5c638ee31282565c25896b03daf5c",
+  "binary_sha256": "d30d494ff5cf5becbc3831761c09831ce06e4c4f42f934303810c914aadabe8b",
   "status": "locally reproduced run",
   "vcd": "fsri_multiplier_reuse-1.vcd"
 }

@@ -11,7 +11,8 @@ def main():
     if not 1 <= args.jobs <= 16:
         parser.error("jobs must be between one and sixteen")
     results = {"schema": "pqc-poly-bench/pcpi-checks-v1", "source_sha256": digest(root / "targets/picorv32/rtl/pqc_pcpi_mlkem.sv"),
-               "tool": run(["verilator", "--version"]), "checks": []}
+               "tool": run(["verilator", "--version"]), "compiler": run(["g++", "--version"]).splitlines()[0],
+               "repository_sha": run(["git", "rev-parse", "HEAD"]), "driver_sha256": digest(root / "scripts/workbench/pcpi.cpp"), "checks": []}
     for name, feature, impl in (("disabled", 0, 0), ("fqmul", 1, 0), ("red32", 2, 0), ("reuse", 3, 0), ("sliced", 3, 1), ("direct", 3, 2)):
         directory = work / f"check-{name}"
         directory.mkdir(parents=True, exist_ok=True)

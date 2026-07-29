@@ -24,7 +24,11 @@ export function arithmetic(kind: Instruction, a: bigint, b: bigint, shift: numbe
     if (kind === 'fsri')
     {
         const joined = (b << 32n) | a;
-        return { rd: unsigned(joined >> BigInt(shift)), joined,
+        const coarse = BigInt(shift >> 4), residual = BigInt(shift & 15);
+        const low_window = unsigned(joined >> (coarse * 16n));
+        const high_window = unsigned(joined >> ((coarse + 1n) * 16n));
+        return { rd: unsigned(joined >> BigInt(shift)), joined, coarse, residual, low_window, high_window,
+            low_half: unsigned(low_window >> residual, 16), high_half: unsigned(high_window >> residual, 16),
             factor: shift === 0 ? 0n : 1n << BigInt(32 - shift),
             lower_product: shift === 0 ? 0n : a * (1n << BigInt(32 - shift)),
             upper_product: shift === 0 ? 0n : b * (1n << BigInt(32 - shift)) };

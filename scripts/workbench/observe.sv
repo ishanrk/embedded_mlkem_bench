@@ -1,7 +1,8 @@
 module pqc_pcpi_observe #(
     parameter ENABLE_FQMUL = 1'b0,
     parameter ENABLE_RED32 = 1'b0,
-    parameter ENABLE_FSRI = 1'b0
+    parameter ENABLE_FSRI = 1'b0,
+    parameter FSRI_IMPL = 0
 ) (
     input logic clk,
     input logic resetn,
@@ -23,12 +24,17 @@ module pqc_pcpi_observe #(
     output logic [32:0] multiply_left,
     output logic [32:0] multiply_right,
     output logic [65:0] multiply_result,
-    output logic [32:0] numerator
+    output logic [32:0] numerator,
+    output logic [31:0] fsri_window,
+    output logic [31:0] fsri_shifted
 );
 pqc_pcpi_mlkem #(
     .ENABLE_FQMUL(ENABLE_FQMUL),
     .ENABLE_RED32(ENABLE_RED32),
     .ENABLE_FSRI(ENABLE_FSRI)
+`ifdef PQC_FSRI_PARAMETER
+    , .FSRI_IMPL(FSRI_IMPL)
+`endif
 ) dut (
     .clk(clk), .resetn(resetn), .pcpi_valid(pcpi_valid),
     .pcpi_insn(pcpi_insn), .pcpi_rs1(pcpi_rs1), .pcpi_rs2(pcpi_rs2),
@@ -46,4 +52,11 @@ assign multiply_left = dut.multiply_left;
 assign multiply_right = dut.multiply_right;
 assign multiply_result = dut.multiply_result;
 assign numerator = dut.numerator;
+`ifdef PQC_FSRI_PARAMETER
+assign fsri_window = dut.fsri_window;
+assign fsri_shifted = dut.fsri_shifted;
+`else
+assign fsri_window = 32'b0;
+assign fsri_shifted = 32'b0;
+`endif
 endmodule

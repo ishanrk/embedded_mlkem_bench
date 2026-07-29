@@ -1,0 +1,38 @@
+{
+  "schema": "pqc-poly-bench/area-screen-v1",
+  "status": "locally reproduced area screen",
+  "stage": "yosys synth_ecp5 before placement and routing",
+  "cells": {
+    "$scopeinfo": 3,
+    "LUT4": 2723,
+    "CCU2C": 356,
+    "PFUMX": 495,
+    "TRELLIS_FF": 970,
+    "TRELLIS_DPR16X4": 32,
+    "L6MUX21": 95,
+    "MULT18X18D": 4
+  },
+  "yosys_version": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+  "provenance": {
+    "repository_sha": "edb4a312c7ec16286305fd9855aa145a0b469308",
+    "dirty": true,
+    "source_sha256": {
+      "pcpi": "4cc9c251efe0716df91655d958a7d5e806e909873fb516731f7289f983ad2414",
+      "core": "8c4a3c20a679fb5a65ef9a45a4f44ea3fdd9957f8638bb3f1c654c18cdb6f7ac",
+      "picorv32": "0836050971b3c6cdd28ac3b1e5719a67fb645161912bef1e472e63995ceb0622",
+      "script": "ef867c552659c8d24be2648cb5713aa165e7144e948138ee75ac303948cb78bb"
+    },
+    "fsri_impl": null,
+    "parameters": {
+      "STOCK_MUL": "0",
+      "ENABLE_FQMUL": "0",
+      "ENABLE_RED32": "0",
+      "ENABLE_FSRI": "0",
+      "FSRI_IMPL": "0"
+    },
+    "netlist_sha256": "1e0b96bcbd644428b11a0f7b771fe2aeb976d5388459d62d030cfd1bdb19ffff",
+    "reproduction": "/usr/bin/python3 ${PROJECT_SOURCE_DIR}/targets/picorv32/synth/ecp5-50mhz.py --yosys ${PQC_OSS_CAD_SUITE_ROOT}/bin/yosys --nextpnr ${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --ecppack ${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack --picorv32 ${PROJECT_SOURCE_DIR}/build/picorv32-sim/_deps/picorv32-src/picorv32.v --pcpi ${PROJECT_SOURCE_DIR}/targets/picorv32/rtl/pqc_pcpi_mlkem.sv --core ${PROJECT_SOURCE_DIR}/targets/picorv32/rtl/pqc_picorv32_core_top.sv --script ${PROJECT_SOURCE_DIR}/targets/picorv32/synth/core.ys --work ${PROJECT_SOURCE_DIR}/build/workbench/area-baseline --output ${PROJECT_SOURCE_DIR}/web/public/evidence/fsri-baseline-area.json --area-only",
+    "elf_sha256": null,
+    "scope": "ecp5 core only without board memory"
+  }
+}

@@ -1,7 +1,8 @@
 module pqc_pcpi_mlkem #(
     parameter ENABLE_FQMUL = 1'b0,
     parameter ENABLE_RED32 = 1'b0,
-    parameter ENABLE_FSRI = 1'b0
+    parameter ENABLE_FSRI = 1'b0,
+    parameter FSRI_IMPL = 0
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -57,6 +58,10 @@ logic signed [31:0] fqmul_result;
 logic [31:0] m_result;
 logic [15:0] fsri_half;
 logic [31:0] fsri_factor;
+logic [31:0] fsri_window;
+logic [31:0] fsri_shifted;
+logic [63:0] fsri_direct;
+logic fsri_direct_claim;
 
 `ifdef FORMAL
 assign formal_state = {state, served, custom_request, last_insn, last_rs1, last_rs2,
@@ -80,7 +85,8 @@ begin
                  (pcpi_insn & 32'hc000_707f) == 32'h0000_200b;
     fsri_active = ENABLE_FSRI &&
                   (last_insn & 32'hc000_707f) == 32'h0000_200b;
-    claim = m_claim || fqmul_claim || red32_claim || fsri_claim;
+    fsri_direct_claim = fsri_claim && FSRI_IMPL == 2;
+    claim = m_claim || fqmul_claim || red32_claim || (fsri_claim && FSRI_IMPL != 2);
     same_request = pcpi_insn == last_insn && pcpi_rs1 == last_rs1 && pcpi_rs2 == last_rs2;
 
     case (pcpi_insn[28:25])
@@ -114,11 +120,19 @@ begin
         end
     end
 
+    fsri_window = last_insn[29] ? {last_rs2[15:0], last_rs1[31:16]} : last_rs1;
+    if (state == INVERSE)
+    begin
+        fsri_window = last_insn[29] ? last_rs2 : {last_rs2[15:0], last_rs1[31:16]};
+    end
+    fsri_shifted = fsri_window >> last_insn[28:25];
+    fsri_direct = {pcpi_rs2, pcpi_rs1} >> pcpi_insn[29:25];
+
     multiply_left = 33'sd0;
     multiply_right = 33'sd0;
     if (state == PRODUCT)
     begin
-        if (fsri_active)
+        if (fsri_active && FSRI_IMPL == 0)
         begin
             multiply_left = $signed({1'b0, last_rs1});
             multiply_right = $signed({1'b0, modulus_value});
@@ -144,7 +158,7 @@ begin
     end
     else if (state == INVERSE)
     begin
-        if (fsri_active)
+        if (fsri_active && FSRI_IMPL == 0)
         begin
             multiply_left = $signed({1'b0, last_rs2});
             multiply_right = $signed({1'b0, modulus_value});
@@ -175,10 +189,15 @@ begin
                 $signed({modulus_value[31], modulus_value});
     fqmul_result = $signed({{15{numerator[32]}}, numerator[32:16]});
 
-    pcpi_ready = state == RESPONSE && pcpi_valid && same_request;
+    pcpi_ready = fsri_direct_claim || (state == RESPONSE && pcpi_valid && same_request);
     pcpi_wr = pcpi_ready;
-    pcpi_rd = custom_request ? fqmul_result : response_value;
-    if (state == IDLE)
+    pcpi_rd = fsri_direct_claim ? fsri_direct[31:0] :
+              custom_request ? fqmul_result : response_value;
+    if (fsri_direct_claim)
+    begin
+        pcpi_wait = 1'b0;
+    end
+    else if (state == IDLE)
     begin
         pcpi_wait = claim && (!served || !same_request);
     end
@@ -225,7 +244,7 @@ begin
                     if (fsri_claim)
                     begin
                         response_value <= pcpi_rs1;
-                        modulus_value <= $signed(fsri_factor);
+                        modulus_value <= FSRI_IMPL == 0 ? $signed(fsri_factor) : 32'sd0;
                         state <= PRODUCT;
                     end
                     else if (red32_claim)
@@ -243,7 +262,11 @@ begin
             begin
                 if (fsri_active)
                 begin
-                    if (last_insn[29:25] != 5'b0)
+                    if (FSRI_IMPL == 1)
+                    begin
+                        response_value[15:0] <= fsri_shifted[15:0];
+                    end
+                    else if (last_insn[29:25] != 5'b0)
                     begin
                         response_value <= multiply_result[63:32];
                     end
@@ -264,7 +287,11 @@ begin
             begin
                 if (fsri_active)
                 begin
-                    if (last_insn[29:25] != 5'b0)
+                    if (FSRI_IMPL == 1)
+                    begin
+                        response_value[31:16] <= fsri_shifted[15:0];
+                    end
+                    else if (last_insn[29:25] != 5'b0)
                     begin
                         response_value <= response_value | multiply_result[31:0];
                     end
@@ -293,7 +320,7 @@ begin
                     if (fsri_claim)
                     begin
                         response_value <= pcpi_rs1;
-                        modulus_value <= $signed(fsri_factor);
+                        modulus_value <= FSRI_IMPL == 0 ? $signed(fsri_factor) : 32'sd0;
                         state <= PRODUCT;
                     end
                     else if (red32_claim)

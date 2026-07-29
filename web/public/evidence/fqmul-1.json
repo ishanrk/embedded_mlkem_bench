@@ -25,7 +25,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0x0",
       "multiply_result": "0x0",
-      "numerator": "0x0"
+      "numerator": "0x0",
+      "fsri_window": "0x0",
+      "fsri_shifted": "0x0"
     },
     {
       "edge": 1,
@@ -44,7 +46,9 @@
       "multiply_left": "0xd00",
       "multiply_right": "0xd00",
       "multiply_result": "0xa90000",
-      "numerator": "0x0"
+      "numerator": "0x0",
+      "fsri_window": "0xd00",
+      "fsri_shifted": "0xd00"
     },
     {
       "edge": 2,
@@ -63,7 +67,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0xf301",
       "multiply_result": "0x0",
-      "numerator": "0xa90000"
+      "numerator": "0xa90000",
+      "fsri_window": "0xd000000",
+      "fsri_shifted": "0xd000000"
     },
     {
       "edge": 3,
@@ -82,7 +88,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0xd01",
       "multiply_result": "0x0",
-      "numerator": "0xa90000"
+      "numerator": "0xa90000",
+      "fsri_window": "0xd00",
+      "fsri_shifted": "0xd00"
     },
     {
       "edge": 4,
@@ -101,7 +109,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0x0",
       "multiply_result": "0x0",
-      "numerator": "0xa90000"
+      "numerator": "0xa90000",
+      "fsri_window": "0xd00",
+      "fsri_shifted": "0xd00"
     }
   ],
   "accepted_edge": 1,
@@ -109,14 +119,16 @@
   "sampling": "edge zero is settled request before first rising edge then settled post rising edge snapshots",
   "latency": "first settled ready assertion indexed from request at edge zero direct is combinational at zero and can be consumed at edge one sequential snapshots include capture edge cpu issue and retirement excluded",
   "source": "fqmul.sv",
-  "source_sha256": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+  "source_sha256": "4cc9c251efe0716df91655d958a7d5e806e909873fb516731f7289f983ad2414",
   "source_revision": null,
   "parameters": {
     "ENABLE_FQMUL": 1,
     "ENABLE_RED32": 0,
-    "ENABLE_FSRI": 0
+    "ENABLE_FSRI": 0,
+    "FSRI_IMPL": 0
   },
   "tool": "Verilator 5.051 devel rev v5.050-108-gcac2c3df1 (mod)",
+  "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
   "build_command": [
     "verilator",
     "--cc",
@@ -137,7 +149,9 @@
     "-std=c++20 -O2",
     "/home/ishan/code/pqc-poly-bench/web/public/evidence/fqmul.sv",
     "/home/ishan/code/pqc-poly-bench/scripts/workbench/observe.sv",
-    "/home/ishan/code/pqc-poly-bench/scripts/workbench/trace.cpp"
+    "/home/ishan/code/pqc-poly-bench/scripts/workbench/trace.cpp",
+    "-DPQC_FSRI_PARAMETER",
+    "-GFSRI_IMPL=0"
   ],
   "command": [
     "/home/ishan/code/pqc-poly-bench/build/workbench/fqmul/Vpqc_pcpi_observe",
@@ -146,7 +160,7 @@
     "0xd00",
     "/home/ishan/code/pqc-poly-bench/web/public/evidence/fqmul-1.vcd"
   ],
-  "binary_sha256": "d379585f06d481e131c36361eb64d5e8ad4567e08b160afbcd4bd50869698fe1",
+  "binary_sha256": "f1c5ba438fb4b9ab347348fd17089c1b5c22d298f71b42fd34200245c5c313f2",
   "status": "locally reproduced run",
   "vcd": "fqmul-1.vcd"
 }
