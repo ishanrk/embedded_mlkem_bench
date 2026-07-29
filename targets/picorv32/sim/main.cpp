@@ -735,6 +735,8 @@ void write_mlkem(const options &settings, std::span<const std::uint64_t> begins,
                << ",\"multiplier\":\"stock\"}\n";
 #elif defined(PQC_FQMUL)
                << ",\"multiplier\":\"fqmul\"}\n";
+#elif defined(PQC_FSRI)
+               << ",\"multiplier\":\"project\",\"fsri_impl\":" << PQC_FSRI_IMPL << "}\n";
 #elif defined(PQC_RED32)
                << ",\"multiplier\":\"red32\"}\n";
 #else

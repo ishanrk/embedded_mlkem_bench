@@ -10,6 +10,9 @@ if {$::env(ENABLE_RED32)} {
 }
 if {$::env(ENABLE_FSRI)} {
     yosys chparam -set ENABLE_FSRI 1 pqc_picorv32_core_top
+    if {[info exists ::env(FSRI_IMPL)]} {
+        yosys chparam -set FSRI_IMPL $::env(FSRI_IMPL) pqc_picorv32_core_top
+    }
 }
 yosys hierarchy -check -top pqc_picorv32_core_top
 yosys synth_ecp5 -top pqc_picorv32_core_top -json $::env(SYNTH_JSON)

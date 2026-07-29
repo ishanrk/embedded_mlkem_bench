@@ -219,7 +219,7 @@ function(pqc_add_verilated name top prefix cflags parameter)
         OUTPUT "${executable}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${model_dir}"
         COMMAND
-            "${PQC_VERILATOR}" --cc --exe --build -j 0 --Mdir "${model_dir}" --top-module
+            "${PQC_VERILATOR}" --cc --exe --build -j "${PQC_POLY_BUILD_JOBS}" --Mdir "${model_dir}" --top-module
             "${top}" --prefix "${prefix}" --Wno-fatal -CFLAGS "${cflags}" ${parameter_arg}
             ${sources} "${pqc_sim_dir}/main.cpp" "${PROJECT_SOURCE_DIR}/src/target_measurement.cpp"
         DEPENDS
