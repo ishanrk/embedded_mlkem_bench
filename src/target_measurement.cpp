@@ -18,6 +18,7 @@ namespace pqc_poly
 namespace
 {
 
+// strict local JSON parser for evidence files; unexpected shapes fail instead of being ignored
 enum class json_kind
 {
     object,
@@ -89,6 +90,7 @@ private:
 
     [[nodiscard]] json_value parse_value(std::size_t depth)
     {
+        // cap nesting so malformed evidence cannot recurse without a useful limit
         if (depth > 32)
         {
             invalid("nesting too deep");
@@ -565,6 +567,7 @@ private:
         return result;
     }
 
+    // objdump may show GCC clones like foo.constprop.0 while .su keeps the base name
     const std::size_t suffix = name.rfind('.');
     if (suffix == std::string_view::npos || suffix + 1 == name.size() ||
         !std::all_of(name.begin() + static_cast<std::ptrdiff_t>(suffix + 1), name.end(),
@@ -590,6 +593,7 @@ private:
 
 struct call_graph
 {
+    // indirect calls make a static stack bound unknown because their target is not in objdump
     std::map<std::string, std::vector<std::string>, std::less<>> calls{};
     std::set<std::string, std::less<>> indirect{};
 };
@@ -609,6 +613,7 @@ struct call_graph
 
 [[nodiscard]] call_graph parse_calls(std::string_view disassembly)
 {
+    // recover just enough call graph from objdump text to sum compiler frame sizes
     call_graph graph;
     std::string current;
     for (const std::string_view raw : lines(disassembly))
@@ -667,6 +672,7 @@ struct call_graph
     std::set<std::string, std::less<>> &active,
     std::map<std::string, std::uint64_t, std::less<>> &memo)
 {
+    // memo avoids re-walking shared callees; active detects recursion
     if (const auto known = memo.find(name); known != memo.end())
     {
         return known->second;
@@ -702,6 +708,7 @@ struct call_graph
 
 picorv32_manifest load_picorv32_manifest(const std::filesystem::path &path)
 {
+    // provenance is part of the measurement contract, including the pinned FPGA/tool releases
     const json_value root = json_parser(read_file(path)).parse();
     picorv32_manifest result{
         .repository_sha = string_field(root, "repository_sha"),
@@ -779,6 +786,7 @@ picorv32_manifest load_picorv32_manifest(const std::filesystem::path &path)
 
 std::vector<stack_frame> parse_stack_usage(std::string_view text)
 {
+    // GCC -fstack-usage writes location, byte count, and allocation kind as tab-separated fields
     std::vector<stack_frame> result;
     for (const std::string_view raw : lines(text))
     {
@@ -850,6 +858,7 @@ std::optional<std::uint64_t> compute_callchain_stack_bound(std::span<const stack
                                                            std::string_view disassembly,
                                                            std::string_view root)
 {
+    // null means the disassembly has recursion, an indirect call, or a missing frame record
     if (root.empty())
     {
         fail("callchain root must not be empty");
@@ -862,6 +871,7 @@ std::optional<std::uint64_t> compute_callchain_stack_bound(std::span<const stack
 
 code_size_measurement parse_elf_size(std::string_view text)
 {
+    // flash holds text, read-only data, and initial data; BSS is zeroed in RAM at boot
     code_size_measurement result;
     bool found = false;
     for (const std::string_view raw : lines(text))
@@ -966,6 +976,7 @@ stack_measurement parse_stack_measurement(std::string_view text)
 
 cycle_measurement parse_simulation_measurement(std::string_view text)
 {
+    // recompute calibrated cycles rather than accepting the JSON's derived field
     const json_value root = json_parser(text).parse();
     const std::uint64_t reported_calibrated = uint_field(root, "calibrated_cycles");
     cycle_measurement result{
@@ -994,6 +1005,7 @@ cycle_measurement parse_simulation_measurement(std::string_view text)
 
 std::vector<mlkem_cycle_measurement> parse_mlkem_cycle_measurements(std::string_view text)
 {
+    // JSONL is validated row by row before the planner groups it into experiments
     std::vector<mlkem_cycle_measurement> result;
     for (const std::string_view line : lines(text))
     {
@@ -1057,6 +1069,7 @@ std::vector<mlkem_cycle_measurement> parse_mlkem_cycle_measurements(std::string_
 
 synthesis_measurement parse_synthesis_measurement(std::string_view text)
 {
+    // preserve every route seed; medians and gates are calculated later
     const json_value root = json_parser(text).parse();
     synthesis_measurement result{
         .yosys_version = string_field(root, "yosys_version"),

@@ -7,6 +7,7 @@ namespace pqc_poly
 namespace
 {
 
+// RED32 checker repeats the important derivations instead of trusting planner output
 void add_once(std::vector<std::string> &out, std::string_view value)
 {
     if (std::find(out.begin(), out.end(), value) == out.end())
@@ -99,6 +100,7 @@ void add_once(std::vector<std::string> &out, std::string_view value)
 
 void check_forward(std::vector<std::string> &out, std::span<const mlkem_record> records)
 {
+    // exact schedule check: all 127 blocks, zetas, and array ranges must line up
     if (records.size() != 127U)
     {
         add_once(out, records.size() < 127U ? "missing_butterfly" : "duplicate_butterfly");
@@ -292,6 +294,7 @@ std::vector<std::string> check_red32_candidate(const mlkem_request &request,
     {
         add_once(out, "control_flow");
     }
+    // RED32 accepts any signed int32 product; these are the resulting extreme outputs
     if (!candidate.full_domain_reduction || candidate.reduction_min != -34432 ||
         candidate.reduction_max != 34432)
     {

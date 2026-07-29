@@ -19,6 +19,7 @@ namespace pqc_poly
 namespace
 {
 
+// this file closes the loop: load simulator evidence, choose winners, write final evidence
 [[nodiscard]] std::string read(const std::filesystem::path &path)
 {
     std::ifstream input(path, std::ios::binary);
@@ -52,6 +53,7 @@ struct operation_summary
 
 struct measured_plan
 {
+    // selection fields plus the detailed records needed in final reports
     mlkem_measurement selection{};
     std::vector<operation_summary> project{};
     std::vector<operation_summary> stock{};
@@ -96,6 +98,7 @@ struct measured_plan
     std::span<const mlkem_cycle_measurement> records, const mlkem_candidate &candidate,
     std::string_view multiplier)
 {
+    // firmware emits operations in a fixed order; validating it prevents mislabeled numbers
     const std::string base = "base_dot_k" + std::to_string(mlkem_k(candidate.plan.level));
     const std::array<std::string_view, 8> operations{
         "forward_ntt", "inverse_ntt", "mulcache",      base,
@@ -117,6 +120,7 @@ struct measured_plan
         {
             std::uint64_t repeated_cycles = 0;
             std::uint64_t repeated_instructions = 0;
+            // repeats use identical deterministic input, so any change means unstable execution
             for (unsigned repeat = 0; repeat < 3U; ++repeat)
             {
                 if (cursor == records.size())
@@ -174,6 +178,7 @@ struct measured_plan
                                           std::string_view cycle_suffix,
                                           std::string_view multiplier)
 {
+    // combine cycle, stack, and ELF-size evidence into the row used for winner selection
     measured_plan measured;
     const std::vector<mlkem_cycle_measurement> records = parse_mlkem_cycle_measurements(
         read(directory / (candidate.id + std::string(cycle_suffix))));
@@ -284,6 +289,7 @@ void append_result(std::ostringstream &out, std::string_view name, const mlkem_c
     std::span<const std::pair<const mlkem_candidate *, const measured_plan *>> staged,
     std::span<const std::pair<const mlkem_candidate *, const measured_plan *>> joint)
 {
+    // compare portable, best software, software winner + FQMUL, and jointly tuned FQMUL
     double logarithm = 0.0;
     double staged_logarithm = 0.0;
     double largest_regression = -std::numeric_limits<double>::infinity();
@@ -333,6 +339,7 @@ void append_result(std::ostringstream &out, std::string_view name, const mlkem_c
             << 100.0 * (joint_total / staged_total - 1.0) << "\n    }"
             << (i + 1U == software.size() ? "\n" : ",\n");
     }
+    // geometric mean weights the three operations and three ML-KEM levels equally
     const double geometric_speedup = std::exp(logarithm / 9.0);
     const double staged_geometric_speedup = std::exp(staged_logarithm / 3.0);
     const bool no_regression = largest_regression <= 2.0;
@@ -377,6 +384,7 @@ void append_result(std::ostringstream &out, std::string_view name, const mlkem_c
 template <typename Value, typename Get>
 [[nodiscard]] Value synthesis_median(std::span<const synthesis_seed> seeds, Get get)
 {
+    // five routing seeds reduce the chance of reporting one unusually good placement
     std::vector<Value> values;
     values.reserve(seeds.size());
     for (const synthesis_seed &seed : seeds)
@@ -461,6 +469,7 @@ struct instruction_scan
 
 [[nodiscard]] instruction_scan scan_instructions(std::string_view text, bool expect_fqmul)
 {
+    // inspect raw words because objdump may not know this project-specific opcode name
     const std::array<std::string_view, 6> approved{"pqc_mlkem_ntt",          "pqc_mlkem_intt",
                                                    "pqc_mlkem_mulcache_one", "pqc_mlkem_mulcache",
                                                    "pqc_mlkem_basemul",      "pqc_mlkem_tomont"};
@@ -509,6 +518,7 @@ struct instruction_scan
             throw mlkem_error("invalid raw instruction word");
         }
         ++scan.executable_words;
+        // mask ignores register fields but keeps opcode/funct bits used by the decoder
         if ((word & UINT32_C(0xfe00707f)) == UINT32_C(0x0000000b))
         {
             ++scan.fqmul_words;
@@ -667,6 +677,7 @@ void finalize_fqmul(const mlkem_request &request, const std::filesystem::path &s
                     const std::filesystem::path &formal_directory,
                     const std::filesystem::path &output_directory)
 {
+    // every software plan and matching FQMUL plan must be present before comparing them
     const std::vector<mlkem_plan> plans = enumerate_mlkem_plans();
     std::vector<mlkem_candidate> candidates;
     std::vector<measured_plan> software_measurements;
@@ -729,6 +740,7 @@ void finalize_fqmul(const mlkem_request &request, const std::filesystem::path &s
     {
         custom_selection.push_back(measurement.selection);
     }
+    // captures candidates by reference; returned references stay valid after enumeration ends
     const auto find_candidate = [&candidates](std::string_view id) -> const mlkem_candidate &
     {
         const auto found =
@@ -772,6 +784,7 @@ void finalize_fqmul(const mlkem_request &request, const std::filesystem::path &s
         portable_measurements[i] =
             load_measured(software_directory, portable_candidate, "-project.jsonl", "project");
         portable.emplace_back(&portable_candidate, &portable_measurements[i]);
+        // staged keeps the software-winning schedule; joint lets hardware change the schedule too
         const mlkem_measurement &software_winner =
             select_measured_mlkem_plan(level, candidates, software_selection);
         const mlkem_measurement &joint_winner = select_measured_mlkem_plan(
@@ -818,6 +831,7 @@ void finalize_fqmul(const mlkem_request &request, const std::filesystem::path &s
 
 void finalize(const mlkem_request &request, const std::filesystem::path &directory)
 {
+    // software-only pass: validate all 72 rows, then pick one winner for each k
     const std::vector<mlkem_plan> plans = enumerate_mlkem_plans();
     std::vector<mlkem_candidate> candidates;
     std::vector<measured_plan> measurements;
@@ -908,6 +922,7 @@ void finalize(const mlkem_request &request, const std::filesystem::path &directo
 
 int mlkem_run(int argc, char **argv, std::ostream &output, std::ostream &error)
 {
+    // normal mode emits candidates/backends; finalize modes consume completed experiments
     try
     {
         if (argc == 9 && std::string_view(argv[1]) == "--finalize-fqmul")

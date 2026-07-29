@@ -13,6 +13,7 @@
 namespace pqc_poly
 {
 
+// identities recorded with evidence so a result can be tied back to exact source archives
 struct archive_hash
 {
     std::string name{};
@@ -23,6 +24,7 @@ struct archive_hash
 
 struct picorv32_manifest
 {
+    // complete tool/source recipe for reproducing the simulation and synthesis run
     std::string repository_sha{};
     std::string picorv32_sha{};
     std::string riscv_toolchain_release{};
@@ -49,6 +51,7 @@ struct picorv32_manifest
 
 struct cycle_measurement
 {
+    // simulator clock ticks, with the empty begin/end marker cost removed
     std::uint64_t begin_cycle{0};
     std::uint64_t end_cycle{0};
     std::uint64_t marker_overhead_cycles{0};
@@ -61,6 +64,7 @@ struct cycle_measurement
 
 struct mlkem_cycle_measurement
 {
+    // one JSONL row for a specific input and deterministic repeat
     std::string plan_id{};
     std::string level{};
     std::string operation{};
@@ -90,6 +94,7 @@ struct code_size_measurement
 
 struct stack_frame
 {
+    // one compiler .su record; dynamic frames are accepted only when GCC says bounded
     std::string function{};
     std::uint64_t bytes{0};
     bool bounded_dynamic{false};
@@ -99,6 +104,7 @@ struct stack_frame
 
 struct stack_measurement
 {
+    // three views of memory: explicit buffers, static call graph, and runtime high-water mark
     std::uint64_t explicit_scratch_bytes{0};
     std::uint64_t caller_working_bytes{0};
     std::uint64_t compiler_frame_bytes{0};
@@ -112,6 +118,7 @@ struct stack_measurement
 
 struct synthesis_seed
 {
+    // place-and-route result; LUT4/FF/DSP/BRAM are ECP5 resource counts, not board measurements
     std::uint32_t seed{0};
     std::uint64_t lut4{0};
     std::uint64_t flip_flops{0};
