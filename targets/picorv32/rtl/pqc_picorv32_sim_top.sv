@@ -1,4 +1,4 @@
-// whole-CPU simulation wrapper: simple RAM plus MMIO events consumed by the C++ driver
+// wraps the processor with memory and simulator event outputs
 module pqc_picorv32_sim_top #(
     parameter STOCK_MUL = 1'b0,
     parameter ENABLE_FQMUL = 1'b0,
@@ -17,7 +17,7 @@ module pqc_picorv32_sim_top #(
     output logic [63:0] cycle_count
 );
 
-// addresses below RAM are firmware memory; 0x10000000 stores are benchmark messages
+// low addresses hold firmware and high addresses carry benchmark events
 localparam logic [31:0] memory_limit = 32'h0008_0000;
 localparam logic [31:0] begin_address = 32'h1000_0000;
 localparam logic [31:0] end_address = 32'h1000_0004;
@@ -40,7 +40,7 @@ string firmware;
 
 initial
 begin
-    // Verilator passes +firmware=... and readmemh loads objcopy's word-wide hex image
+    // loads the firmware hex file named by the simulator argument
     if (!$value$plusargs("firmware=%s", firmware))
     begin
         $fatal(1, "missing +firmware=<hex>");
@@ -48,7 +48,7 @@ begin
     $readmemh(firmware, memory);
 end
 
-// every memory request gets one cycle of latency
+// each memory request completes after one cycle
 assign mem_ready = pending;
 
 pqc_picorv32_core_top #(
@@ -74,7 +74,7 @@ always_ff @(posedge clk)
 begin
     if (!resetn)
     begin
-        // reset clears the bus transaction and all one-cycle event outputs
+        // reset clears the pending bus request and simulator event outputs
         pending <= 1'b0;
         request_addr <= 32'b0;
         request_wdata <= 32'b0;
@@ -90,20 +90,20 @@ begin
     else
     begin
         cycle_count <= cycle_count + 1'b1;
-        // pulses default low, then a matching MMIO write raises one for this cycle
+        // each event stays low unless its MMIO address is written this cycle
         benchmark_begin <= 1'b0;
         benchmark_end <= 1'b0;
         status_valid <= 1'b0;
 
         if (pending)
         begin
-            // complete the request captured on the previous edge
+            // completes the request saved on the previous clock edge
             pending <= 1'b0;
             if (request_addr < memory_limit)
             begin
                 if (request_wstrb[0])
                 begin
-                    // byte strobes make sub-word stores update only selected lanes
+                    // byte strobes update only the selected memory bytes
                     memory[request_addr[18:2]][7:0] <= request_wdata[7:0];
                 end
                 if (request_wstrb[1])
@@ -121,7 +121,7 @@ begin
             end
             else if (request_wstrb != 4'b0)
             begin
-                // firmware/runtime.c reaches the host through these write-only MMIO registers
+                // firmware sends benchmark events through these MMIO addresses
                 case (request_addr)
                     begin_address:
                     begin
@@ -148,7 +148,7 @@ begin
         end
         else if (mem_valid)
         begin
-            // latch address/data because the core may move on before ready is asserted
+            // saves request values until the memory response is ready
             pending <= 1'b1;
             request_addr <= mem_addr;
             request_wdata <= mem_wdata;

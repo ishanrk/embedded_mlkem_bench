@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// bare-metal benchmark: deterministic inputs and MMIO markers make RTL runs reproducible
+// deterministic inputs and MMIO markers make firmware runs repeatable
 #if defined(PQC_MLKEM_PORTABLE)
 #include "src/poly.h"
 #include "src/poly_k.h"
@@ -72,7 +72,7 @@ void pqc_mlkem_basemul(int16_t r[256], const int16_t *a, const int16_t *b, const
 
 struct mlkem_bench_state
 {
-    // static storage keeps large ML-KEM inputs out of the small measured call stack
+    // static storage keeps large MLKEM buffers outside the measured call stack
     uint8_t pk[MLKEM_PUBLICKEYBYTES(MLK_CONFIG_PARAMETER_SET)];
     uint8_t sk[MLKEM_SECRETKEYBYTES(MLK_CONFIG_PARAMETER_SET)];
     uint8_t ct[MLKEM_CIPHERTEXTBYTES(MLK_CONFIG_PARAMETER_SET)];
@@ -99,7 +99,7 @@ static volatile uint32_t checksum;
 
 static uint32_t read_instret(void)
 {
-    // minstret counts retired instructions; simulator cycle markers count elapsed CPU cycles
+    // minstret counts completed instructions while markers count processor cycles
     uint32_t value;
     __asm__ volatile("rdinstret %0" : "=r"(value));
     return value;
@@ -107,7 +107,7 @@ static uint32_t read_instret(void)
 
 static uint32_t next_random(uint32_t *value)
 {
-    // fixed xorshift stream supplies varied but exactly repeatable benchmark inputs
+    // fixed xorshift state creates the same input sequence for every backend
     uint32_t x = *value;
     x ^= x << 13U;
     x ^= x >> 17U;
@@ -195,7 +195,7 @@ static void record_instret(uint32_t begin, uint32_t end)
         record_instret(begin, end);      \
     } while (0)
 
-// do/while makes the multi-statement macro behave like one statement at call sites
+// do while makes this macro act as one statement
 
 static int same_bytes(const uint8_t *a, const uint8_t *b, size_t count)
 {
@@ -209,11 +209,11 @@ static int same_bytes(const uint8_t *a, const uint8_t *b, size_t count)
 
 static void run_kernels(void)
 {
-    // isolate the five arithmetic hooks before measuring complete ML-KEM operations
+    // measures the five arithmetic functions before complete MLKEM operations
     for (unsigned input = 0; input < PQC_MLKEM_INPUTS; ++input)
     {
         fill_poly(state.input, 256U, UINT32_C(0x10000000) + input);
-        // same input is run three times; byte equality catches state leaks between repeats
+        // runs each input three times and requires identical output bytes
         for (unsigned repeat = 0; repeat < PQC_MLKEM_REPEATS; ++repeat)
         {
             copy_i16(state.poly, state.input, 256U);
@@ -306,7 +306,7 @@ static void run_kernels(void)
 
 static void prepare_operation(unsigned input)
 {
-    // derandomized APIs let every backend see identical keygen/encapsulation coins
+    // fixed coins give every backend identical key generation and encapsulation inputs
     fill_bytes(state.key_coins, sizeof(state.key_coins), UINT32_C(0x70000000) + input);
     fill_bytes(state.enc_coins, sizeof(state.enc_coins), UINT32_C(0x71000000) + input);
 }
@@ -328,7 +328,7 @@ static int decapsulate(void)
 
 static void run_keygen(void)
 {
-    // measure full key generation and also require its public/secret keys to repeat exactly
+    // measures key generation and checks that both generated keys repeat exactly
     for (unsigned input = 0; input < PQC_MLKEM_OPERATION_INPUTS; ++input)
     {
         prepare_operation(input);
@@ -359,7 +359,7 @@ static void run_keygen(void)
 
 static void run_encapsulation(void)
 {
-    // keygen is setup here; only encapsulation sits between the benchmark markers
+    // prepares a key before the markers so only encapsulation is measured
     for (unsigned input = 0; input < PQC_MLKEM_OPERATION_INPUTS; ++input)
     {
         prepare_operation(input);
@@ -394,7 +394,7 @@ static void run_encapsulation(void)
 
 static void run_decapsulation(void)
 {
-    // correctness means decapsulation returns the encapsulated shared secret
+    // checks that decapsulation returns the encapsulated shared secret
     for (unsigned input = 0; input < PQC_MLKEM_OPERATION_INPUTS; ++input)
     {
         prepare_operation(input);
@@ -421,7 +421,7 @@ static void run_decapsulation(void)
             }
             checksum ^= value;
         }
-        // a damaged ciphertext must take the implicit-rejection path to a different secret
+        // damaged ciphertext must produce a different shared secret
         state.ct[input % sizeof(state.ct)] ^= UINT8_C(1);
         if (decapsulate() != 0 || same_bytes(state.ss, state.other_ss, sizeof(state.ss)))
         {
@@ -445,7 +445,7 @@ int main(void)
 {
     struct pqc_stack_result stack;
 
-    // empty region calibrates begin/end MMIO and rdinstret overhead out of every row
+    // empty measurement finds the marker and instruction counter overhead
     PQC_MEASURE((void)0);
     run_kernels();
     run_keygen();

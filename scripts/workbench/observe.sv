@@ -1,4 +1,4 @@
-// trace-only wrapper exposing selected DUT internals as normal Verilator ports
+// exposes selected module state to the Verilator trace program
 module pqc_pcpi_observe #(
     parameter ENABLE_FQMUL = 1'b0,
     parameter ENABLE_RED32 = 1'b0,
@@ -42,7 +42,7 @@ pqc_pcpi_mlkem #(
     .pcpi_wr(pcpi_wr), .pcpi_rd(pcpi_rd),
     .pcpi_wait(pcpi_wait), .pcpi_ready(pcpi_ready)
 );
-// hierarchical reads are for visualization only and are not part of the PCPI interface
+// these internal signals are used only for trace visualization
 assign state = dut.state;
 assign last_rs1 = dut.last_rs1;
 assign last_rs2 = dut.last_rs2;

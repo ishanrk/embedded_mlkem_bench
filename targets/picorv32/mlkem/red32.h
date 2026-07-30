@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-// RED32 starts with an already-computed signed 32-bit product and only reduces it
+// RED32 receives a signed int32 product and only performs reduction
 static inline int32_t pqc_mlk_red32_c(uint32_t value)
 {
     const int64_t signed_value =
@@ -25,7 +25,8 @@ static inline int32_t pqc_mlk_red32(uint32_t value)
 static inline int32_t pqc_mlk_red32(uint32_t value)
 {
     int32_t result;
-    // custom-0/funct3=1; value is rs1, x0 is the required unused rs2, result is rd
+    // insn places value in the first source register and zero in the unused source register
+    // the destination register receives result
     __asm__ volatile(".insn r 0x0b, 1, 0, %0, %1, x0" : "=r"(result) : "r"(value));
     return result;
 }
@@ -38,7 +39,7 @@ static inline int32_t pqc_mlk_red32(uint32_t value)
 
 static inline int32_t pqc_mlk_fqmul_red32(int16_t left, int16_t right)
 {
-    // unlike FQMUL this stays two instructions: ordinary RISC-V MUL, then custom RED32
+    // this uses normal MUL followed by custom RED32
     int32_t product;
 #if defined(__riscv) && defined(PQC_POLY_HAVE_MLK_RED32)
     __asm__ volatile("mul %0, %1, %2"

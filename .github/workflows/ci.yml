@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   test:
-    # run normal optimized tests and a separate ASan/UBSan configuration
+    # runs optimized tests and sanitizer tests in separate builds
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -24,7 +24,7 @@ jobs:
       - run: ctest --preset ${{ matrix.preset }}
 
   workbench:
-    # web build first verifies that checked-in evidence still matches its source hashes
+    # web build checks that evidence hashes still match source files
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

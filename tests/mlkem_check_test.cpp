@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string_view>
 
-// mutation test: every planner claim should be independently rejected when corrupted
+// checks that every corrupted planner field is rejected
 namespace
 {
 
@@ -54,7 +54,7 @@ int main()
     require(safe == 72 && custom_count == 72, "software or custom plan count changed");
 
     pqc_poly::mlkem_candidate candidate = pqc_poly::analyze_mlkem_plan(request, plans.front());
-    // mutate one field at a time so each checker branch has a specific failure signal
+    // changes one field at a time and checks its matching error
     candidate.schema = "bad";
     require(has(pqc_poly::check_mlkem_plan(request, candidate), "bad_schema"),
             "schema mutation passed");

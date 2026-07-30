@@ -7,7 +7,7 @@ from workbench_data import out, root, work, run, digest, write
 
 
 def main():
-    # Yosys lowers each traced PCPI variant; netlistsvg turns that word-level JSON into SVG
+    # Yosys writes each PCPI netlist and netlistsvg draws its schematic
     renderer = root / "web/node_modules/.bin/netlistsvg"
     if not shutil.which("yosys") or not renderer.exists():
         sys.exit("schematic unavailable install yosys and run npm ci in web")
@@ -18,7 +18,7 @@ def main():
         source = out / trace["source"]
         target = work / f"{variant}-netlist.json"
         parameters = " ".join(f"-set {k} {v}" for k, v in trace["parameters"].items())
-        # proc/opt lowers processes and removes dead logic, but this is not placed or routed
+        # process and optimize commands lower logic without placing or routing it
         command = ["yosys", "-p", f"read_verilog -sv {source}; chparam {parameters} pqc_pcpi_mlkem; hierarchy -top pqc_pcpi_mlkem; proc; opt; write_json {target}"]
         run(command, work / f"{variant}-schematic.log")
         svg = f"{variant}-schematic.svg"

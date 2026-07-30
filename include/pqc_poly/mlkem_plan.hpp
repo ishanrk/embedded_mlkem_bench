@@ -11,7 +11,7 @@
 namespace pqc_poly
 {
 
-// shared tag for planner output, so old evidence is not silently read as a new layout
+// prevents old planner evidence from being read with a newer layout
 inline constexpr std::string_view mlkem_plan_schema = "pqc-poly-bench/mlkem-plan-v1";
 
 // now enumerate over all possible choices like the mlkem version
@@ -25,8 +25,8 @@ enum class mlkem_level
     mlkem1024,
 };
 
-// stage-major finishes one whole NTT layer before starting the next
-// fuse-two-layers keeps a small four-coefficient group hot across two layers
+// stage major completes one NTT layer before the next layer
+// fused traversal keeps four coefficients in local variables across two layers
 enum class ntt_traversal
 {
     stage_major,
@@ -41,7 +41,7 @@ enum class intt_traversal
 
 enum class intt_sum_reduction
 {
-    // waiting for a layer pair saves reductions but lets the sums grow further
+    // delaying reduction removes work but allows larger sums
     every_layer,
     after_layer_pair,
 };
@@ -49,10 +49,10 @@ enum class intt_sum_reduction
 // caching strategy
 enum class basemul_schedule
 {
-    // cached stores b*zeta; late keeps 32-bit products until the dot product is complete
+    // cached modes store twiddle products and late mode delays their reduction
     cached_late32,
     cached_eager32,
-    // direct recomputes b*zeta and needs no cache workspace
+    // direct mode recomputes twiddle products and needs no cache
     direct_eager32,
 };
 
@@ -62,9 +62,9 @@ enum class mlkem_instruction
     fqmul,
 };
 
+// one plan stores every choice used to generate a benchmark backend
 struct mlkem_plan
 {
-    // one point in the software/instruction design space
     mlkem_level level{mlkem_level::mlkem512};
     ntt_traversal forward{ntt_traversal::stage_major};
     intt_traversal inverse{intt_traversal::stage_major};
@@ -72,7 +72,8 @@ struct mlkem_plan
     basemul_schedule basemul{basemul_schedule::cached_late32};
     mlkem_instruction instruction{mlkem_instruction::none};
 
-    // `friend` can see every field; `= default` asks C++ to compare them all
+    // friend gives this comparison access to every field
+    // default makes the compiler compare every field
     friend bool operator==(const mlkem_plan &, const mlkem_plan &) = default;
 };
 
@@ -88,7 +89,7 @@ struct mlkem_request
 // block of one NTT
 struct mlkem_record
 {
-    // one butterfly block: two `length`-coefficient halves using one zeta
+    // identifies one butterfly block and the zeta table entry it uses
     std::uint16_t layer{0};
     std::uint16_t block{0};
     std::uint16_t zeta_index{0};
@@ -99,9 +100,9 @@ struct mlkem_record
     friend bool operator==(const mlkem_record &, const mlkem_record &) = default;
 };
 
+// one candidate stores a plan and every value derived by analysis
 struct mlkem_candidate
 {
-    // analyzed plan plus the facts the checker/code generator rely on
     std::string schema{mlkem_plan_schema};
     mlkem_plan plan{};
     std::string id{};
@@ -109,7 +110,7 @@ struct mlkem_candidate
     std::vector<mlkem_record> inverse_records{};
     std::uint32_t forward_bound{0};
     std::uint32_t inverse_lazy_bound{0};
-    // worst dot-product magnitude before its final reduction
+    // largest basemul sum before its final reduction
     std::uint64_t accumulator_bound{0};
     std::uint32_t mulcache_coefficients{0};
     std::uint32_t scratch_bytes{0};
@@ -123,9 +124,9 @@ struct mlkem_candidate
     friend bool operator==(const mlkem_candidate &, const mlkem_candidate &) = default;
 };
 
+// measured costs and verification status for one candidate
 struct mlkem_measurement
 {
-    // one candidate's end-to-end evidence; selection only accepts verified rows
     std::string plan_id{};
     std::uint64_t keygen_cycles{0};
     std::uint64_t encapsulation_cycles{0};
@@ -143,7 +144,8 @@ public:
     using std::runtime_error::runtime_error;
 };
 
-// `[[nodiscard]]` warns if a result is ignored; `noexcept` says these mappings cannot throw
+// nodiscard warns when the caller ignores a returned value
+// noexcept records that these name lookups do not throw
 [[nodiscard]] std::string_view mlkem_level_name(mlkem_level value) noexcept;
 [[nodiscard]] std::string_view ntt_traversal_name(ntt_traversal value) noexcept;
 [[nodiscard]] std::string_view intt_traversal_name(intt_traversal value) noexcept;
@@ -152,7 +154,9 @@ public:
 [[nodiscard]] std::string_view mlkem_instruction_name(mlkem_instruction value) noexcept;
 [[nodiscard]] unsigned mlkem_k(mlkem_level level) noexcept;
 
-// request -> plans -> candidates -> generated backends -> measurements -> winner
+// analyzer turns each plan into a checked candidate
+// code generation turns each candidate into a C backend
+// measurements from every backend are compared to select one winner
 [[nodiscard]] mlkem_request parse_mlkem_request(std::string_view json);
 [[nodiscard]] std::string mlkem_plan_id(const mlkem_plan &plan);
 [[nodiscard]] std::vector<mlkem_plan> enumerate_mlkem_plans();

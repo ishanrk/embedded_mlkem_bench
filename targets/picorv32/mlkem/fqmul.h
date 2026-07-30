@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-// reference path used on the host and as the arithmetic oracle in tests
+// software FQMUL used by host builds and arithmetic tests
 static inline int32_t pqc_mlk_signed16(uint32_t value)
 {
     const uint32_t low = value & UINT32_C(0xffff);
@@ -24,7 +24,7 @@ static inline int32_t pqc_mlk_fqmul_c(uint32_t left, uint32_t right)
 }
 
 #if defined(__CPROVER)
-// CBMC replaces the instruction with a symbolic model it can reason about
+// CBMC uses this function as the symbolic instruction model
 int32_t pqc_mlk_fqmul_model(uint32_t left, uint32_t right);
 
 static inline int32_t pqc_mlk_fqmul(uint32_t left, uint32_t right)
@@ -35,7 +35,8 @@ static inline int32_t pqc_mlk_fqmul(uint32_t left, uint32_t right)
 static inline int32_t pqc_mlk_fqmul(uint32_t left, uint32_t right)
 {
     int32_t result;
-    // .insn emits our custom-0 R-type word: result=rd, left=rs1, right=rs2
+    // insn places left and right in source registers
+    // the destination register receives result
     __asm__ volatile(".insn r 0x0b, 0, 0, %0, %1, %2" : "=r"(result) : "r"(left), "r"(right));
     return result;
 }

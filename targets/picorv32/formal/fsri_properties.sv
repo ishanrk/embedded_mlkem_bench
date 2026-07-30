@@ -1,11 +1,11 @@
-// bounded direct-PCPI scenario covering response timing, reset cancellation, and bad decode
+// checks PCPI response timing reset cancellation and invalid decoding for 8 cycles
 module fsri_properties (
     input logic clk
 );
 
 logic resetn = 1'b0;
 logic [3:0] cycle = 4'b0;
-// anyconst is arbitrary but fixed for the trace, unlike anyseq which may change each cycle
+// anyconst chooses one arbitrary value that stays fixed through the trace
 (* anyconst *) logic cancel;
 (* anyconst *) logic [31:0] insn;
 (* anyconst *) logic [31:0] bad_insn;
@@ -26,7 +26,7 @@ wire bad_m = bad_insn[6:0] == 7'b0110011 &&
 
 always_comb
 begin
-    // drive one valid request long enough to finish, or reset it midway when cancel is chosen
+    // drives one valid request and optionally resets it before completion
     pcpi_valid = 1'b0;
     pcpi_insn = insn;
     pcpi_rs1 = rs1;
@@ -60,7 +60,7 @@ pqc_pcpi_mlkem #(
 
 always_ff @(posedge clk)
 begin
-    // assumptions select one valid FSRI word and one word neither FSRI nor normal MUL owns
+    // selects one FSRI instruction and one instruction this block must ignore
     assume((insn & 32'hc000_707f) == 32'h0000_200b);
     assume((bad_insn & 32'hc000_707f) != 32'h0000_200b);
     assume(!bad_m);
@@ -95,7 +95,7 @@ begin
 
     if (!cancel && cycle == 4'd4)
     begin
-        // arithmetic equivalence: rd is low32({rs2,rs1} >> shamt)
+        // expected result is the joined source register pair shifted by the instruction amount
         assert(!pcpi_wait);
         assert(pcpi_ready);
         assert(pcpi_wr);

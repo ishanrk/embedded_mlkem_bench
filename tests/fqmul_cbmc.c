@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// CBMC harnesses catch conversion, range, indexing, and overflow bugs for all symbolic inputs
+// checks conversions ranges indices and overflow for symbolic inputs
 uint32_t nondet_uint32_t(void);
 uint16_t nondet_uint16_t(void);
 int16_t nondet_int16_t(void);
@@ -83,7 +83,7 @@ void pqc_fqmul_wrapper_harness(void)
 
 void pqc_fqmul_callsite_harness(void)
 {
-    // four branches model NTT, inverse scaling, basemul, and to-Montgomery call ranges
+    // models input ranges for NTT inverse scaling basemul and Montgomery conversion
     const unsigned callsite = nondet_unsigned();
     int32_t left = nondet_int16_t();
     int32_t right = nondet_int16_t();
@@ -116,7 +116,7 @@ void pqc_fqmul_callsite_harness(void)
 
 void pqc_fqmul_butterfly_harness(void)
 {
-    // every legal power-of-two layer must keep both butterfly indices inside 256 coefficients
+    // checks both butterfly indices for every legal layer length
     const unsigned length = nondet_unsigned();
     __CPROVER_assume(length == 2U || length == 4U || length == 8U || length == 16U ||
                      length == 32U || length == 64U || length == 128U);

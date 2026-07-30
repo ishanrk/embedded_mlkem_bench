@@ -1,5 +1,5 @@
 if(PQC_POLY_PICORV32_MLKEM)
-    # standalone RED32 experiment: normal MUL stays in firmware, only reduction is custom
+    # RED32 experiment keeps normal MUL in firmware and moves only reduction into hardware
     pqc_add_verilated(
         red32
         pqc_picorv32_sim_top
@@ -54,7 +54,7 @@ if(PQC_POLY_PICORV32_MLKEM)
 
     add_custom_command(
         OUTPUT ${pqc_red32_generated_files}
-        # RED32 has 72 schedule variants, separate from the FQMUL candidate/evidence set
+        # writes 72 RED32 schedules into a separate measurement set
         COMMAND
             "$<TARGET_FILE:pqc-poly-red32>" "${PROJECT_SOURCE_DIR}/examples/mlkem.json" -o
             "${pqc_red32_generated}"
@@ -135,7 +135,7 @@ if(PQC_POLY_PICORV32_MLKEM)
                         set(pqc_size_result "${pqc_red32_results}/${pqc_plan_id}-size.json")
                         add_custom_command(
                             OUTPUT "${pqc_result}" "${pqc_stack_result}" "${pqc_size_result}"
-                            # run each image on RED32 RTL and collect cycles, stack, and code size
+                            # runs each firmware image and records cycles stack and code size
                             COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_red32_results}"
                             COMMAND
                                 "${red32_sim}" "+firmware=${pqc_hex}" --output "${pqc_result}"
@@ -176,7 +176,7 @@ if(PQC_POLY_PICORV32_MLKEM)
     add_dependencies(pqc-picorv32-red32 pqc-picorv32-red32-pcpi)
 
     if(PQC_POLY_PICORV32_FQMUL_VERIFY)
-        # reuse the formal tool option for RED32's own PCPI/noninterference/RVFI tasks
+        # runs RED32 PCPI noninterference and RVFI checks
         set(pqc_red32_formal_dir "${pqc_target_dir}/red32-formal")
         file(MAKE_DIRECTORY "${pqc_red32_formal_dir}")
         configure_file("${pqc_picorv32_source}" "${pqc_red32_formal_dir}/picorv32.v" COPYONLY)

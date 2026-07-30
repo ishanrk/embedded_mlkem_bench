@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// stores to these unmapped addresses become simulator events, not real RAM writes
+// stores to these addresses become simulator events instead of RAM writes
 #define PQC_BENCH_BEGIN_ADDRESS UINT32_C(0x10000000)
 #define PQC_BENCH_END_ADDRESS UINT32_C(0x10000004)
 #define PQC_BENCH_STATUS_ADDRESS UINT32_C(0x10000008)
@@ -12,7 +12,7 @@
 
 typedef void (*pqc_bench_fn)(void *context);
 
-// raw includes the assembly wrapper; calibrated subtracts that fixed wrapper cost
+// raw includes the wrapper cost and calibrated removes that cost
 struct pqc_stack_result
 {
     uint32_t wrapper_bytes;

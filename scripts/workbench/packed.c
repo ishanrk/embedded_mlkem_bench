@@ -1,18 +1,18 @@
 #include <stdint.h>
 #include "fqmul.h"
 
-// compile-only experiment comparing a proposed packed butterfly with normal FQMUL
+// compares compiled packed butterfly code with normal FQMUL code
 static inline void butterfly(int16_t a, int16_t b, int16_t z, int16_t *left, int16_t *right)
 {
 #if defined(PQC_PACKED)
-    // proposed instruction takes a/b in the two rs1 halves and returns both outputs in rd
+    // proposed instruction packs both inputs and both outputs into register halves
     const uint32_t inputs = (uint16_t)a | ((uint32_t)(uint16_t)b << 16);
     uint32_t result;
     __asm__ volatile(".insn r 0x0b, 3, 0, %0, %1, %2" : "=r"(result) : "r"(inputs), "r"((int32_t)z));
     *left = (int16_t)(uint16_t)result;
     *right = (int16_t)(uint16_t)(result >> 16);
 #else
-    // existing sequence is the baseline whose loop body is inspected in disassembly
+    // baseline loop uses the existing FQMUL sequence
     const int32_t t = pqc_mlk_fqmul((uint32_t)(int32_t)b, (uint32_t)(int32_t)z);
     *left = (int16_t)((int32_t)a + t);
     *right = (int16_t)((int32_t)a - t);

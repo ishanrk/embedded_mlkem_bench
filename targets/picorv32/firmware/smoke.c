@@ -4,7 +4,7 @@
 
 #if !defined(PQC_TEST_MISALIGNED) && !defined(PQC_TEST_ILLEGAL)
 
-// basic bare-metal CPU test before trusting it to run the full ML-KEM benchmark
+// checks basic processor behavior before running the MLKEM benchmark
 static volatile uint8_t byte_probe;
 static volatile uint16_t half_probe;
 static volatile uint32_t word_probe;
@@ -13,7 +13,7 @@ static volatile uint32_t arithmetic_probe;
 
 static uint64_t mul_bits(uint32_t left, uint32_t right, int left_signed, int right_signed)
 {
-    // shift/add oracle avoids using the same hardware MUL that this test is checking
+    // shift and add arithmetic checks multiplication without using hardware MUL
     const int negative = (left_signed != 0 && (left & UINT32_C(0x80000000)) != 0U) ^
                          (right_signed != 0 && (right & UINT32_C(0x80000000)) != 0U);
     uint32_t left_magnitude = left;
@@ -90,7 +90,7 @@ static int check_multiply_pair(uint32_t left, uint32_t right)
 
 static int check_multiply(void)
 {
-    // boundaries and alternating bits expose signed-high-half and carry mistakes
+    // boundary values and alternating bits expose sign and carry mistakes
     static const uint32_t values[] = {
         0U,
         1U,
@@ -129,7 +129,7 @@ static int check_multiply(void)
 
 static int check_division(void)
 {
-    // architectural corner cases: signed overflow and divide/remainder by zero
+    // checks signed overflow and division or remainder by zero
     uint32_t div_result;
     uint32_t divu_result;
     uint32_t rem_result;
@@ -185,7 +185,7 @@ static void measured_multiply(void *context)
 int main(void)
 {
 #if defined(PQC_TEST_MISALIGNED)
-    // these builds should terminate through PicoRV32's trap output, not normal MMIO
+    // these builds must terminate through the processor trap output
     uint32_t value;
     const uintptr_t address = 1U;
     __asm__ volatile("lw %0, 0(%1)" : "=r"(value) : "r"(address) : "memory");

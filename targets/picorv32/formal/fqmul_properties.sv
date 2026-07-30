@@ -1,9 +1,10 @@
-// block-level harness: check FQMUL arithmetic, latency, reset, decode, and request isolation
+// checks FQMUL arithmetic latency reset decoding and request isolation
 module fqmul_properties (
     input logic clk
 );
 
-// anyseq lets the solver choose a new value each cycle; assumptions constrain legal traffic
+// anyseq lets the solver choose a new value on every cycle
+// assumptions restrict those values to legal PCPI traffic
 (* anyseq *) logic resetn;
 (* anyseq *) logic pcpi_valid;
 (* anyseq *) logic [31:0] pcpi_insn;
@@ -31,7 +32,7 @@ logic [31:0] next_insn = 32'b0;
 logic [31:0] next_rs1 = 32'b0;
 logic [31:0] next_rs2 = 32'b0;
 
-// assumptions define the environment; assertions below are obligations on the DUT
+// assumptions define legal inputs and assertions check module outputs
 initial assume(!resetn);
 
 always_comb
@@ -81,14 +82,14 @@ begin
     begin
         if (pending)
         begin
-            // PCPI contract keeps a claimed request stable until ready
+            // keeps a claimed PCPI request stable until ready
             assume(pcpi_valid);
             assume(pcpi_insn == held_insn);
             assume(pcpi_rs1 == held_rs1);
             assume(pcpi_rs2 == held_rs2);
             if (age == 3)
             begin
-                // response must match the exact staged Montgomery computation
+                // requires the response to match the staged Montgomery calculation
                 assert(dut_state[31:0] == $past(multiply_result[31:0]));
                 assert(pcpi_ready);
                 assert(pcpi_wr);
@@ -155,7 +156,7 @@ begin
         end
 
         assert(!(fqmul_decode && m_decode));
-        // decode spaces must not overlap the normal multiplier or divider
+        // custom decoding must not overlap normal multiply or divide instructions
         assert(!(fqmul_decode && divider_decode));
         if (pcpi_valid && !fqmul_decode && !m_decode)
         begin
@@ -173,7 +174,7 @@ end
 
 endmodule
 
-// enabling FQMUL must leave all ordinary RV32M multiply responses unchanged
+// checks that enabling FQMUL does not change normal RV32M multiply responses
 module fqmul_m_noninterference (
     input logic clk
 );

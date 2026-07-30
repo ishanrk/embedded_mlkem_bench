@@ -1,4 +1,4 @@
-// RVFI monitor follows an accepted PCPI request until PicoRV32 retires that instruction
+// follows one accepted FQMUL request until PicoRV32 retires it
 module rvfi_fqmul_monitor (
     input logic        clock,
     input logic        reset,
@@ -30,7 +30,7 @@ logic [15:0] reference_inverse = 16'b0;
 logic signed [31:0] reference_modulus = 32'sd0;
 logic [31:0] reference_result = 32'b0;
 logic reference_ready = 1'b0;
-// independent reference pipeline keeps the expected arithmetic out of the DUT state machine
+// reference pipeline calculates expected arithmetic outside the module under test
 logic signed [32:0] accept_left;
 logic signed [32:0] accept_right;
 logic signed [65:0] accept_product;
@@ -95,8 +95,8 @@ begin
 
         if (fqmul)
         begin
-            // internal-state assumptions connect this monitor to the accepted request
-            // assertions check the architectural retirement reported through RVFI
+            // assumptions connect this monitor to the accepted request
+            // assertions check the retired instruction reported by RVFI
             assume(fqmul_state[212:210] == 3'd0);
             assume(fqmul_result == reference_result);
             fqmul_retired <= 1'b1;
@@ -125,7 +125,7 @@ end
 
 endmodule
 
-// tiny symbolic program: custom instruction at address 0, then an infinite jump
+// runs one symbolic custom instruction followed by a repeating jump
 module rvfi_fqmul_formal (
     input logic clk
 );
@@ -168,7 +168,7 @@ logic signed [31:0] formal_fqmul_result;
 logic fqmul_retired;
 
 assign mem_ready = mem_valid;
-// 0x0000006f is `jal x0, 0`, keeping instruction fetch in a harmless loop
+// 0x0000006f jumps to itself and keeps instruction fetch in one loop
 assign mem_rdata = mem_addr == 32'b0 ? custom_insn : 32'h0000_006f;
 
 pqc_picorv32_core_top #(
@@ -212,7 +212,7 @@ begin
     end
     if (cycle == 6'd20)
     begin
-        // bounded liveness check: this one instruction must have retired by cycle 20
+        // requires this instruction to retire by cycle 20 in this harness
         assert(fqmul_retired);
     end
     if (resetn)

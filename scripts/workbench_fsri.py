@@ -8,7 +8,7 @@ from workbench_data import root, work, out, run, write
 
 
 def main():
-    # quick area-only screens by default; --route runs one exploratory placement seed
+    # default mode counts area and route mode runs one placement seed
     parser = argparse.ArgumentParser()
     parser.add_argument("--route", action="store_true")
     parser.add_argument("--variant", choices=("baseline", "reuse", "sliced", "direct", "all"), default="all")
@@ -30,7 +30,7 @@ def main():
         command += ["--seeds", "1"] if args.route else ["--area-only"]
         if any(item is None for item in command):
             raise RuntimeError("source the local fpga toolchain setup before running this experiment")
-        # return 1 is a recorded timing miss, while missing output means the experiment broke
+        # return code 1 records a timing miss and missing output records a broken run
         result = subprocess.run([str(x) for x in command], cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         (directory / "experiment.log").write_text(result.stdout)
         if result.returncode not in (0, 1) or not pathlib.Path(command[command.index("--output") + 1]).exists():
