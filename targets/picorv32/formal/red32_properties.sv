@@ -1,7 +1,9 @@
+// isolated RED32 harness: prove reduction arithmetic and the three-cycle PCPI transaction
 module red32_properties (
     input logic clk
 );
 
+// symbolic inputs cover every bit pattern; assumptions hold a claimed transaction stable
 (* anyseq *) logic resetn;
 (* anyseq *) logic pcpi_valid;
 (* anyseq *) logic [31:0] pcpi_insn;
@@ -87,6 +89,7 @@ begin
             assume(pcpi_rs2 == held_rs2);
             if (age == 2)
             begin
+                // output bound is for full signed-int32 input, not only ML-KEM products
                 assert(dut_state[212:210] == 3'd4);
                 assert(dut_state[31:0] == $past(multiply_result[31:0]));
                 assert(dut_state[79:48] == held_rs1);
@@ -173,6 +176,7 @@ end
 
 endmodule
 
+// compare two copies to show adding RED32 does not perturb other decoded operations
 module red32_noninterference (
     input logic clk
 );
@@ -214,6 +218,7 @@ pqc_pcpi_mlkem #(.ENABLE_FQMUL(1'b1), .ENABLE_RED32(1'b1)) extended (
 
 always_ff @(posedge clk)
 begin
+    // exclude the new instruction itself; everything else must remain cycle-for-cycle equal
     assume(!red32_decode);
     if (past_valid)
     begin
