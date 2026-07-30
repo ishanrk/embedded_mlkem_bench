@@ -14,14 +14,7 @@ static inline int32_t pqc_mlk_red32_c(uint32_t value)
     return (int32_t)(numerator / INT64_C(65536));
 }
 
-#if defined(__CPROVER)
-int32_t pqc_mlk_red32_model(uint32_t value);
-
-static inline int32_t pqc_mlk_red32(uint32_t value)
-{
-    return pqc_mlk_red32_model(value);
-}
-#elif defined(__riscv) && defined(PQC_POLY_HAVE_MLK_RED32)
+#if defined(__riscv) && defined(PQC_USE_RED32)
 static inline int32_t pqc_mlk_red32(uint32_t value)
 {
     int32_t result;
@@ -41,7 +34,7 @@ static inline int32_t pqc_mlk_fqmul_red32(int16_t left, int16_t right)
 {
     // this uses normal MUL followed by custom RED32
     int32_t product;
-#if defined(__riscv) && defined(PQC_POLY_HAVE_MLK_RED32)
+#if defined(__riscv) && defined(PQC_USE_RED32)
     __asm__ volatile("mul %0, %1, %2"
                      : "=r"(product)
                      : "r"((int32_t)left), "r"((int32_t)right));

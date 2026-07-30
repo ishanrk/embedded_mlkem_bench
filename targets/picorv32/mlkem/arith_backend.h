@@ -1,7 +1,7 @@
 #ifndef PQC_POLY_MLKEM_ARITH_BACKEND_H
 #define PQC_POLY_MLKEM_ARITH_BACKEND_H
 
-// selects the polynomial routines supplied by the generated backend
+// selects the polynomial routines supplied by the fixed backend
 #define MLK_USE_NATIVE_NTT
 #define MLK_USE_NATIVE_INTT
 #define MLK_USE_NATIVE_POLY_TOMONT
@@ -11,7 +11,7 @@
 
 #if !defined(__ASSEMBLER__)
 
-// generated C defines these functions and wrappers provide the names expected by MLKEM
+// fixed backend functions are wrapped with the names mlkem native expects
 void pqc_mlkem_ntt(int16_t r[256]);
 void pqc_mlkem_intt(int16_t r[256]);
 void pqc_mlkem_tomont(int16_t r[256]);

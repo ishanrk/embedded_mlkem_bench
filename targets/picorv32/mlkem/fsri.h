@@ -10,7 +10,7 @@ static inline uint32_t pqc_fsri_c(uint32_t a, uint32_t b, unsigned s)
     return s == 0U ? a : (a >> s) | (b << (32U - s));
 }
 
-#if defined(__riscv)
+#if defined(__riscv) && defined(PQC_USE_FSRI)
 #if !defined(__riscv_xlen) || __riscv_xlen != 32
 #error fsri requires rv32
 #endif

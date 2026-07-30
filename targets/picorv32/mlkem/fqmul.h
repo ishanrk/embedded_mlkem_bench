@@ -23,15 +23,7 @@ static inline int32_t pqc_mlk_fqmul_c(uint32_t left, uint32_t right)
     return numerator / INT32_C(65536);
 }
 
-#if defined(__CPROVER)
-// CBMC uses this function as the symbolic instruction model
-int32_t pqc_mlk_fqmul_model(uint32_t left, uint32_t right);
-
-static inline int32_t pqc_mlk_fqmul(uint32_t left, uint32_t right)
-{
-    return pqc_mlk_fqmul_model(left, right);
-}
-#elif defined(PQC_POLY_HAVE_MLK_FQMUL)
+#if defined(__riscv) && defined(PQC_USE_FQMUL)
 static inline int32_t pqc_mlk_fqmul(uint32_t left, uint32_t right)
 {
     int32_t result;
