@@ -1,5 +1,6 @@
 #include <verilated.h>
 
+// direct RED32/PCPI test, before involving instruction fetch or firmware
 #include "Vpqc_pcpi_mlkem.h"
 
 #include <array>
@@ -61,6 +62,7 @@ void tick(Vpqc_pcpi_mlkem &model)
 void run_red32(Vpqc_pcpi_mlkem &model, std::uint32_t value, std::uint32_t ignored,
                std::uint32_t rd = 7U)
 {
+    // rs2 is deliberately varied: hardware must ignore it even though canonical firmware uses x0
     model.pcpi_valid = 1;
     model.pcpi_insn = UINT32_C(0x0000100b) | (rd << 7U) | (5U << 15U) | (31U << 20U);
     model.pcpi_rs1 = value;
@@ -126,6 +128,7 @@ int main()
     tick(model);
     model.resetn = 1;
 
+    // signed-32 and low-16 boundaries target both sign extensions in Montgomery reduction
     constexpr std::array<std::uint32_t, 13> boundaries{
         UINT32_C(0x00000000), UINT32_C(0x00000001), UINT32_C(0xffffffff),
         UINT32_C(0x7fffffff), UINT32_C(0x80000000), UINT32_C(0x00007fff),
@@ -136,6 +139,7 @@ int main()
     {
         run_red32(model, value, value ^ UINT32_C(0xa5a5a5a5));
     }
+    // exhaust the low half because it selects the modular inverse term
     for (std::uint32_t low = 0; low <= UINT32_C(0xffff); ++low)
     {
         run_red32(model, UINT32_C(0x89ab0000) | low, UINT32_C(0x55aa0000) | low);
@@ -145,6 +149,7 @@ int main()
     {
         run_red32(model, next_random(state), next_random(state));
     }
+    // unlike FQMUL, RED32 consumes all 32 product bits
     require(red32_oracle(UINT32_C(0x00000001)) != red32_oracle(UINT32_C(0x00010001)),
             "upper input half does not affect red32");
 

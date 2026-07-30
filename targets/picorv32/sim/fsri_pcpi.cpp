@@ -1,5 +1,6 @@
 #include <verilated.h>
 
+// direct test for the multicycle FSRI PCPI implementations and shared MUL path
 #include "Vpqc_pcpi_mlkem.h"
 
 #include <array>
@@ -35,6 +36,7 @@ void tick(Vpqc_pcpi_mlkem &model)
 
 [[nodiscard]] std::uint32_t oracle(std::uint32_t a, std::uint32_t b, unsigned s)
 {
+    // concatenation order matches RTL {rs2,rs1}; only the low shifted word is returned
     const std::uint64_t value = (static_cast<std::uint64_t>(b) << 32U) | a;
     return static_cast<std::uint32_t>(value >> (s & 31U));
 }
@@ -126,6 +128,7 @@ int main()
         UINT32_C(0x55555555),
         UINT32_C(0xaaaaaaaa),
     };
+    // every immediate plus sign/alternating-bit values catches slice-boundary mistakes
     for (unsigned s = 0; s < 32U; ++s)
     {
         for (const std::uint32_t a : values)
