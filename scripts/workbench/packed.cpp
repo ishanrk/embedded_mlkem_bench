@@ -5,6 +5,7 @@
 
 namespace
 {
+// independent finite-width model for the unimplemented packed butterfly proposal
 std::int32_t sign16(std::uint32_t value)
 {
     const auto low = static_cast<std::int32_t>(value & 65535U);
@@ -26,6 +27,7 @@ std::uint32_t butterfly(std::uint32_t packed, std::uint32_t zeta)
 }
 int main()
 {
+    // sweep zeta completely and sample the useful coefficient extremes
     unsigned count = 0;
     for (const int a : {-26632, -3328, 0, 3328, 26632})
         for (const int b : {-26632, -3328, 0, 3328, 26632})
@@ -34,6 +36,7 @@ int main()
                 const auto packed = static_cast<std::uint16_t>(a) | (static_cast<std::uint32_t>(static_cast<std::uint16_t>(b)) << 16);
                 const auto result = butterfly(packed, static_cast<std::uint32_t>(z));
                 const auto lo = sign16(result), hi = sign16(result >> 16);
+                // sum/difference identities catch packing errors without copying the implementation
                 if (lo + hi != 2 * a) return 1;
                 const auto t = lo - a;
                 if ((static_cast<std::int64_t>(t) * 65536 - static_cast<std::int64_t>(b) * z) % 3329 != 0) return 2;

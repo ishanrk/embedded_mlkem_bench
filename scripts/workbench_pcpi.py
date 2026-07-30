@@ -5,6 +5,7 @@ from workbench_data import root, work, out, run, digest, write
 
 
 def main():
+    # rebuild the same PCPI test driver for every feature/implementation parameter set
     parser = argparse.ArgumentParser()
     parser.add_argument("--jobs", type=int, default=4)
     args = parser.parse_args()
@@ -22,6 +23,7 @@ def main():
                    *[f"-G{k}={v}" for k, v in parameters.items()], root / "targets/picorv32/rtl/pqc_pcpi_mlkem.sv", root / "scripts/workbench/pcpi.cpp"]
         run(command, directory / "build.log")
         message = run([directory / "Vpqc_pcpi_mlkem"])
+        # manifest keeps the exact Verilator command beside the test's result
         results["checks"].append({"name": name, "parameters": parameters, "command": [str(x) for x in command], "result": message})
         print(name, message, flush=True)
     write("pcpi-checks.json", results)

@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+// catches provenance drift: source pins, archive hashes, core parameters, and firmware flags
 #ifndef PQC_POLY_SOURCE_DIR
 #error "PQC_POLY_SOURCE_DIR must name the project source tree"
 #endif
@@ -86,6 +87,7 @@ void test_manifest_load()
 
 void test_source_pins()
 {
+    // inspect build sources directly so the checked manifest cannot omit a changed pin
     const std::filesystem::path root{PQC_POLY_SOURCE_DIR};
     const std::string fetch = read(root / "cmake/FetchPinned.cmake");
     require(fetch.find("a473fc8fca393771d83b0ffcf0b14db3393339d8") != std::string::npos,

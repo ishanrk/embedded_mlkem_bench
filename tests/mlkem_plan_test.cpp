@@ -5,6 +5,7 @@
 #include <set>
 #include <string_view>
 
+// catches changes to plan enumeration, stable IDs, resource analysis, and winner selection
 namespace
 {
 
@@ -50,6 +51,7 @@ int main()
     unsigned level_count[3]{};
     unsigned software_count[3]{};
 
+    // all Cartesian-product choices must exist exactly once
     require(plans.size() == 144, "plan count changed");
     for (const pqc_poly::mlkem_plan &plan : plans)
     {

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string_view>
 
+// compiles generated backends and compares every schedule against simple reference arithmetic
 #ifndef PQC_POLY_TEST_CXX
 #define PQC_POLY_TEST_CXX "c++"
 #endif
@@ -37,6 +38,7 @@ void require(bool condition, std::string_view message)
 
 void compile_and_run(const pqc_poly::mlkem_plan &plan, std::string_view name)
 {
+    // generated source and its independent driver are built as a temporary host executable
     const pqc_poly::mlkem_request request{};
     const pqc_poly::mlkem_candidate candidate = pqc_poly::analyze_mlkem_plan(request, plan);
     const std::filesystem::path directory =

@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 
+// catches malformed or self-inconsistent simulator, stack, ELF-size, and synthesis evidence
 namespace
 {
 
@@ -66,6 +67,7 @@ void test_stack_usage()
 
 void test_callchain()
 {
+    // branches use the largest child frame; recursion/indirect calls must stay unbounded
     const std::array frames{
         pqc_poly::stack_frame{"root", 48, false},
         pqc_poly::stack_frame{"left", 24, false},
@@ -137,6 +139,7 @@ void test_callchain()
 
 void test_elf_size()
 {
+    // debug metadata is ignored; flash is text + rodata + initialized data, not BSS
     constexpr std::string_view input = R"(
 firmware.elf  :
 section            size       addr

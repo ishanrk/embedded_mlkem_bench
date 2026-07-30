@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+// builds RED32 and software backends side by side and requires identical arithmetic outputs
 #ifndef PQC_POLY_TEST_CXX
 #error PQC_POLY_TEST_CXX must name the host C++ compiler
 #endif
@@ -60,6 +61,7 @@ void write(const std::filesystem::path &path, std::string_view value)
     return out;
 }
 
+// raw string becomes the temporary executable that compares the two generated implementations
 constexpr std::string_view driver = R"cpp(
 #include <array>
 #include <cstdint>

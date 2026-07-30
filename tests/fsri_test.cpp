@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string_view>
 
+// catches funnel ordering, shift-zero, and RV32-pair reconstruction bugs in Keccak rotates
 namespace
 {
 
@@ -58,6 +59,7 @@ void check(std::uint32_t a, std::uint32_t b)
         }
     }
     const std::uint64_t value = (static_cast<std::uint64_t>(b) << 32U) | a;
+    // cross the 32-bit boundary as well as ordinary within-word rotations
     for (unsigned s = 0; s < 64U; ++s)
     {
         if (MLK_KECCAK_ROL(value, s) != rol(value, s))

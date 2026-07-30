@@ -10,6 +10,7 @@ type Catalog = { traces: { id: string; variant: string; file: string }[]; inputs
 type Summary = { levels: Record<string, Record<string, number> & { operation_cycles: Record<string, Record<string, number>> }>;
     hardware: Record<string, Hardware> };
 type Measurement = { cycles: Record<string, number>; instructions: Record<string, number>; source: string; plan_id: string; status: string };
+// browser side joins trace playback, arithmetic reference, planner export, and measured evidence
 const names: Record<string, string> = { portable: 'Portable software', software: 'Optimized software', fqmul: 'FQMUL', red32: 'RED32',
     fsri_combinational: 'FSRI · historical direct', fsri_multiplier_reuse: 'FSRI · multiplier reuse', fsri_sliced: 'FSRI · experimental sliced', fsri_direct: 'FSRI · integrated direct (new run)' };
 const states = ['IDLE', 'PRODUCT', 'INVERSE', 'MODULUS', 'RESPONSE'];
@@ -42,6 +43,7 @@ function stop()
 }
 function calculate()
 {
+    // monotonically increasing id prevents an older worker reply replacing newer input
     const id = ++request;
     if (!trace) return;
     worker.postMessage({ id, kind: trace.instruction, a: value('rs1'), b: value('rs2'), shift: Number(value('shift')) });
@@ -49,6 +51,7 @@ function calculate()
 }
 function diagram(s: Snapshot)
 {
+    // pedagogical datapath driven by recorded state, not a generated gate-level drawing
     if (!trace) return '';
     const direct = ['fsri_combinational', 'fsri_direct'].includes(trace.variant);
     const sliced = trace.variant === 'fsri_sliced';
@@ -69,6 +72,7 @@ function diagram(s: Snapshot)
 }
 function show_edge()
 {
+    // replay stored snapshots only; stepping does not execute new RTL in the browser
     if (!trace) return;
     const s = trace.snapshots[cursor];
     $('edge-label').textContent = `Snapshot ${s.edge} · ${states[Number(s.state)]}${Number(s.ready) ? ' · response available' : ''}`;
@@ -92,6 +96,7 @@ async function load_trace()
         if (id !== load_id) return;
         trace = loaded;
         cursor = 0;
+        // verify the displayed RTL bytes are exactly the source used for this recording
         const source = await fetch(asset(trace.source)).then(r => r.arrayBuffer());
         const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', source))].map(x => x.toString(16).padStart(2, '0')).join('');
         if (id !== load_id) return;
@@ -125,6 +130,7 @@ function budget(): Budget
 }
 function results()
 {
+    // combine selected operation cycles with hardware evidence and the adjustable budget
     const level = value('level'), operation = value('operation'), mode = value('mode');
     const b = budget();
     if (Object.entries(b).some(([k, v]) => k !== 'seeds' && (!Number.isFinite(v) || Number(v) < 0)))
@@ -157,6 +163,7 @@ function results()
     $('pareto').innerHTML = `<svg viewBox="0 0 800 300" role="img" aria-label="Interactive Pareto comparison of core LUT4 versus selected cycle or modeled time cost"><path d="M60 20V250H760" fill="none" stroke="currentColor"/><text x="320" y="290">Core LUT4 → lower is better</text><text x="70" y="18">${mode === 'cycles' ? 'Cycles' : 'Modeled milliseconds'} ↑</text>${points.map(p => {
         const x = 65 + (p.lut - min_lut) / (max_lut - min_lut) * 650;
         const y = 245 - p.cycles / max * 210;
+        // dominated means another measured point is no worse on both plotted axes
         const dominated = points.some(q => q !== p && q.lut <= p.lut && q.cycles <= p.cycles && (q.lut < p.lut || q.cycles < p.cycles));
         return `<g tabindex="0" role="button" aria-label="${escape(names[p.key])} ${p.lut} LUT4 ${p.cycles.toFixed(0)} ${dominated ? 'dominated' : 'Pareto frontier'}" data-point="${p.key}"><title>${escape(names[p.key])}: ${p.lut} LUT4 · ${p.cycles.toFixed(2)} · ${dominated ? 'dominated' : 'Pareto frontier'}</title><circle cx="${x}" cy="${y}" r="${dominated ? 6 : 9}" class="${p.eligible ? 'eligible' : 'ineligible'}"/><text x="${x + 12}" y="${y + 5}" class="small">${escape(p.key.replace('fsri_', ''))}</text></g>`;
     }).join('')}</svg>`;
@@ -167,6 +174,7 @@ function results()
 }
 async function load_schematic()
 {
+    // schematic is optional generated evidence; source hash decides whether it is current
     if (!trace) return;
     const variant = trace.variant;
     try
@@ -181,6 +189,7 @@ async function load_schematic()
 }
 async function main()
 {
+    // fail the page as one unit if its core evidence catalog cannot be loaded
     [catalog, summary, measurements] = await Promise.all([read<Catalog>('catalog.json'), read<Summary>('summary.json'), read<typeof measurements>('measurements.json')]);
     $('app').innerHTML = `<header><a class="brand" href="#main">pqc / poly bench</a><nav aria-label="Workbench sections"><a href="#instruction">Instruction</a><a href="#measurements">Measurements</a><a href="#planner">Planner</a><a href="#guide">Guide</a></nav></header>
     <main id="main"><div class="intro"><p class="eyebrow">PicoRV32 · ML-KEM · hardware / software co-design</p><h1>Follow the instruction.<br>Inspect the tradeoffs.</h1><p>Inspect real RTL transactions, exact finite-width arithmetic, and the evidence behind the results.</p><span class="badge">Recorded RTL playback · native Verilator</span><p class="muted">Live WASM model unavailable: Emscripten is not installed. The arithmetic calculator accepts arbitrary operands; hardware playback uses fixed recorded inputs.</p></div>
@@ -194,6 +203,7 @@ async function main()
     <details><summary>Measurement scope and evidence levels</summary><p>Cycle counts came from full CPU RTL simulation. Synthesis measures the ECP5 core, not a complete physical board. Zero core BRAM does not mean ML-KEM needs no memory. The comparison baseline uses the project multiplier with STOCK_MUL=0, not the stock PicoRV32 fast multiplier.</p><p>Repository-reported historical results preserve checked-in summaries. Raw evidence is available for software and FQMUL more fully than RED32 or FSRI. Local reproduction here covers instruction traces only. Modeled estimates are calculations with explicit assumptions. Failed measurements with zero resource or frequency fields are treated as missing, with original evidence retained. Historical verified flags do not mean this work reran those checks.</p><p>Direct FSRI lacks per-seed values and operation breakdowns in the summary. Its all-seed claim is reported, not reconstructed. Shared multiplier logic means PCPI schematic costs cannot be added as independent instruction costs.</p>${link('measurements.json', 'Extracted raw evidence and original synthesis records')}</details></section>
     <section id="planner"><h2>03 / Compiler schedule walkthrough</h2><div id="planner-content">Planner export unavailable. Generate schedules with the optional C++ exporter.</div></section>
     <section id="experiments"></section><section id="guide"><h2>05 / Follow the implementation</h2><div class="split"><article><h3>Three live demo actions</h3><ol><li>Select FQMUL and single-step the three uses of the shared multiplier. Inspect the 66-bit product and 33-bit subtraction.</li><li>Select both FSRI implementations with the same shift. Observe combinational ready versus a captured multi-edge transaction.</li><li>Compare FSRI cycle savings, switch to the frequency model, then restore the original budget. No custom implementation qualifies.</li></ol></article><article><h3>What is actually established</h3><p>The calculator is exact finite-width arithmetic. The recordings are new native Verilator runs. Performance and area figures remain repository-reported historical results, with raw evidence linked where available.</p><p>Existing FSRI formal tasks are bounded: PCPI depth 8 and RVFI depth 22. They do not establish an unbounded proof or physical side-channel resistance. Local PCPI reruns are listed in the experimental results; the RVFI task was not rerun.</p><p>The compiler uses ML-KEM’s seven-layer incomplete NTT and Montgomery conventions. Fusion changes memory reuse; lazy reduction is constrained by signed storage bounds. Standalone kernel winners need not win complete operations.</p></article></div><p>${link('catalog.json', 'Source and build provenance')} · <a href="https://github.com/ishanrk/embedded_mlkem_bench">Repository</a> · <a href="https://eprint.iacr.org/2020/049">Finite-field ISA prior art</a></p></section></main><footer>pqc_poly_bench · evidence before performance claims</footer>`;
+    // Vite turns this module URL into the built worker asset
     worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = event => {
         if (event.data.id !== request) return;

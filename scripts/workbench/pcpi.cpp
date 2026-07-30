@@ -7,6 +7,7 @@
 
 namespace
 {
+// one compact driver is rebuilt for disabled, FQMUL, RED32, and all FSRI variants
 constexpr unsigned feature = PQC_FEATURE;
 constexpr unsigned implementation = PQC_FSRI_IMPL;
 void require(bool value, const char *message)
@@ -58,6 +59,7 @@ std::uint32_t instruction(unsigned shift)
 }
 unsigned latency(std::uint32_t insn)
 {
+    // response edge expected from the selected RTL parameterization
     if ((insn & 127) == 0x33) return 2;
     if (feature == 1) return 4;
     if (feature == 3 && implementation == 2) return 0;
@@ -65,6 +67,7 @@ unsigned latency(std::uint32_t insn)
 }
 void request(Vpqc_pcpi_mlkem &model, std::uint32_t insn, std::uint32_t a, std::uint32_t b)
 {
+    // drive a request until its fixed response point and compare against the C++ oracle
     model.pcpi_valid = 1;
     model.pcpi_insn = insn;
     model.pcpi_rs1 = a;
@@ -113,6 +116,7 @@ int main()
                 release(model);
                 ++transactions;
             }
+            // reset at every active edge to look for stale state or a late response
             for (unsigned edge = 0; edge <= latency(instruction(13)); ++edge)
             {
                 reset(model);
@@ -126,6 +130,7 @@ int main()
                 request(model, instruction(13), 0x89abcdefU, 0x12345678U);
                 release(model);
             }
+            // change operands while valid remains high: the old response must not leak forward
             request(model, instruction(13), 0x89abcdefU, 0x12345678U);
             request(model, instruction(19), 0x76543210U, 0xfedcba98U);
             if (latency(instruction(19)))

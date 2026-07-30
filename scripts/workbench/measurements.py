@@ -2,6 +2,7 @@ import json
 import pathlib
 import statistics
 
+# extract the checked-in raw rows used by the web workbench; this does not rerun benchmarks
 
 def export(root, out):
     raw = root / "results/raw/picorv32-step3-fd803594-69d24e37"
@@ -13,6 +14,7 @@ def export(root, out):
             "verification": "historical verified flags are not independent local reruns",
             "sources": [str(raw.relative_to(root) / name) for name in
                         ("fqmul-final-comparison.json", "fqmul-measurements.jsonl", "fqmul-synthesis.json")]}
+    # re-derive each displayed median so summary drift is caught during export
     for level in final["levels"]:
         key = level["level"]
         data["levels"][key] = {}
@@ -46,6 +48,7 @@ def export(root, out):
     synthesis = json.loads((raw / "fqmul-synthesis.json").read_text())
     data["synthesis"] = synthesis
     data["normalized_seeds"] = []
+    # failed route records keep their original values but expose nulls to the UI
     for seed in synthesis["fqmul"]["seeds"]:
         failed = seed["maximum_frequency_mhz"] <= 0 or seed["lut4"] <= 0
         data["normalized_seeds"].append({"seed": seed["seed"], "status": "incomplete/failed run" if failed else "raw evidence available",
