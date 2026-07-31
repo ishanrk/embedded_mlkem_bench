@@ -96,12 +96,8 @@ def parse_args():
     parser.add_argument("--enable-fqmul", action="store_true")
     parser.add_argument("--enable-red32", action="store_true")
     parser.add_argument("--enable-fsri", action="store_true")
-    parser.add_argument("--fsri-impl", choices=("reuse", "sliced", "direct"), default="reuse")
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 2, 3, 4, 5])
-    parser.add_argument("--area-only", action="store_true")
     args = parser.parse_args()
-    if args.fsri_impl != "reuse" and not args.enable_fsri:
-        parser.error("fsri implementation requires enable fsri")
     if any(seed < 1 for seed in args.seeds) or len(set(args.seeds)) != len(args.seeds):
         parser.error("routing seeds must be distinct positive integers")
     if sum((args.enable_fqmul, args.enable_red32, args.enable_fsri)) > 1:
@@ -126,11 +122,9 @@ def main():
             "PICORV32_SOURCE": str(pathlib.Path(args.picorv32).resolve()),
             "PQC_PCPI_SOURCE": str(pathlib.Path(args.pcpi).resolve()),
             "PQC_CORE_SOURCE": str(pathlib.Path(args.core).resolve()),
-            "STOCK_MUL": "0",
             "ENABLE_FQMUL": "1" if args.enable_fqmul else "0",
             "ENABLE_RED32": "1" if args.enable_red32 else "0",
             "ENABLE_FSRI": "1" if args.enable_fsri else "0",
-            "FSRI_IMPL": str({"reuse": 0, "sliced": 1, "direct": 2}[args.fsri_impl]),
             "SYNTH_JSON": str(netlist_path.resolve()),
         }
     )
@@ -143,8 +137,7 @@ def main():
         "dirty": bool(run(["git", "status", "--porcelain"])),
         "source_sha256": {name: hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
                           for name, path in (("pcpi", args.pcpi), ("core", args.core), ("picorv32", args.picorv32), ("script", args.script))},
-        "fsri_impl": args.fsri_impl if args.enable_fsri else None,
-        "parameters": {key: environment[key] for key in ("STOCK_MUL", "ENABLE_FQMUL", "ENABLE_RED32", "ENABLE_FSRI", "FSRI_IMPL")},
+        "parameters": {key: environment[key] for key in ("ENABLE_FQMUL", "ENABLE_RED32", "ENABLE_FSRI")},
         "netlist_sha256": hashlib.sha256(netlist_path.read_bytes()).hexdigest(),
         "reproduction": report_command([sys.executable, str(pathlib.Path(__file__).resolve()), *sys.argv[1:]], replacements),
         "picorv32_revision": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
@@ -152,18 +145,6 @@ def main():
         "elf_sha256": None,
         "scope": "ecp5 core only without board memory",
     }
-    if args.area_only:
-        # area mode counts mapped cells without calculating routing frequency
-        netlist = json.loads(netlist_path.read_text())
-        counts = {}
-        for cell in netlist["modules"]["pqc_picorv32_core_top"]["cells"].values():
-            counts[cell["type"]] = counts.get(cell["type"], 0) + 1
-        pathlib.Path(args.output).write_text(json.dumps({
-            "schema": "pqc-poly-bench/area-screen-v1", "status": "locally reproduced area screen",
-            "stage": "yosys synth_ecp5 before placement and routing", "cells": counts,
-            "yosys_version": version([args.yosys, "-V"]), "provenance": provenance,
-        }, indent=2) + "\n")
-        return 0
     seeds = []
     all_pass = True
     # several seeds show how placement changes the routing result
@@ -241,6 +222,6 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, RuntimeError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         sys.exit(2)

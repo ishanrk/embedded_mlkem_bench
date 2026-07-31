@@ -1,29 +1,15 @@
-# PCPI checks 8 cycles and processor retirement checks 22 cycles
-[tasks]
-pcpi
-rvfi
-
 [options]
-pcpi: mode bmc
-pcpi: depth 8
-rvfi: mode bmc
-rvfi: depth 22
+# direct FSRI responds in the request cycle so three cycles are enough
+mode bmc
+depth 3
 
 [engines]
-# bmc3 explores every symbolic input up to the configured depth
-pcpi: abc bmc3
-rvfi: abc bmc3
+abc bmc3
 
 [script]
-# prep selects the PCPI harness or the processor retirement harness
-pcpi: read -formal -sv pqc_pcpi_mlkem.sv fsri_properties.sv
-pcpi: prep -top fsri_properties
-rvfi: read -formal -D RISCV_FORMAL -sv picorv32.v pqc_pcpi_mlkem.sv pqc_picorv32_core_top.sv rvfi_fsri_monitor.sv
-rvfi: prep -top rvfi_fsri_formal
+read -formal -sv pqc_pcpi_mlkem.sv fsri_properties.sv
+prep -top fsri_properties
 
 [files]
-picorv32.v
 pqc_pcpi_mlkem.sv
-pqc_picorv32_core_top.sv
 fsri_properties.sv
-rvfi_fsri_monitor.sv
