@@ -13,6 +13,7 @@
 #error missing test variant
 #endif
 
+// compares each hardware setting with the matching software result
 namespace
 {
 
@@ -130,6 +131,7 @@ void run_sequential(Vpqc_pcpi_mlkem &model, std::uint32_t instruction,
                     std::uint32_t left, std::uint32_t right,
                     std::uint32_t expected, unsigned latency)
 {
+    // holds one request until the expected response cycle
     model.pcpi_valid = 1;
     model.pcpi_insn = instruction;
     model.pcpi_rs1 = left;
@@ -157,6 +159,7 @@ void run_sequential(Vpqc_pcpi_mlkem &model, std::uint32_t instruction,
 
 void test_multiply(Vpqc_pcpi_mlkem &model)
 {
+    // ordinary multiplication must stay identical in every processor
     std::uint32_t random = UINT32_C(0x243f6a88);
     for (unsigned operation = 0; operation < 4U; ++operation)
     {

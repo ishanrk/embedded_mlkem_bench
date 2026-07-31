@@ -48,7 +48,7 @@ def make_files(directory):
                     {
                         "seed": seed,
                         "status": "complete",
-                        "meets_50mhz": True,
+                        "meets_50mhz": seed != 1,
                         "lut4": 3000 + variant_index,
                         "flip_flops": 1000 + variant_index,
                         "dsp": 4,
@@ -71,6 +71,7 @@ def main():
         assert summary["measurements"]["baseline"]["512"]["total_cycles"] == 3300
         assert summary["measurements"]["fqmul"]["512"]["percent_change_vs_baseline"] > 0
         assert summary["hardware"]["fsri"]["median_fmax_mhz"] == 66.0
+        assert summary["hardware"]["baseline"]["meets_50mhz_by_seed"][0] is False
 
         broken = json.loads((directory / "fqmul-512.json").read_text())
         broken["output_checksum"] = 9999
