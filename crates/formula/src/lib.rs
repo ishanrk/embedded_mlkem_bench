@@ -2,27 +2,27 @@ use pqc_poly_ring::{mul as reference_multiply, PolyArray, SignedPolyArray, N, Q}
 use std::time::Instant;
 
 #[derive(Debug, serde::Serialize)]
-pub struct MultiplicationReport
+pub struct MultStats
 {
-    // these say exactly which multiplication method produced the report
+    // identifies the multiplication method
     pub name: String,
     pub algorithm: String,
     pub schedule: String,
 
-    // these are logical software costs, not hardware performance counters
+    // logical software costs
     pub temporary_bytes: usize,
     pub additions: u64,
     pub multiplications: u64,
     pub loads: u64,
     pub stores: u64,
 
-    // only host timing exists right now, the hardware fields come later
+    // hardware values come later
     pub host_nanoseconds: Option<u64>,
     pub riscv_cycles: Option<u64>,
     pub custom_instructions: Vec<String>,
     pub hardware_area: Option<u64>,
 
-    // every method gets checked against the slow and obvious reference
+    // checked against the reference
     pub verified_against_reference: bool,
 }
 
@@ -41,24 +41,24 @@ impl Counter
 {
     fn record_buffer_allocation(&mut self, coefficient_count: usize)
     {
-        // every temporary coefficient is stored as a two-byte u16
+        // u16 coefficients use two bytes
         self.live_temporary_bytes += coefficient_count * 2;
         self.peak_temporary_bytes = self.peak_temporary_bytes.max(self.live_temporary_bytes);
 
-        // creating a coefficient buffer means each slot gets written once
+        // each new slot is written once
         self.stores += coefficient_count as u64;
     }
 
     fn record_buffer_release(&mut self, coefficient_count: usize)
     {
-        // the buffer is dead here, so its bytes stop counting toward the live total
+        // released bytes are no longer live
         self.live_temporary_bytes -= coefficient_count * 2;
     }
 }
 
 fn reduce_mod_q(value: i32) -> u16
 {
-    // q is 2048, so keeping the low eleven bits is the same as modulo q
+    // q is 2^11, so a mask reduces it
     (value as u16) & (Q - 1)
 }
 
@@ -70,7 +70,7 @@ fn add_slices(left: &[u16], right: &[u16], counter: &mut Counter) -> Vec<u16>
 
     for (index, left_value) in left.iter().enumerate()
     {
-        // the 255/254 split is uneven, so a missing high coefficient acts like zero
+        // pad the short half with zero
         let right_value = right.get(index).copied().unwrap_or(0);
 
         sum.push(reduce_mod_q(i32::from(*left_value) + i32::from(right_value)));
@@ -83,7 +83,7 @@ fn add_slices(left: &[u16], right: &[u16], counter: &mut Counter) -> Vec<u16>
 
 fn subtract_slices(destination: &mut [u16], source: &[u16], counter: &mut Counter)
 {
-    // zip stops at the shorter slice, which is exactly what the uneven split needs
+    // stop at the shorter slice
     for (destination_value, source_value) in destination.iter_mut().zip(source)
     {
         *destination_value = reduce_mod_q(i32::from(*destination_value) - i32::from(*source_value));
@@ -98,12 +98,12 @@ fn multiply_linear(left: &[u16], right: &[u16], counter: &mut Counter) -> Vec<u1
     let coefficient_count = left.len();
     let mut product = vec![0u16; coefficient_count * 2 - 1];
 
-    // this is a linear product, so there is no degree wraparound in this function
+    // linear multiplication does not wrap degrees
     counter.record_buffer_allocation(product.len());
 
     for (left_index, left_value) in left.iter().enumerate()
     {
-        // the left value stays loaded while the inner loop walks across the right side
+        // keep the left value loaded
         counter.loads += 1;
 
         for (right_index, right_value) in right.iter().enumerate()
@@ -125,7 +125,7 @@ fn multiply_linear(left: &[u16], right: &[u16], counter: &mut Counter) -> Vec<u1
 
 fn karatsuba_recursive(left: &[u16], right: &[u16], leaf_size: usize, counter: &mut Counter) -> Vec<u16>
 {
-    // once a piece is small enough, regular multiplication finishes that leaf
+    // use regular multiplication at the leaf
     if left.len() <= leaf_size
     {
         return multiply_linear(left, right, counter);
@@ -133,7 +133,7 @@ fn karatsuba_recursive(left: &[u16], right: &[u16], leaf_size: usize, counter: &
 
     let split = left.len() / 2;
 
-    // these are the low*low and high*high parts of the karatsuba formula
+    // multiply the low and high halves
     let low_product = karatsuba_recursive(
         &left[..split],
         &right[..split],
@@ -147,7 +147,7 @@ fn karatsuba_recursive(left: &[u16], right: &[u16], leaf_size: usize, counter: &
         counter,
     );
 
-    // adding the halves lets karatsuba replace a fourth multiply with additions
+    // karatsuba trades one multiply for additions
     let left_sum = add_slices(
         &left[..split],
         &left[split..],
@@ -160,13 +160,13 @@ fn karatsuba_recursive(left: &[u16], right: &[u16], leaf_size: usize, counter: &
     );
     let mut middle_product = karatsuba_recursive(&left_sum, &right_sum, leaf_size, counter);
 
-    // the sum buffers are done as soon as their product has been computed
+    // the sum buffers are dead now
     counter.record_buffer_release(left_sum.len());
     counter.record_buffer_release(right_sum.len());
     drop(left_sum);
     drop(right_sum);
 
-    // this leaves low_left*high_right + high_left*low_right in the middle
+    // keep only the cross products
     subtract_slices(&mut middle_product, &low_product, counter);
     subtract_slices(&mut middle_product, &high_product, counter);
 
@@ -174,12 +174,12 @@ fn karatsuba_recursive(left: &[u16], right: &[u16], leaf_size: usize, counter: &
 
     counter.record_buffer_allocation(product.len());
 
-    // rebuild low + x^split*middle + x^(2*split)*high
+    // rebuild the full product
     add_shifted(&mut product, &low_product, 0, counter);
     add_shifted(&mut product, &middle_product, split, counter);
     add_shifted(&mut product, &high_product, split * 2, counter);
 
-    // the three child products have now been copied into the combined result
+    // the child products are dead now
     counter.record_buffer_release(low_product.len());
     counter.record_buffer_release(middle_product.len());
     counter.record_buffer_release(high_product.len());
@@ -218,7 +218,7 @@ fn normalize(polynomial: &SignedPolyArray, counter: &mut Counter) -> Vec<u16>
 
 fn pad_to_512(polynomial: &SignedPolyArray, counter: &mut Counter) -> Vec<u16>
 {
-    // 512 splits evenly all the way down to both requested leaf sizes
+    // 512 splits evenly to 32 and 16
     let mut padded = vec![0u16; 512];
 
     counter.record_buffer_allocation(padded.len());
@@ -237,12 +237,12 @@ fn fold_into_ring(linear: &[u16], counter: &mut Counter) -> PolyArray
 {
     let mut ring = [0u16; N];
 
-    // the returned output is not temporary memory, but initializing it is still a store
+    // output memory is not temporary
     counter.stores += N as u64;
 
     for (index, coefficient) in linear.iter().enumerate()
     {
-        // x^509 equals one, so every high degree wraps back into the 509 slots
+        // x^509 = 1, so high degrees wrap
         let ring_index = index % N;
 
         ring[ring_index] = reduce_mod_q(
@@ -256,9 +256,9 @@ fn fold_into_ring(linear: &[u16], counter: &mut Counter) -> PolyArray
     ring
 }
 
-fn make_report(name: &str, algorithm: &str, schedule: &str, counter: Counter, host_nanoseconds: u64, verified_against_reference: bool) -> MultiplicationReport
+fn make_stats(name: &str, algorithm: &str, schedule: &str, counter: Counter, host_nanoseconds: u64, verified_against_reference: bool) -> MultStats
 {
-    MultiplicationReport
+    MultStats
     {
         name: name.into(),
         algorithm: algorithm.into(),
@@ -284,7 +284,7 @@ fn multiply_regular(left: &SignedPolyArray, right: &SignedPolyArray, counter: &m
 
     for (left_index, left_value) in left.iter().enumerate()
     {
-        // this value stays loaded while it is multiplied by the entire other polynomial
+        // keep the left value loaded
         let left_reduced = reduce_mod_q(i32::from(*left_value));
 
         counter.loads += 1;
@@ -315,7 +315,7 @@ fn multiply_regular(left: &SignedPolyArray, right: &SignedPolyArray, counter: &m
     product
 }
 
-fn run_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray, leaf_size: usize, name: &str, schedule: &str) -> (PolyArray, MultiplicationReport)
+fn run_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray, leaf_size: usize, name: &str, schedule: &str) -> (PolyArray, MultStats)
 {
     let mut counter = Counter::default();
     let start_time = Instant::now();
@@ -328,7 +328,7 @@ fn run_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray, leaf_size: usi
         &mut counter,
     );
 
-    // the last six slots came only from padding and are guaranteed to be zero
+    // padding makes the last six slots zero
     let product = fold_into_ring(&linear_product[..N * 2 - 1], &mut counter);
     let host_nanoseconds = start_time.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
 
@@ -337,9 +337,9 @@ fn run_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray, leaf_size: usi
     counter.record_buffer_release(linear_product.len());
     debug_assert_eq!(counter.live_temporary_bytes, 0);
 
-    // verification happens after timing so the reference does not inflate the result
+    // verify outside the timed section
     let verified_against_reference = product == reference_multiply(left, right);
-    let report = make_report(
+    let stats = make_stats(
         name,
         "karatsuba",
         schedule,
@@ -348,17 +348,17 @@ fn run_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray, leaf_size: usi
         verified_against_reference,
     );
 
-    (product, report)
+    (product, stats)
 }
 
-fn run_split_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultiplicationReport)
+fn run_split_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultStats)
 {
     let mut counter = Counter::default();
     let start_time = Instant::now();
     let left_normalized = normalize(left, &mut counter);
     let right_normalized = normalize(right, &mut counter);
 
-    // 509 becomes a 255-coefficient low half and a 254-coefficient high half
+    // split 509 into 255 and 254
     let low_product = multiply_linear(
         &left_normalized[..255],
         &right_normalized[..255],
@@ -385,13 +385,13 @@ fn run_split_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray) -> (Poly
         &mut counter,
     );
 
-    // the half sums are dead once the middle multiplication is finished
+    // the sum buffers are dead now
     counter.record_buffer_release(left_sum.len());
     counter.record_buffer_release(right_sum.len());
     drop(left_sum);
     drop(right_sum);
 
-    // remove low*low and high*high to leave the two cross products
+    // keep only the cross products
     subtract_slices(&mut middle_product, &low_product, &mut counter);
     subtract_slices(&mut middle_product, &high_product, &mut counter);
 
@@ -418,7 +418,7 @@ fn run_split_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray) -> (Poly
     debug_assert_eq!(counter.live_temporary_bytes, 0);
 
     let verified_against_reference = product == reference_multiply(left, right);
-    let report = make_report(
+    let stats = make_stats(
         "karatsuba-single-split",
         "karatsuba",
         "split-255-regular-leaves",
@@ -427,10 +427,10 @@ fn run_split_karatsuba(left: &SignedPolyArray, right: &SignedPolyArray) -> (Poly
         verified_against_reference,
     );
 
-    (product, report)
+    (product, stats)
 }
 
-pub fn regular_509(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultiplicationReport)
+pub fn regular_509(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultStats)
 {
     let mut counter = Counter::default();
     let start_time = Instant::now();
@@ -438,7 +438,7 @@ pub fn regular_509(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArra
     let host_nanoseconds = start_time.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
 
     let verified_against_reference = product == reference_multiply(left, right);
-    let report = make_report(
+    let stats = make_stats(
         "regular-509",
         "regular",
         "direct-cyclic",
@@ -447,15 +447,15 @@ pub fn regular_509(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArra
         verified_against_reference,
     );
 
-    (product, report)
+    (product, stats)
 }
 
-pub fn karatsuba_single_split(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultiplicationReport)
+pub fn karatsuba_single_split(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultStats)
 {
     run_split_karatsuba(left, right)
 }
 
-pub fn karatsuba_leaf_32(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultiplicationReport)
+pub fn karatsuba_leaf_32(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultStats)
 {
     run_karatsuba(
         left,
@@ -466,7 +466,7 @@ pub fn karatsuba_leaf_32(left: &SignedPolyArray, right: &SignedPolyArray) -> (Po
     )
 }
 
-pub fn karatsuba_leaf_16(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultiplicationReport)
+pub fn karatsuba_leaf_16(left: &SignedPolyArray, right: &SignedPolyArray) -> (PolyArray, MultStats)
 {
     run_karatsuba(
         left,
@@ -488,7 +488,7 @@ mod tests
         let mut left = [0i16; N];
         let mut right = [0i16; N];
 
-        // this is dense and deterministic, so one test still exercises every region
+        // one dense deterministic input
         for index in 0..N
         {
             left[index] = ((index * 37 + 11) % 4096) as i16 - 2048;
@@ -503,14 +503,14 @@ mod tests
         ];
         let expected_multiplications = [259081, 194566, 82944, 62208];
 
-        for ((_, report), expected_count) in runs.into_iter().zip(expected_multiplications)
+        for ((_, stats), expected_count) in runs.into_iter().zip(expected_multiplications)
         {
-            assert!(report.verified_against_reference);
-            assert_eq!(report.multiplications, expected_count);
-            assert!(report.loads > 0);
-            assert!(report.stores > 0);
-            assert_eq!(report.riscv_cycles, None);
-            assert_eq!(report.hardware_area, None);
+            assert!(stats.verified_against_reference);
+            assert_eq!(stats.multiplications, expected_count);
+            assert!(stats.loads > 0);
+            assert!(stats.stores > 0);
+            assert_eq!(stats.riscv_cycles, None);
+            assert_eq!(stats.hardware_area, None);
         }
     }
 }
