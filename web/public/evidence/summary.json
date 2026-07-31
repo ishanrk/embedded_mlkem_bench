@@ -1,0 +1,158 @@
+{
+  "schema": "pqc-poly-bench/summary-v2",
+  "status": "pending fair rerun",
+  "platform": "PicoRV32 RTL simulation and LFE5U 45F 6BG381C routing",
+  "pins": {
+    "mlkem_native": "69d24e37b8a04c6050ec55bc84a4228d7051bb4b",
+    "picorv32": "a473fc8fca393771d83b0ffcf0b14db3393339d8"
+  },
+  "baseline": "pinned mlkem native with the fixed upstream arithmetic schedule and project RV32M PCPI multiplier",
+  "measurements": {
+    "baseline": {
+      "512": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "768": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "1024": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      }
+    },
+    "fqmul": {
+      "512": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "768": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "1024": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      }
+    },
+    "red32": {
+      "512": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "768": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "1024": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      }
+    },
+    "fsri": {
+      "512": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "768": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "1024": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      }
+    }
+  },
+  "hardware": {
+    "baseline": {
+      "lut4": null,
+      "flip_flops": null,
+      "dsp": null,
+      "bram": null,
+      "fmax_by_seed_mhz": [],
+      "median_fmax_mhz": null,
+      "meets_50mhz_by_seed": [],
+      "fmax_change_vs_baseline_percent": null
+    },
+    "fqmul": {
+      "lut4": null,
+      "flip_flops": null,
+      "dsp": null,
+      "bram": null,
+      "fmax_by_seed_mhz": [],
+      "median_fmax_mhz": null,
+      "meets_50mhz_by_seed": [],
+      "fmax_change_vs_baseline_percent": null
+    },
+    "red32": {
+      "lut4": null,
+      "flip_flops": null,
+      "dsp": null,
+      "bram": null,
+      "fmax_by_seed_mhz": [],
+      "median_fmax_mhz": null,
+      "meets_50mhz_by_seed": [],
+      "fmax_change_vs_baseline_percent": null
+    },
+    "fsri": {
+      "lut4": null,
+      "flip_flops": null,
+      "dsp": null,
+      "bram": null,
+      "fmax_by_seed_mhz": [],
+      "median_fmax_mhz": null,
+      "meets_50mhz_by_seed": [],
+      "fmax_change_vs_baseline_percent": null
+    }
+  }
+}

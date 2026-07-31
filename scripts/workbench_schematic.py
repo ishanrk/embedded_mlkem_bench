@@ -1,39 +1,42 @@
 #!/usr/bin/env python3
-import json
+
 import pathlib
 import shutil
-import sys
-from workbench_data import out, root, work, run, digest, write
+
+from workbench_data import OUT, ROOT, WORK, digest, refresh_catalog, run, write
 
 
 def main():
-    # Yosys writes each PCPI netlist and netlistsvg draws its schematic
-    renderer = root / "web/node_modules/.bin/netlistsvg"
-    if not shutil.which("yosys") or not renderer.exists():
-        sys.exit("schematic unavailable install yosys and run npm ci in web")
-    manifest = {"schema": "pqc-poly-bench/schematic-v1", "variants": {}}
-    catalog = json.loads((out / "catalog.json").read_text())
-    for variant in dict.fromkeys(t["variant"] for t in catalog["traces"]):
-        trace = json.loads((out / next(t["file"] for t in catalog["traces"] if t["variant"] == variant)).read_text())
-        source = out / trace["source"]
-        target = work / f"{variant}-netlist.json"
-        parameters = " ".join(f"-set {k} {v}" for k, v in trace["parameters"].items())
-        # process and optimize commands lower logic without placing or routing it
-        command = ["yosys", "-p", f"read_verilog -sv {source}; chparam {parameters} pqc_pcpi_mlkem; hierarchy -top pqc_pcpi_mlkem; proc; opt; write_json {target}"]
-        run(command, work / f"{variant}-schematic.log")
-        svg = f"{variant}-schematic.svg"
-        render = [renderer, target, "-o", out / svg]
-        run(render)
-        manifest["variants"][variant] = {"svg": svg, "source_sha256": digest(source), "parameters": trace["parameters"],
-                                         "stage": "Yosys RTLIL after proc and opt with word-level arithmetic cells",
-                                         "command": [str(x) for x in command], "render_command": [str(x) for x in render],
-                                         "yosys": run(["yosys", "-V"]), "netlistsvg": "1.0.2", "json_sha256": digest(target),
-                                         "svg_sha256": digest(out / svg), "source": trace["source"]}
-    write("schematics.json", manifest)
-    catalog["inputs"]["scripts/workbench_schematic.py"] = digest(pathlib.Path(__file__))
-    catalog["artifacts"].update({p.name: digest(p) for p in out.iterdir() if p.is_file() and p.name != "catalog.json"})
-    write("catalog.json", catalog)
-    print(f"generated {len(manifest['variants'])} word level pcpi schematics")
+    renderer = ROOT / "web/node_modules/.bin/netlistsvg"
+    if shutil.which("yosys") is None or not renderer.exists():
+        raise RuntimeError("yosys and netlistsvg are required for schematics")
+    source = ROOT / "targets/picorv32/rtl/pqc_pcpi_mlkem.sv"
+    result = {"schema": "pqc-poly-bench/schematics-v2", "variants": {}}
+    OUT.mkdir(parents=True, exist_ok=True)
+    WORK.mkdir(parents=True, exist_ok=True)
+    for name, parameter in (
+        ("fqmul", "ENABLE_FQMUL"),
+        ("red32", "ENABLE_RED32"),
+        ("fsri", "ENABLE_FSRI"),
+    ):
+        netlist = WORK / f"{name}-netlist.json"
+        svg = OUT / f"{name}-schematic.svg"
+        command = [
+            "yosys",
+            "-p",
+            f"read_verilog -sv {source}; chparam -set {parameter} 1 pqc_pcpi_mlkem; hierarchy -top pqc_pcpi_mlkem; proc; opt; write_json {netlist}",
+        ]
+        run(command, WORK / f"{name}-schematic.log")
+        run([renderer, netlist, "-o", svg])
+        result["variants"][name] = {
+            "svg": svg.name,
+            "source_sha256": digest(source),
+            "netlist_sha256": digest(netlist),
+            "svg_sha256": digest(svg),
+            "stage": "Yosys word level logic before technology mapping",
+        }
+    write("schematics.json", result)
+    refresh_catalog(pathlib.Path(__file__))
 
 
 if __name__ == "__main__":

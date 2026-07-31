@@ -1,0 +1,15 @@
+[options]
+# checks the complete four cycle response inside this bounded trace
+mode bmc
+depth 8
+
+[engines]
+abc bmc3
+
+[script]
+read -formal -sv pqc_pcpi_mlkem.sv fqmul_properties.sv
+prep -top fqmul_properties
+
+[files]
+pqc_pcpi_mlkem.sv
+fqmul_properties.sv
