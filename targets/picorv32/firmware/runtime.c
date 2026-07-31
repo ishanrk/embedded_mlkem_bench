@@ -1,9 +1,5 @@
 #include "bench_mmio.h"
 
-extern unsigned char __measured_stack_bottom[];
-extern unsigned char __measured_stack_top[];
-extern void pqc_call_measured(pqc_bench_fn function, void *context, void *stack_top);
-
 static volatile uint32_t *const begin_mmio =
     (volatile uint32_t *)(uintptr_t)PQC_BENCH_BEGIN_ADDRESS;
 static volatile uint32_t *const end_mmio = (volatile uint32_t *)(uintptr_t)PQC_BENCH_END_ADDRESS;
@@ -67,50 +63,4 @@ _Noreturn void pqc_trap(uint32_t value)
 {
     pqc_status(UINT32_C(0x54524150));
     pqc_terminate(value);
-}
-
-static void empty_call(void *context)
-{
-    // compiler barrier gives the stack wrapper an empty baseline call
-    __asm__ volatile("" : : "r"(context) : "memory");
-}
-
-static void fill_stack(void)
-{
-    // fills unused stack with 0xA5 before the measured call
-    volatile unsigned char *cursor = __measured_stack_bottom;
-
-    while (cursor != __measured_stack_top)
-    {
-        *cursor++ = UINT8_C(0xa5);
-    }
-}
-
-static uint32_t used_stack(void)
-{
-    // the first changed byte marks the deepest observed stack use
-    volatile const unsigned char *cursor = __measured_stack_bottom;
-
-    while (cursor != __measured_stack_top && *cursor == UINT8_C(0xa5))
-    {
-        ++cursor;
-    }
-    return (uint32_t)(__measured_stack_top - cursor);
-}
-
-struct pqc_stack_result pqc_measure_stack(pqc_bench_fn function, void *context)
-{
-    // subtracts the empty wrapper measurement from the real call measurement
-    struct pqc_stack_result result;
-
-    fill_stack();
-    pqc_call_measured(empty_call, NULL, __measured_stack_top);
-    result.wrapper_bytes = used_stack();
-
-    fill_stack();
-    pqc_call_measured(function, context, __measured_stack_top);
-    result.raw_bytes = used_stack();
-    result.calibrated_bytes =
-        result.raw_bytes > result.wrapper_bytes ? result.raw_bytes - result.wrapper_bytes : 0U;
-    return result;
 }

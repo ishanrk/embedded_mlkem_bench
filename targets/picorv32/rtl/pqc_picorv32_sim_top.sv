@@ -1,10 +1,8 @@
 // wraps the processor with memory and simulator event outputs
 module pqc_picorv32_sim_top #(
-    parameter STOCK_MUL = 1'b0,
     parameter ENABLE_FQMUL = 1'b0,
     parameter ENABLE_RED32 = 1'b0,
-    parameter ENABLE_FSRI = 1'b0,
-    parameter FSRI_IMPL = 0
+    parameter ENABLE_FSRI = 1'b0
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -52,11 +50,9 @@ end
 assign mem_ready = pending;
 
 pqc_picorv32_core_top #(
-    .STOCK_MUL(STOCK_MUL),
     .ENABLE_FQMUL(ENABLE_FQMUL),
     .ENABLE_RED32(ENABLE_RED32),
-    .ENABLE_FSRI(ENABLE_FSRI),
-    .FSRI_IMPL(FSRI_IMPL)
+    .ENABLE_FSRI(ENABLE_FSRI)
 ) core (
     .clk(clk),
     .resetn(resetn),

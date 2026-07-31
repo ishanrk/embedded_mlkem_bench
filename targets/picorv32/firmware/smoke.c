@@ -161,9 +161,8 @@ static int check_base(void)
            half_probe == UINT16_C(0x5aa5) && word_probe == UINT32_C(0x12345678);
 }
 
-static void measured_multiply(void *context)
+static uint32_t multiply_checksum(void)
 {
-    volatile uint32_t *result = context;
     volatile uint32_t lane[8];
     uint32_t value = UINT32_C(0x12345678);
 
@@ -177,7 +176,7 @@ static void measured_multiply(void *context)
         value = instruction_mul(value ^ lane[index], UINT32_C(0x9e3779b9));
         lane[index] = value;
     }
-    *result = value ^ lane[0];
+    return value ^ lane[0];
 }
 
 #endif
@@ -195,9 +194,6 @@ int main(void)
     __asm__ volatile(".word 0x0000000b");
     pqc_trap(UINT32_C(0xbad00002));
 #else
-    struct pqc_stack_result stack;
-    uint32_t measured = 0U;
-
     if (!check_base())
     {
         pqc_trap(UINT32_C(0xbad00010));
@@ -211,24 +207,7 @@ int main(void)
         pqc_trap(UINT32_C(0xbad00012));
     }
 
-    pqc_bench_begin();
-    pqc_bench_end();
-    pqc_bench_begin();
-    measured_multiply(&measured);
-    pqc_bench_end();
-
-    stack = pqc_measure_stack(measured_multiply, &measured);
-    if (stack.raw_bytes == 0U || stack.raw_bytes < stack.wrapper_bytes)
-    {
-        pqc_trap(UINT32_C(0xbad00013));
-    }
-    pqc_status(UINT32_C(0x53544100));
-    pqc_status(stack.wrapper_bytes);
-    pqc_status(UINT32_C(0x53544101));
-    pqc_status(stack.raw_bytes);
-    pqc_status(UINT32_C(0x53544102));
-    pqc_status(stack.calibrated_bytes);
-    pqc_status(random_checksum ^ measured);
+    pqc_status(random_checksum ^ multiply_checksum());
     pqc_terminate(0U);
 #endif
 }
