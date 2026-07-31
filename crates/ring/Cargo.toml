@@ -1,0 +1,5 @@
+[package]
+name = "pqc-poly-ring"
+version = "0.1.0"
+edition.workspace = true
+publish = false
