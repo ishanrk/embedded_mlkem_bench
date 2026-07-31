@@ -14,8 +14,7 @@ if(PQC_POLY_PICORV32_FORMAL)
     list(
         APPEND
         pqc_required_tools
-        PQC_SBY|sby|OSS_CAD_Suite_${PQC_CAD_RELEASE}
-        PQC_BOOLECTOR|boolector|OSS_CAD_Suite_${PQC_CAD_RELEASE})
+        PQC_SBY|sby|OSS_CAD_Suite_${PQC_CAD_RELEASE})
 endif()
 
 if(PQC_POLY_PICORV32_SYNTHESIS)
