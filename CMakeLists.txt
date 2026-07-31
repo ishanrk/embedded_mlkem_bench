@@ -79,6 +79,8 @@ function(pqc_poly_configure target)
 endfunction()
 
 if(BUILD_TESTING)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
     function(pqc_poly_add_test name source)
         set(target pqc-poly-${name}-test)
         add_executable(${target} ${source})
@@ -89,6 +91,14 @@ if(BUILD_TESTING)
     pqc_poly_add_test(fqmul tests/fqmul_test.cpp)
     pqc_poly_add_test(red32 tests/red32_test.cpp)
     pqc_poly_add_test(fsri tests/fsri_test.cpp)
+    add_test(NAME results-parser COMMAND "${Python3_EXECUTABLE}"
+             "${PROJECT_SOURCE_DIR}/tests/results_test.py")
+    add_test(
+        NAME results-summary
+        COMMAND
+            "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/results.py"
+            --input "${PROJECT_SOURCE_DIR}/results/raw" --output
+            "${PROJECT_SOURCE_DIR}/results/summary.json" --allow-missing --check)
 
     # each build uses the same backend source with one primitive selection
     foreach(pqc_level IN ITEMS 2 3 4)
