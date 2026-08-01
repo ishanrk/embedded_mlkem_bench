@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <stdint.h>
 
+// standard errors
 #if defined(PQC_USE_FQMUL) && defined(PQC_USE_RED32)
 #error select one arithmetic instruction
 #endif
@@ -16,12 +17,14 @@
 #define PQC_MLKEM_Q 3329
 
 #if defined(__GNUC__) || defined(__clang__)
+
+// inline the functions since ntt related functions are called many times and are small enough to be inlined
 #define PQC_FORCE_INLINE static inline __attribute__((always_inline))
 #else
 #define PQC_FORCE_INLINE static inline
 #endif
 
-// same roots and order used by the mlkem native source
+// stores complex roots * 2^16 reduced mod 3329 (which is q)
 static const int16_t pqc_zetas[128] = {
     -1044, -758, -359, -1517, 1493, 1422, 287, 202, -171, 622, 1577, 182, 962,
     -1202, -1474, 1468, 573, -1325, 264, 383, -829, 1458, -1602, -130, -681,
@@ -39,19 +42,27 @@ static const int16_t pqc_zetas[128] = {
 // turns one wide product back into the coefficient domain
 PQC_FORCE_INLINE int16_t pqc_montgomery_reduce(int32_t value)
 {
+// checks flag to see if this build uses the actual RED32 hardware instruction, otherwise it
+// does the usual Montgomery reduction
 #if defined(PQC_USE_RED32)
     return (int16_t)pqc_mlk_red32((uint32_t)value);
 #else
+    // quick note use cast to 16 bit to do quick mod 2^16
+    // have u = value * q^-1 mod 2^16
     const uint16_t inverted =
         (uint16_t)((uint32_t)(uint16_t)value * UINT32_C(62209));
+
+    // interpret u as a signed 16 bit integer
     const int32_t signed_inverted = inverted <= INT16_MAX
                                         ? (int32_t)inverted
                                         : (int32_t)inverted - INT32_C(65536);
+
+    // divide by 2^16 to get the final result
     return (int16_t)((value - signed_inverted * PQC_MLKEM_Q) >> 16);
 #endif
 }
 
-// this is the only field multiply changed by the FQMUL build
+// this is the only field multiply changed by FQMUL 
 PQC_FORCE_INLINE int16_t pqc_fqmul(int16_t left, int16_t right)
 {
 #if defined(PQC_USE_FQMUL)
@@ -102,7 +113,7 @@ PQC_FORCE_INLINE void pqc_intt_layer(int16_t values[256], unsigned length,
     }
 }
 
-// fixed forward transform copied from the pinned upstream schedule
+// fixed forward transform schedule (referenced from mlkem native)
 void pqc_mlkem_ntt(int16_t values[256])
 {
     pqc_ntt_layer(values, 128, 1);
@@ -114,7 +125,7 @@ void pqc_mlkem_ntt(int16_t values[256])
     pqc_ntt_layer(values, 2, 64);
 }
 
-// fixed inverse transform copied from the pinned upstream schedule
+// fixed inverse transform schedule (referenced from mlkem native)
 void pqc_mlkem_intt(int16_t values[256])
 {
     for (unsigned index = 0; index < PQC_MLKEM_N; ++index)
@@ -143,7 +154,7 @@ void pqc_mlkem_mulcache_one(int16_t cache[128], const int16_t values[256])
     }
 }
 
-// accumulates every vector lane before one final reduction
+//  post ntt multiplication of two polynomials in the NTT domain, using cached zeta products
 void pqc_mlkem_basemul(int16_t result[256], const int16_t *left,
                        const int16_t *right, const int16_t *cache)
 {
@@ -165,7 +176,7 @@ void pqc_mlkem_basemul(int16_t result[256], const int16_t *left,
     }
 }
 
-// converts all coefficients to the Montgomery representation
+// converts  all coefficients to the Montgomery representation
 void pqc_mlkem_tomont(int16_t values[256])
 {
     for (unsigned index = 0; index < PQC_MLKEM_N; ++index)

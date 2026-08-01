@@ -6,6 +6,7 @@ project(
     DESCRIPTION "ML-KEM custom instruction measurements on PicoRV32"
     LANGUAGES C CXX)
 
+# add testing module and option
 include(CTest)
 
 option(PQC_POLY_SANITIZE "enable address and undefined behavior sanitizers" OFF)
@@ -21,6 +22,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(pqc_poly_options INTERFACE)
 
+# add warning flags for gcc/clang
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(
         pqc_poly_options
