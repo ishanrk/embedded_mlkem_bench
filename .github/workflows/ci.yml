@@ -14,11 +14,19 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        preset: [release, sanitize]
+        include:
+          - name: release
+            build_type: Release
+            lto: "ON"
+            sanitize: "OFF"
+          - name: sanitize
+            build_type: Debug
+            lto: "OFF"
+            sanitize: "ON"
     env:
       ASAN_OPTIONS: detect_leaks=0
     steps:
       - uses: actions/checkout@v7
-      - run: cmake --preset ${{ matrix.preset }}
-      - run: cmake --build --preset ${{ matrix.preset }} --parallel 4
-      - run: ctest --preset ${{ matrix.preset }}
+      - run: cmake -S . -B build/${{ matrix.name }} -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DPQC_POLY_LTO=${{ matrix.lto }} -DPQC_POLY_SANITIZE=${{ matrix.sanitize }}
+      - run: cmake --build build/${{ matrix.name }} --parallel 4
+      - run: ctest --test-dir build/${{ matrix.name }} --output-on-failure

@@ -25,7 +25,6 @@ struct options
     std::string variant;
     std::string level;
     unsigned inputs = 30;
-    bool smoke = false;
 };
 
 [[noreturn]] void fail(std::string_view message)
@@ -50,11 +49,6 @@ void require(bool condition, std::string_view message)
         const std::string_view argument{argv[index]};
         if (argument.starts_with("+firmware="))
         {
-            continue;
-        }
-        if (argument == "--smoke")
-        {
-            result.smoke = true;
             continue;
         }
         if (index + 1 >= argc)
@@ -94,10 +88,6 @@ void require(bool condition, std::string_view message)
             fail("unknown option");
         }
     }
-    if (result.smoke)
-    {
-        return result;
-    }
     require(!result.output.empty() && !result.disassembly.empty(),
             "missing output path");
     require(result.variant == "baseline" || result.variant == "fqmul" ||
@@ -122,7 +112,8 @@ void require(bool condition, std::string_view message)
 {
     // checks which custom encodings were emitted in the firmware
     std::array<std::size_t, 3> counts{};
-    std::string_view text = read_file(path);
+    const std::string contents = read_file(path);
+    std::string_view text = contents;
     while (!text.empty())
     {
         const std::size_t line_end = text.find('\n');
@@ -303,12 +294,9 @@ void write_result(const options &settings,
 
 void simulate(const options &settings)
 {
-    std::array<std::size_t, 3> counts{};
-    if (!settings.smoke)
-    {
-        counts = instruction_counts(settings.disassembly);
-        validate_instruction_counts(settings, counts);
-    }
+    const std::array<std::size_t, 3> counts =
+        instruction_counts(settings.disassembly);
+    validate_instruction_counts(settings, counts);
 
     // clock reset then run until firmware writes the terminate address
     Vpqc_picorv32_sim_top model;
@@ -345,12 +333,6 @@ void simulate(const options &settings)
 
     require(model.trap == 0, "processor trapped");
     require(model.terminate != 0, "firmware did not terminate");
-    if (settings.smoke)
-    {
-        require(!status.empty() && status.back() == 0U,
-                "smoke status missing");
-        return;
-    }
     write_result(settings, counts, begins, ends, status);
 }
 

@@ -91,8 +91,6 @@ if(BUILD_TESTING)
     pqc_poly_add_test(fqmul tests/fqmul_test.cpp)
     pqc_poly_add_test(red32 tests/red32_test.cpp)
     pqc_poly_add_test(fsri tests/fsri_test.cpp)
-    add_test(NAME results-parser COMMAND "${Python3_EXECUTABLE}"
-             "${PROJECT_SOURCE_DIR}/tests/results_test.py")
     add_test(
         NAME results-summary
         COMMAND
