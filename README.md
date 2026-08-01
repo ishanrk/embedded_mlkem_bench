@@ -133,19 +133,6 @@ The main targets are
 | `pqc-picorv32-synthesis` | four complete core ECP5 results |
 | `pqc-picorv32-results` | require the complete measurement matrix and create the summary |
 
-The web workbench contains an arithmetic calculator optional saved PCPI playback the current three schematics and the same results file
-
-```sh
-python3 scripts/workbench_data.py --data-only
-python3 scripts/workbench_schematic.py
-cd web
-npm ci
-npm test
-npm run build
-```
-
-Run `scripts/workbench_data.py` without `--data-only` when Verilator is installed to regenerate the PCPI traces and VCD files.
-
 ## Checks kept in scope
 
 - C and C++ reference tests cover FQMUL RED32 FSRI and the fixed backend for all three vector widths
@@ -175,8 +162,7 @@ The formal checks are in [`targets/picorv32/formal`](targets/picorv32/formal). T
 | [`targets/picorv32/sim`](targets/picorv32/sim) | direct instruction and complete processor Verilator drivers |
 | [`targets/picorv32/formal`](targets/picorv32/formal) | direct bounded PCPI properties |
 | [`targets/picorv32/synth`](targets/picorv32/synth) | complete core Yosys and ECP5 routing flow |
-| [`scripts`](scripts) | results figures and workbench evidence generation |
-| [`web`](web) | small browser view of the instruction arithmetic and evidence |
+| [`scripts`](scripts) | result validation and README figure generation |
 
 ## Standards and tools
 
