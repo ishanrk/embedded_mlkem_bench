@@ -88,78 +88,85 @@ The canonical machine readable file is [`results/summary.json`](results/summary.
 
 Run every command below from the repository root.
 
+The responsibilities are deliberately split along the normal build-versus-run
+boundary. CMake compiles host tests, Verilator models, and RISC-V firmware while
+[`run_experiment.py`](scripts/run_experiment.py) runs the benchmark matrix,
+formal checks, synthesis, and result aggregation.
+
 ### Software build and tests
 
-The host tests need CMake a C and C++ compiler and Python. The first build matches the optimized CI configuration. The second runs the same tests with address and undefined behavior sanitizers.
+The host tests need CMake, C and C++ compilers, and Python. The second build runs
+the same tests with address and undefined behavior sanitizers.
 
 ```sh
-cmake -S . -B build/release -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_LTO=ON
+cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release
 cmake --build build/release --parallel 4
 ctest --test-dir build/release --output-on-failure
 
-cmake -S . -B build/sanitize -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DPQC_POLY_LTO=OFF -DPQC_POLY_SANITIZE=ON
+cmake -S . -B build/sanitize -DCMAKE_BUILD_TYPE=Debug -DPQC_POLY_SANITIZE=ON
 cmake --build build/sanitize --parallel 4
 ctest --test-dir build/sanitize --output-on-failure
 ```
 
-### Direct PCPI RTL tests
+### PicoRV32 build products
 
-PicoRV32 targets use the pinned RISC-V GNU toolchain release `2026.07.15` and OSS CAD Suite release `2026-07-29`. Put the required executables on `PATH`. The direct instruction tests only need Verilator and Ninja from the CAD suite.
+PicoRV32 build products use RISC-V GNU toolchain release `2026.07.15` and OSS
+CAD Suite release `2026-07-29`. Put `verilator`,
+`riscv32-unknown-elf-gcc`, `riscv32-unknown-elf-objcopy`, and
+`riscv32-unknown-elf-objdump` on `PATH`. CMake does not require the formal or
+synthesis tools.
 
 ```sh
-cmake -S . -B build/picorv32-sim -G Ninja -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_LTO=OFF -DPQC_POLY_PICORV32=ON
-cmake --build build/picorv32-sim --target pqc-picorv32-sim --parallel 4
+cmake -S . -B build/picorv32 -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_PICORV32=ON
+cmake --build build/picorv32 --target pqc-picorv32-cpu-models pqc-picorv32-firmware --parallel 4
 ```
 
-This builds four direct PCPI models and checks disabled decoding plus the FQMUL RED32 and FSRI implementations against their software references.
+The firmware target creates ELF, HEX, and disassembly files for all 12
+variant/parameter-set combinations. Individual targets follow the form
+`pqc-picorv32-firmware-fqmul-768`. `pqc-picorv32-sim` remains a small direct RTL
+correctness target that builds and runs the four PCPI reference tests.
 
 ### Complete experiment
 
-Configure one build with the complete ML-KEM formal and synthesis paths enabled.
+The Python runner configures CMake when build products are needed. Each stage can
+be run independently:
 
 ```sh
-cmake -S . -B build/picorv32-experiment -G Ninja -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_LTO=OFF -DPQC_POLY_PICORV32_MLKEM=ON -DPQC_POLY_PICORV32_FORMAL=ON -DPQC_POLY_PICORV32_SYNTHESIS=ON
+python3 scripts/run_experiment.py --pcpi
+python3 scripts/run_experiment.py --bench
+python3 scripts/run_experiment.py --formal
+python3 scripts/run_experiment.py --synthesis
 ```
 
-Run all 12 complete ML-KEM simulations.
+Run the complete flow, including final summary generation, with:
 
 ```sh
-cmake --build build/picorv32-experiment --target pqc-picorv32-mlkem --parallel 4
+python3 scripts/run_experiment.py --all
 ```
 
-Run the three bounded instruction checks.
+The default build directory is `build/picorv32`; use `--build-dir` to change it.
+Runtime tool paths can be selected with `--sby`, `--yosys`, `--nextpnr`, and
+`--ecppack`. Extra CMake cache settings can be passed with repeated
+`--cmake-arg` options.
+
+The runner keeps the same 30 deterministic inputs, simulator arguments,
+disassembly validation, formal jobs, synthesis seeds, and JSON filenames. To
+update the checked summary and local figures after a complete run:
 
 ```sh
-cmake --build build/picorv32-experiment --target pqc-picorv32-formal --parallel 4
-```
-
-Synthesize place and route all four complete processor variants.
-
-```sh
-cmake --build build/picorv32-experiment --target pqc-picorv32-synthesis --parallel 4
-```
-
-Generate the checked summary from the complete measurement matrix then generate the local SVG figures. The SVG files are build artifacts and are not committed.
-
-```sh
-cmake --build build/picorv32-experiment --target pqc-picorv32-results --parallel 4
-python3 scripts/results.py --input build/picorv32-experiment/targets/picorv32/results --output results/summary.json
+python3 scripts/results.py --input build/picorv32/targets/picorv32/results --output results/summary.json
 python3 scripts/readme_figures.py
 ```
 
-The main targets are
+The main CMake targets are build products rather than experiment stages:
 
-| Target | Purpose |
+| CMake target | Product |
 | --- | --- |
 | `pqc-picorv32-sim` | direct PCPI reference tests for all instruction settings |
-| `pqc-picorv32-baseline` | three complete baseline ML-KEM measurements |
-| `pqc-picorv32-fqmul` | three complete FQMUL measurements |
-| `pqc-picorv32-red32` | three complete RED32 measurements |
-| `pqc-picorv32-fsri` | three complete direct FSRI measurements |
-| `pqc-picorv32-mlkem` | all 12 complete ML-KEM measurements |
-| `pqc-picorv32-formal` | three direct bounded PCPI checks |
-| `pqc-picorv32-synthesis` | four complete core ECP5 results |
-| `pqc-picorv32-results` | require the complete measurement matrix and create the summary |
+| `pqc-picorv32-pcpi-models` | four direct PCPI Verilator executables |
+| `pqc-picorv32-cpu-models` | four complete PicoRV32 Verilator executables |
+| `pqc-picorv32-firmware` | all 12 RISC-V firmware ELF, HEX, and disassembly sets |
+| `pqc-picorv32-firmware-<variant>-<level>` | one firmware artifact set |
 
 ## Checks kept in scope
 
@@ -189,8 +196,8 @@ The formal checks are in [`targets/picorv32/formal`](targets/picorv32/formal). T
 | [`targets/picorv32/firmware`](targets/picorv32/firmware) | bare metal startup runtime and complete benchmark |
 | [`targets/picorv32/sim`](targets/picorv32/sim) | direct instruction and complete processor Verilator drivers |
 | [`targets/picorv32/formal`](targets/picorv32/formal) | direct bounded PCPI properties |
-| [`targets/picorv32/synth`](targets/picorv32/synth) | complete core Yosys and ECP5 routing flow |
-| [`scripts`](scripts) | result validation and README figure generation |
+| [`targets/picorv32/synth`](targets/picorv32/synth) | complete core Yosys script |
+| [`scripts`](scripts) | experiment orchestration, ECP5 routing, result validation, and README figures |
 
 ## Standards and tools
 

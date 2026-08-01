@@ -1,7 +1,7 @@
 #ifndef PQC_POLY_MLKEM_ARITH_BACKEND_H
 #define PQC_POLY_MLKEM_ARITH_BACKEND_H
 
-// selects the polynomial routines supplied by the fixed backend
+// Select the polynomial routines supplied by the fixed PicoRV32 backend.
 #define MLK_USE_NATIVE_NTT
 #define MLK_USE_NATIVE_INTT
 #define MLK_USE_NATIVE_POLY_TOMONT
@@ -11,7 +11,7 @@
 
 #if !defined(__ASSEMBLER__)
 
-// fixed backend functions are wrapped with the names mlkem native expects
+// Fixed backend functions are wrapped with the names mlkem-native expects.
 void pqc_mlkem_ntt(int16_t r[256]);
 void pqc_mlkem_intt(int16_t r[256]);
 void pqc_mlkem_tomont(int16_t r[256]);
@@ -47,7 +47,7 @@ static MLK_INLINE int mlk_poly_mulcache_compute_native(int16_t cache[128], const
 }
 
 #if defined(MLK_CONFIG_MULTILEVEL_WITH_SHARED) || MLKEM_K == 2
-// k is the vector width with values 2 3 and 4 for the three MLKEM levels
+// K is the vector width: 2, 3, or 4 for the three ML-KEM levels.
 static MLK_INLINE int mlk_polyvec_basemul_acc_montgomery_cached_k2_native(int16_t r[256],
                                                                           const int16_t a[512],
                                                                           const int16_t b[512],

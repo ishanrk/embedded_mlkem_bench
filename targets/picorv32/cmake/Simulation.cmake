@@ -19,6 +19,7 @@ function(pqc_add_pcpi_model variant index parameter)
             "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
             "${pqc_sim_dir}/pcpi_test.cpp"
         VERBATIM)
+    add_custom_target("pqc-picorv32-pcpi-${variant}" DEPENDS "${executable}")
     set("pqc_pcpi_${variant}" "${executable}" PARENT_SCOPE)
 endfunction()
 
@@ -48,6 +49,7 @@ function(pqc_add_cpu_model variant parameter)
             "${pqc_rtl_dir}/pqc_picorv32_sim_top.sv"
             "${pqc_sim_dir}/firmware_sim.cpp"
         VERBATIM)
+    add_custom_target("pqc-picorv32-cpu-${variant}" DEPENDS "${executable}")
     set("pqc_cpu_${variant}" "${executable}" PARENT_SCOPE)
 endfunction()
 
@@ -56,6 +58,25 @@ pqc_add_pcpi_model(baseline 0 "")
 pqc_add_pcpi_model(fqmul 1 -GENABLE_FQMUL=1)
 pqc_add_pcpi_model(red32 2 -GENABLE_RED32=1)
 pqc_add_pcpi_model(fsri 3 -GENABLE_FSRI=1)
+pqc_add_cpu_model(baseline "")
+pqc_add_cpu_model(fqmul -GENABLE_FQMUL=1)
+pqc_add_cpu_model(red32 -GENABLE_RED32=1)
+pqc_add_cpu_model(fsri -GENABLE_FSRI=1)
+
+add_custom_target(
+    pqc-picorv32-pcpi-models
+    DEPENDS
+        "${pqc_pcpi_baseline}"
+        "${pqc_pcpi_fqmul}"
+        "${pqc_pcpi_red32}"
+        "${pqc_pcpi_fsri}")
+add_custom_target(
+    pqc-picorv32-cpu-models
+    DEPENDS
+        "${pqc_cpu_baseline}"
+        "${pqc_cpu_fqmul}"
+        "${pqc_cpu_red32}"
+        "${pqc_cpu_fsri}")
 
 set(pqc_sim_stamp "${pqc_results}/simulation.stamp")
 add_custom_command(
@@ -73,10 +94,3 @@ add_custom_command(
         "${pqc_pcpi_fsri}"
     VERBATIM)
 add_custom_target(pqc-picorv32-sim DEPENDS "${pqc_sim_stamp}")
-
-if(PQC_POLY_PICORV32_MLKEM)
-    pqc_add_cpu_model(baseline "")
-    pqc_add_cpu_model(fqmul -GENABLE_FQMUL=1)
-    pqc_add_cpu_model(red32 -GENABLE_RED32=1)
-    pqc_add_cpu_model(fsri -GENABLE_FSRI=1)
-endif()
