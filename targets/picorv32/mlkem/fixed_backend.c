@@ -1,3 +1,4 @@
+#include "dot2x.h"
 #include "fqmul.h"
 #include "red32.h"
 
@@ -5,7 +6,7 @@
 #include <stdint.h>
 
 // standard errors
-#if defined(PQC_USE_FQMUL) && defined(PQC_USE_RED32)
+#if (defined(PQC_USE_FQMUL) + defined(PQC_USE_RED32) + defined(PQC_USE_DOT2X)) > 1
 #error select one arithmetic instruction
 #endif
 
@@ -166,10 +167,24 @@ void pqc_mlkem_basemul(int16_t result[256], const int16_t *left,
         {
             const unsigned offset = lane * 256U + 2U * index;
             const int16_t cached = cache[lane * 128U + index];
+#if defined(PQC_USE_DOT2X)
+            const uint32_t left_pair =
+                (uint32_t)(uint16_t)left[offset] |
+                ((uint32_t)(uint16_t)left[offset + 1U] << 16);
+            const uint32_t right_pair =
+                (uint32_t)(uint16_t)right[offset] |
+                ((uint32_t)(uint16_t)right[offset + 1U] << 16);
+            const uint32_t cached_pair =
+                (uint32_t)(uint16_t)cached |
+                ((uint32_t)(uint16_t)right[offset] << 16);
+            first += pqc_mlk_dot2x(left_pair, cached_pair);
+            second += pqc_mlk_dot2x(left_pair, right_pair);
+#else
             first += (int32_t)left[offset + 1U] * cached +
                      (int32_t)left[offset] * right[offset];
             second += (int32_t)left[offset] * right[offset + 1U] +
                       (int32_t)left[offset + 1U] * right[offset];
+#endif
         }
         result[2U * index] = pqc_montgomery_reduce(first);
         result[2U * index + 1U] = pqc_montgomery_reduce(second);

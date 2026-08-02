@@ -13,6 +13,10 @@
 void pqc_bench_begin(void);
 void pqc_bench_end(void);
 void pqc_status(uint32_t value);
+
+
+
+// execution not returned to caller because pqc_terminate and pqc_trap are used to signal the simulator to stop the benchmark and report an error
 _Noreturn void pqc_terminate(uint32_t value);
 _Noreturn void pqc_trap(uint32_t value);
 #endif

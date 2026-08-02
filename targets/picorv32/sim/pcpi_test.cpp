@@ -1,6 +1,7 @@
 #include <verilated.h>
 
 #include "Vpqc_pcpi_mlkem.h"
+#include "../mlkem/dot2x.h"
 
 #include <array>
 #include <cstdint>
@@ -84,6 +85,21 @@ void tick(Vpqc_pcpi_mlkem &model)
         static_cast<std::int32_t>(numerator / INT64_C(65536)));
 }
 
+[[nodiscard]] std::uint32_t dot2x_reference(std::uint32_t left,
+                                            std::uint32_t right)
+{
+    const std::int64_t result =
+        static_cast<std::int64_t>(signed_low(left)) * signed_low(right >> 16U) +
+        static_cast<std::int64_t>(signed_low(left >> 16U)) * signed_low(right);
+    return static_cast<std::uint32_t>(result);
+}
+
+[[nodiscard]] std::uint32_t pack(std::int32_t low, std::int32_t high)
+{
+    return static_cast<std::uint32_t>(static_cast<std::uint16_t>(low)) |
+           (static_cast<std::uint32_t>(static_cast<std::uint16_t>(high)) << 16U);
+}
+
 [[nodiscard]] std::uint32_t fsri_reference(std::uint32_t first,
                                            std::uint32_t second,
                                            unsigned shift)
@@ -144,11 +160,18 @@ void run_sequential(Vpqc_pcpi_mlkem &model, std::uint32_t instruction,
     for (unsigned cycle = 1; cycle <= latency + 2U; ++cycle)
     {
         tick(model);
+        if (cycle < latency)
+        {
+            require(model.pcpi_wait != 0 && model.pcpi_ready == 0 &&
+                        model.pcpi_wr == 0,
+                    "request ended before the response cycle");
+        }
         if (model.pcpi_ready != 0)
         {
             ++responses;
             response_cycle = cycle;
-            require(model.pcpi_wr != 0 && model.pcpi_rd == expected,
+            require(model.pcpi_wait == 0 && model.pcpi_wr != 0 &&
+                        model.pcpi_rd == expected,
                     "wrong response");
         }
     }
@@ -246,6 +269,37 @@ void test_fsri(Vpqc_pcpi_mlkem &model)
     clear_request(model);
 }
 
+void test_dot2x(Vpqc_pcpi_mlkem &model)
+{
+    const std::int32_t minimum = std::numeric_limits<std::int16_t>::min();
+    const std::int32_t maximum = std::numeric_limits<std::int16_t>::max();
+    const std::array<std::uint32_t, 10> values{
+        UINT32_C(0x00000000), UINT32_C(0x00010001), UINT32_C(0xffffffff),
+        pack(minimum, minimum), pack(maximum, maximum), pack(1, -1),
+        pack(-1, 1), pack(minimum, maximum), pack(maximum, minimum),
+        pack(12345, -23456)};
+    for (const std::uint32_t left : values)
+    {
+        for (const std::uint32_t right : values)
+        {
+            const std::uint32_t expected = dot2x_reference(left, right);
+            require(static_cast<std::uint32_t>(pqc_mlk_dot2x_c(left, right)) ==
+                        expected,
+                    "dot2x references disagree");
+            run_sequential(model, UINT32_C(0x0000300b), left, right,
+                           expected, 3U);
+        }
+    }
+    std::uint32_t random = UINT32_C(0x082efa98);
+    for (unsigned index = 0; index < 50000U; ++index)
+    {
+        const std::uint32_t left = next_random(random);
+        const std::uint32_t right = next_random(random);
+        run_sequential(model, UINT32_C(0x0000300b), left, right,
+                       dot2x_reference(left, right), 3U);
+    }
+}
+
 void require_unclaimed(Vpqc_pcpi_mlkem &model, std::uint32_t instruction)
 {
     model.pcpi_valid = 1;
@@ -297,6 +351,54 @@ void test_back_to_back(Vpqc_pcpi_mlkem &model)
     clear_request(model);
 }
 
+void test_dot2x_reset(Vpqc_pcpi_mlkem &model)
+{
+    model.pcpi_valid = 1;
+    model.pcpi_insn = UINT32_C(0x0000300b);
+    model.pcpi_rs1 = pack(2, 3);
+    model.pcpi_rs2 = pack(5, 7);
+    tick(model);
+    tick(model);
+    model.resetn = 0;
+    tick(model);
+    model.resetn = 1;
+    model.pcpi_valid = 0;
+    tick(model);
+    require(model.pcpi_ready == 0 && model.pcpi_wr == 0 &&
+                model.pcpi_wait == 0,
+            "reset did not cancel dot2x");
+}
+
+void test_dot2x_back_to_back(Vpqc_pcpi_mlkem &model)
+{
+    model.pcpi_valid = 1;
+    model.pcpi_insn = UINT32_C(0x0000300b);
+    model.pcpi_rs1 = pack(2, 3);
+    model.pcpi_rs2 = pack(5, 7);
+    tick(model);
+    tick(model);
+    tick(model);
+    require(model.pcpi_ready != 0 &&
+                model.pcpi_rd == dot2x_reference(model.pcpi_rs1, model.pcpi_rs2),
+            "first consecutive dot2x result failed");
+    model.pcpi_rs1 = pack(-11, 13);
+    model.pcpi_rs2 = pack(17, -19);
+    model.eval();
+    require(model.pcpi_ready == 0 && model.pcpi_wait != 0,
+            "second dot2x request saw an old result");
+    tick(model);
+    require(model.pcpi_wait != 0 && model.pcpi_ready == 0,
+            "second dot2x request ended early");
+    tick(model);
+    require(model.pcpi_wait != 0 && model.pcpi_ready == 0,
+            "second dot2x product ended early");
+    tick(model);
+    require(model.pcpi_ready != 0 && model.pcpi_wait == 0 &&
+                model.pcpi_rd == dot2x_reference(model.pcpi_rs1, model.pcpi_rs2),
+            "second consecutive dot2x result failed");
+    clear_request(model);
+}
+
 }
 
 int main()
@@ -316,18 +418,29 @@ int main()
     require_unclaimed(model, UINT32_C(0x0000000b));
     require_unclaimed(model, UINT32_C(0x0000100b));
     require_unclaimed(model, UINT32_C(0x0000200b));
+    require_unclaimed(model, UINT32_C(0x0000300b));
 #elif PQC_TEST_VARIANT == 1
     test_fqmul(model);
     require_unclaimed(model, UINT32_C(0x0000100b));
     require_unclaimed(model, UINT32_C(0x0000200b));
+    require_unclaimed(model, UINT32_C(0x0000300b));
 #elif PQC_TEST_VARIANT == 2
     test_red32(model);
     require_unclaimed(model, UINT32_C(0x0000000b));
     require_unclaimed(model, UINT32_C(0x0000200b));
+    require_unclaimed(model, UINT32_C(0x0000300b));
 #elif PQC_TEST_VARIANT == 3
     test_fsri(model);
     require_unclaimed(model, UINT32_C(0x0000000b));
     require_unclaimed(model, UINT32_C(0x0000100b));
+    require_unclaimed(model, UINT32_C(0x0000300b));
+#elif PQC_TEST_VARIANT == 4
+    test_dot2x(model);
+    test_dot2x_reset(model);
+    test_dot2x_back_to_back(model);
+    require_unclaimed(model, UINT32_C(0x0000000b));
+    require_unclaimed(model, UINT32_C(0x0000100b));
+    require_unclaimed(model, UINT32_C(0x0000200b));
 #else
 #error invalid test variant
 #endif

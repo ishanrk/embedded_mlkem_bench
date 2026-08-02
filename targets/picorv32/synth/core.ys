@@ -12,6 +12,9 @@ if {$::env(ENABLE_RED32)} {
 if {$::env(ENABLE_FSRI)} {
     yosys chparam -set ENABLE_FSRI 1 pqc_picorv32_core_top
 }
+if {$::env(ENABLE_DOT2X)} {
+    yosys chparam -set ENABLE_DOT2X 1 pqc_picorv32_core_top
+}
 # hierarchy checks modules and selects the core wrapper as the root
 yosys hierarchy -check -top pqc_picorv32_core_top
 # synth ecp5 maps logic to ECP5 cells and writes the nextpnr netlist

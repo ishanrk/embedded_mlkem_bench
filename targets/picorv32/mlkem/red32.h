@@ -14,6 +14,8 @@ static inline int32_t pqc_mlk_red32_c(uint32_t value)
     return (int32_t)(numerator / INT64_C(65536));
 }
 
+
+// similiar inline assembly testing ur true hardware instruction
 #if defined(__riscv) && defined(PQC_USE_RED32)
 static inline int32_t pqc_mlk_red32(uint32_t value)
 {

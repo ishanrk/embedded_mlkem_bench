@@ -58,10 +58,12 @@ pqc_add_pcpi_model(baseline 0 "")
 pqc_add_pcpi_model(fqmul 1 -GENABLE_FQMUL=1)
 pqc_add_pcpi_model(red32 2 -GENABLE_RED32=1)
 pqc_add_pcpi_model(fsri 3 -GENABLE_FSRI=1)
+pqc_add_pcpi_model(dot2x 4 -GENABLE_DOT2X=1)
 pqc_add_cpu_model(baseline "")
 pqc_add_cpu_model(fqmul -GENABLE_FQMUL=1)
 pqc_add_cpu_model(red32 -GENABLE_RED32=1)
 pqc_add_cpu_model(fsri -GENABLE_FSRI=1)
+pqc_add_cpu_model(dot2x -GENABLE_DOT2X=1)
 
 add_custom_target(
     pqc-picorv32-pcpi-models
@@ -69,14 +71,16 @@ add_custom_target(
         "${pqc_pcpi_baseline}"
         "${pqc_pcpi_fqmul}"
         "${pqc_pcpi_red32}"
-        "${pqc_pcpi_fsri}")
+        "${pqc_pcpi_fsri}"
+        "${pqc_pcpi_dot2x}")
 add_custom_target(
     pqc-picorv32-cpu-models
     DEPENDS
         "${pqc_cpu_baseline}"
         "${pqc_cpu_fqmul}"
         "${pqc_cpu_red32}"
-        "${pqc_cpu_fsri}")
+        "${pqc_cpu_fsri}"
+        "${pqc_cpu_dot2x}")
 
 set(pqc_sim_stamp "${pqc_results}/simulation.stamp")
 add_custom_command(
@@ -86,11 +90,13 @@ add_custom_command(
     COMMAND "${pqc_pcpi_fqmul}"
     COMMAND "${pqc_pcpi_red32}"
     COMMAND "${pqc_pcpi_fsri}"
+    COMMAND "${pqc_pcpi_dot2x}"
     COMMAND "${CMAKE_COMMAND}" -E touch "${pqc_sim_stamp}"
     DEPENDS
         "${pqc_pcpi_baseline}"
         "${pqc_pcpi_fqmul}"
         "${pqc_pcpi_red32}"
         "${pqc_pcpi_fsri}"
+        "${pqc_pcpi_dot2x}"
     VERBATIM)
 add_custom_target(pqc-picorv32-sim DEPENDS "${pqc_sim_stamp}")

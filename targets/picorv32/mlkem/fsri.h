@@ -3,6 +3,14 @@
 
 #include <stdint.h>
 
+// fsri is used to build keccak's 64 bit rotate on rv32 using two 32 bit operations
+// example: v = 0xaabbccdd11223344, rotate left by 8
+// high = 0xaabbccdd, low = 0x11223344
+// fsri(high, low, 24) = 0x223344aa   // new low
+// fsri(low, high, 24)  = 0xbbccdd11   // new high
+// join them to get 0xbbccdd11223344aa
+// this is used inside MLK_KECCAK_ROL, which keccak calls during sha3 and shake
+
 static inline uint32_t pqc_fsri_c(uint32_t a, uint32_t b, unsigned s)
 {
     // returns the low word after shifting the joined source register pair

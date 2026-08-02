@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 
-VARIANTS = ("baseline", "fqmul", "red32", "fsri")
+VARIANTS = ("baseline", "fqmul", "red32", "fsri", "dot2x")
 LEVELS = ("512", "768", "1024")
 INPUT_COUNT = 30
 
@@ -138,7 +138,7 @@ def run_mlkem_benchmarks(build_dir, results_dir):
 
 def run_formal_checks(root, build_dir, tools):
     source_dir = root / "targets" / "picorv32"
-    for instruction in ("fqmul", "red32", "fsri"):
+    for instruction in ("fqmul", "red32", "fsri", "dot2x"):
         work = picorv32_build_dir(build_dir) / f"formal-{instruction}"
         work.mkdir(parents=True, exist_ok=True)
         for source in (
@@ -216,9 +216,9 @@ def parse_args():
     )
     stages = parser.add_argument_group("experiment stages")
     stages.add_argument("--pcpi", action="store_true", help="run direct PCPI tests")
-    stages.add_argument("--bench", action="store_true", help="run all 12 ML-KEM benchmarks")
-    stages.add_argument("--formal", action="store_true", help="run the three bounded formal jobs")
-    stages.add_argument("--synthesis", action="store_true", help="run four ECP5 synthesis flows")
+    stages.add_argument("--bench", action="store_true", help="run all 15 ML-KEM benchmarks")
+    stages.add_argument("--formal", action="store_true", help="run the four bounded formal jobs")
+    stages.add_argument("--synthesis", action="store_true", help="run five ECP5 synthesis flows")
     stages.add_argument(
         "--summary",
         action="store_true",

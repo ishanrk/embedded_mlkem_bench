@@ -7,9 +7,9 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "docs/figures"
 SUMMARY = ROOT / "results/summary.json"
-VARIANTS = ("baseline", "fqmul", "red32", "fsri")
-LABELS = {"baseline": "Baseline", "fqmul": "FQMUL", "red32": "RED32", "fsri": "FSRI"}
-COLORS = {"baseline": "#5f6b7a", "fqmul": "#3568d4", "red32": "#c84b4b", "fsri": "#27866f"}
+VARIANTS = ("baseline", "fqmul", "red32", "fsri", "dot2x")
+LABELS = {"baseline": "Baseline", "fqmul": "FQMUL", "red32": "RED32", "fsri": "FSRI", "dot2x": "DOT2X"}
+COLORS = {"baseline": "#5f6b7a", "fqmul": "#3568d4", "red32": "#c84b4b", "fsri": "#27866f", "dot2x": "#8356b6"}
 
 
 def start(width, height, title, description):
@@ -40,23 +40,24 @@ def pending(lines, width, height):
 
 def legend(lines, y=80):
     for index, variant in enumerate(VARIANTS):
-        x = 400 + index * 170
+        x = 330 + index * 170
         lines.append(f'<rect x="{x}" y="{y - 14}" width="16" height="16" fill="{COLORS[variant]}"/>')
         lines.append(f'<text x="{x + 23}" y="{y}" class="small">{LABELS[variant]}</text>')
 
 
 def instruction_designs():
-    lines = start(1200, 420, "Custom instruction designs", "FQMUL RED32 and direct FSRI data paths")
+    lines = start(1500, 420, "Custom instruction designs", "FQMUL RED32 FSRI and DOT2X data paths")
     lines.extend(
         [
-            '<text x="40" y="42" class="title">Three custom instruction designs</text>',
-            '<text x="40" y="68" class="small">The baseline keeps these three decoders disabled</text>',
+            '<text x="40" y="42" class="title">Four custom instruction designs</text>',
+            '<text x="40" y="68" class="small">The baseline keeps these four decoders disabled</text>',
         ]
     )
     panels = (
         (40, "FQMUL", "signed low halves", "multiply then Montgomery reduce", "4 cycle response", COLORS["fqmul"]),
-        (420, "RED32", "signed product in rs1", "Montgomery reduce only", "3 cycle response", COLORS["red32"]),
-        (800, "FSRI", "joined rs2 and rs1", "shift then take low word", "direct response", COLORS["fsri"]),
+        (405, "RED32", "signed product in rs1", "Montgomery reduce only", "3 cycle response", COLORS["red32"]),
+        (770, "FSRI", "joined rs2 and rs1", "shift then take low word", "direct response", COLORS["fsri"]),
+        (1135, "DOT2X", "two signed halves", "two crossed products", "3 cycle response", COLORS["dot2x"]),
     )
     for x, name, inputs, operation, latency, color in panels:
         lines.extend(
@@ -74,12 +75,12 @@ def instruction_designs():
                 f'<text x="{x + 24}" y="278" class="value">{latency}</text>',
             ]
         )
-    lines.append('<text x="40" y="397" class="small">All four processors use the same PCPI multiplier for ordinary RV32M multiplication</text>')
+    lines.append('<text x="40" y="397" class="small">All five processors use the same PCPI multiplier for ordinary RV32M multiplication</text>')
     write("instruction-designs.svg", lines)
 
 
 def cycle_figure(data):
-    lines = start(1200, 590, "ML KEM cycle comparison", "Complete operation cycle totals for four variants")
+    lines = start(1200, 590, "ML KEM cycle comparison", "Complete operation cycle totals for five variants")
     lines.append('<text x="50" y="42" class="title">Complete ML KEM cycle comparison</text>')
     legend(lines)
     if data["status"] != "complete":
@@ -136,7 +137,7 @@ def fmax_figure(data):
     frequencies = [value for variant in VARIANTS for value in data["hardware"][variant]["fmax_by_seed_mhz"]]
     maximum = max(frequencies) * 1.1
     for variant_index, variant in enumerate(VARIANTS):
-        x = 120 + variant_index * 270
+        x = 90 + variant_index * 220
         lines.append(f'<text x="{x}" y="130" class="label">{LABELS[variant]}</text>')
         for seed_index, value in enumerate(data["hardware"][variant]["fmax_by_seed_mhz"]):
             y = 450 - value / maximum * 280

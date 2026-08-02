@@ -1,8 +1,8 @@
 # ML KEM custom instructions on PicoRV32
 
-This project measures whether three small custom RISC-V instructions can accelerate complete ML-KEM on PicoRV32, and compares the cycle savings against the resulting FPGA area and timing cost.
+This project measures whether four small custom RISC-V instructions can accelerate complete ML-KEM on PicoRV32, and compares the cycle savings against the resulting FPGA area and timing cost.
 
-The experiment has four builds
+The experiment has five builds
 
 | Build | Only intended change from baseline |
 | --- | --- |
@@ -10,12 +10,13 @@ The experiment has four builds
 | FQMUL | replace coefficient multiply followed by Montgomery reduction with FQMUL |
 | RED32 | keep ordinary RV32M multiplication and replace its software Montgomery reduction with RED32 |
 | FSRI | replace the software expansion of each Keccak rotate with direct funnel shifts |
+| DOT2X | replace each pair of products in cached base multiplication with DOT2X |
 
-All four builds use [mlkem-native](https://github.com/pq-code-package/mlkem-native) at commit `69d24e37b8a04c6050ec55bc84a4228d7051bb4b` and [PicoRV32](https://github.com/YosysHQ/picorv32) at commit `a473fc8fca393771d83b0ffcf0b14db3393339d8`.
+All five builds use [mlkem-native](https://github.com/pq-code-package/mlkem-native) at commit `69d24e37b8a04c6050ec55bc84a4228d7051bb4b` and [PicoRV32](https://github.com/YosysHQ/picorv32) at commit `a473fc8fca393771d83b0ffcf0b14db3393339d8`.
 
 ## Fair comparison
 
-The pinned ML-KEM source does not expose a primitive hook at exactly the required boundary. [`fixed_backend.c`](targets/picorv32/mlkem/fixed_backend.c) therefore reproduces its fixed polynomial schedule. Baseline FQMUL and RED32 all compile that same file. The loops transform order reduction points constants and compiler flags are unchanged between them.
+The pinned ML-KEM source does not expose a primitive hook at exactly the required boundary. [`fixed_backend.c`](targets/picorv32/mlkem/fixed_backend.c) therefore reproduces its fixed polynomial schedule. Baseline FQMUL RED32 and DOT2X all compile that same file. The loops transform order reduction points constants and compiler flags are unchanged between them.
 
 The primitive selected at compile time is the only arithmetic difference
 
@@ -23,11 +24,12 @@ The primitive selected at compile time is the only arithmetic difference
 baseline   product = a * b       result = software Montgomery reduction
 FQMUL                               result = FQMUL a b
 RED32      product = RV32M MUL   result = RED32 product
+DOT2X      product = DOT2X on two packed coefficient pairs
 ```
 
 FSRI leaves the same arithmetic backend in place. Its build uses the pinned Keccak source with only the rotate macro replaced. One 64 bit rotate becomes two direct FSRI instructions on RV32.
 
-Every processor uses the same PicoRV32 parameters and the same multiplier in [`pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv) for ordinary RV32M multiplication. Each custom build enables one additional decoder and data path. This avoids changing the normal multiplication architecture between the baseline and instruction builds.
+Every processor uses the same PicoRV32 parameters and the same multiplier in [`pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv) for ordinary RV32M multiplication. DOT2X uses that multiplier for both products over two cycles. Each custom build enables one additional decoder and data path. This avoids changing the normal multiplication architecture between the baseline and instruction builds.
 
 ## Instructions
 
@@ -47,23 +49,36 @@ FSRI directly returns the low word of two joined registers shifted by its immedi
 rd = low32(({rs2, rs1} >> shamt)
 ```
 
+DOT2X treats each source register as two signed 16 bit coefficients and computes
+`a0 * b1 + a1 * b0`. It targets the two product expressions in cached ML-KEM
+base multiplication while preserving accumulation before Montgomery reduction.
+It responds after three PCPI cycles and uses opcode `0x0b` with `funct3 = 3`
+and `funct7 = 0`.
+
+DOT2X tests whether packed two product arithmetic provides a better complete
+system area versus cycle tradeoff than the existing smaller primitives. The
+operation itself is not presented as novel. The contribution is its mapping to
+this ML-KEM backend through PicoRV32 PCPI with multiplier reuse simulation
+checks formal checking complete ML-KEM benchmarking and area and timing
+evaluation.
+
 The instruction wrappers and software references are in [`targets/picorv32/mlkem`](targets/picorv32/mlkem). The complete PCPI implementation is in [`pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv). Historical sliced and multiplier reuse FSRI implementations are not part of this experiment.
 
 ## Complete ML KEM benchmark
 
 [`mlkem_bench.c`](targets/picorv32/firmware/mlkem_bench.c) measures key generation encapsulation and decapsulation for ML-KEM-512 ML-KEM-768 and ML-KEM-1024. Each operation uses 30 deterministic inputs and three repeats. The firmware checks API success deterministic repeat outputs matching encapsulated and decapsulated shared secrets and rejection behavior after corrupting a ciphertext.
 
-The simulator subtracts the measured MMIO marker overhead and records median PicoRV32 cycle counts. It also scans each disassembly to ensure only the intended custom encoding appears. Output checksums must match across all four variants for each parameter set before a complete summary can be produced.
+The simulator subtracts the measured MMIO marker overhead and records median PicoRV32 cycle counts. It also scans each disassembly to ensure only the intended custom encoding appears. Output checksums must match across all five variants for each parameter set before a complete summary can be produced.
 
 ### Cycle results
 
 The previous checked in numbers compared different software schedules and are not valid for this narrower experiment. They were removed rather than relabeled. The table will be populated by the fair rerun.
 
-| Parameter set | Baseline | FQMUL | RED32 | FSRI |
-| --- | ---: | ---: | ---: | ---: |
-| ML-KEM-512 | pending rerun | pending rerun | pending rerun | pending rerun |
-| ML-KEM-768 | pending rerun | pending rerun | pending rerun | pending rerun |
-| ML-KEM-1024 | pending rerun | pending rerun | pending rerun | pending rerun |
+| Parameter set | Baseline | FQMUL | RED32 | FSRI | DOT2X |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| ML-KEM-512 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
+| ML-KEM-768 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
+| ML-KEM-1024 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
 
 ## Complete core synthesis
 
@@ -81,8 +96,9 @@ These values also require a new run because the processor multiplier and enabled
 | FQMUL | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
 | RED32 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
 | FSRI | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
+| DOT2X | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
 
-The canonical machine readable file is [`results/summary.json`](results/summary.json). It says `pending fair rerun` until all 12 ML-KEM measurements and all four five-seed synthesis results pass the completeness checks.
+The canonical machine readable file is [`results/summary.json`](results/summary.json). It says `pending fair rerun` until all 15 ML-KEM measurements and all five five-seed synthesis results pass the completeness checks.
 
 ## Build and reproduce
 
@@ -121,10 +137,10 @@ cmake -S . -B build/picorv32 -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_PICORV32=ON
 cmake --build build/picorv32 --target pqc-picorv32-cpu-models pqc-picorv32-firmware --parallel 4
 ```
 
-The firmware target creates ELF, HEX, and disassembly files for all 12
+The firmware target creates ELF, HEX, and disassembly files for all 15
 variant/parameter-set combinations. Individual targets follow the form
 `pqc-picorv32-firmware-fqmul-768`. `pqc-picorv32-sim` remains a small direct RTL
-correctness target that builds and runs the four PCPI reference tests.
+correctness target that builds and runs the five PCPI reference tests.
 
 ### Complete experiment
 
@@ -163,14 +179,14 @@ The main CMake targets are build products rather than experiment stages:
 | CMake target | Product |
 | --- | --- |
 | `pqc-picorv32-sim` | direct PCPI reference tests for all instruction settings |
-| `pqc-picorv32-pcpi-models` | four direct PCPI Verilator executables |
-| `pqc-picorv32-cpu-models` | four complete PicoRV32 Verilator executables |
-| `pqc-picorv32-firmware` | all 12 RISC-V firmware ELF, HEX, and disassembly sets |
+| `pqc-picorv32-pcpi-models` | five direct PCPI Verilator executables |
+| `pqc-picorv32-cpu-models` | five complete PicoRV32 Verilator executables |
+| `pqc-picorv32-firmware` | all 15 RISC-V firmware ELF, HEX, and disassembly sets |
 | `pqc-picorv32-firmware-<variant>-<level>` | one firmware artifact set |
 
 ## Checks kept in scope
 
-- C and C++ reference tests cover FQMUL RED32 FSRI and the fixed backend for all three vector widths
+- C and C++ reference tests cover FQMUL RED32 FSRI DOT2X and the fixed backend for all three vector widths
 - Verilator compares each instruction RTL against its reference including boundaries random operands reset latency decoding and consecutive requests
 - whole processor simulation boots bare metal firmware and runs complete ML-KEM
 - each ML-KEM build checks complete cryptographic operation results deterministic repeats and intended instruction use

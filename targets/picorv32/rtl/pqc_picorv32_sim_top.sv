@@ -2,7 +2,8 @@
 module pqc_picorv32_sim_top #(
     parameter ENABLE_FQMUL = 1'b0,
     parameter ENABLE_RED32 = 1'b0,
-    parameter ENABLE_FSRI = 1'b0
+    parameter ENABLE_FSRI = 1'b0,
+    parameter ENABLE_DOT2X = 1'b0
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -52,7 +53,8 @@ assign mem_ready = pending;
 pqc_picorv32_core_top #(
     .ENABLE_FQMUL(ENABLE_FQMUL),
     .ENABLE_RED32(ENABLE_RED32),
-    .ENABLE_FSRI(ENABLE_FSRI)
+    .ENABLE_FSRI(ENABLE_FSRI),
+    .ENABLE_DOT2X(ENABLE_DOT2X)
 ) core (
     .clk(clk),
     .resetn(resetn),
