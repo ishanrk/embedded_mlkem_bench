@@ -1,0 +1,15 @@
+BasedOnStyle: Google
+AccessModifierOffset: -4
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Allman
+ColumnLimit: 100
+ContinuationIndentWidth: 4
+DerivePointerAlignment: false
+FixNamespaceComments: false
+IndentCaseLabels: true
+IndentWidth: 4
+PointerAlignment: Right
+SortIncludes: Never

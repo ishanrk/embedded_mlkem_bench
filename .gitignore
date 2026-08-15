@@ -1,2 +1,3 @@
-/target
+/build
 /out
+/compile_commands.json
