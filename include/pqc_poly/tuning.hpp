@@ -28,9 +28,9 @@ enum class latency_metric
 struct verification_status
 {
     bool differential_tests{false};
-    bool independent_plan{false};
-    bool memory_safety{false};
-    bool ram_bound{false};
+    bool plan_check{false};
+    bool sanitizers{false};
+    bool ram_check{false};
 
     friend bool operator==(const verification_status &, const verification_status &) = default;
 };
@@ -53,7 +53,7 @@ struct benchmark_record
     verification_status verification{};
     std::optional<std::uint64_t> nanoseconds{};
     std::optional<std::uint64_t> cycles{};
-    std::uint64_t peak_scratch_bytes{0};
+    std::uint64_t scratch_bytes{0};
     std::uint64_t code_size_bytes{0};
     benchmark_provenance provenance{};
     std::vector<std::string> rejection_reasons{};
@@ -70,8 +70,8 @@ public:
 [[nodiscard]] std::string_view benchmark_status_name(benchmark_status value) noexcept;
 [[nodiscard]] std::string_view latency_metric_name(latency_metric value) noexcept;
 
-// this local gate does not imply cbmc or real target execution
-[[nodiscard]] bool fully_verified(const benchmark_record &record) noexcept;
+// selectable means measured and locally checked, not formally verified or run on the target
+[[nodiscard]] bool selectable(const benchmark_record &record) noexcept;
 void validate_benchmark_record(const benchmark_record &record);
 [[nodiscard]] std::optional<std::uint64_t> measured_latency(const benchmark_record &record,
                                                             latency_metric metric) noexcept;
@@ -84,8 +84,6 @@ void validate_benchmark_record(const benchmark_record &record);
 
 [[nodiscard]] std::string benchmarks_to_json(std::span<const benchmark_record> records,
                                              latency_metric metric);
-[[nodiscard]] std::string report_to_html(std::span<const benchmark_record> records,
-                                         latency_metric metric);
 
 }
 

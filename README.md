@@ -1,49 +1,31 @@
 # pqc-poly-bench
 
-`pqc-poly-bench` is a C++20 constraint-driven compiler and autotuner for
-post-quantum polynomial arithmetic. Given a ring operation, degree, modulus,
-target description, alias contract, and scratch-RAM limit, it constructs an
-explainable implementation space, rejects illegal plans, independently checks
-the selected lowering, and emits a standalone kernel.
+`pqc-poly-bench` selects and emits small C++20 kernels for cyclic and negacyclic
+polynomial multiplication. A JSON request supplies the ring, coefficient range,
+aliasing contract, target integer widths, and scratch-RAM limit. The tool rejects
+plans that violate those constraints and either uses a static cost model or
+measures the legal plans on the host.
 
-The project is entirely C++. Cargo and Rust are not required.
+This is an early compiler/autotuner prototype, not a complete PQC implementation.
 
-## Current implementation slice
+## What works
 
-The current end-to-end path supports cyclic and negacyclic multiplication with
-three verified schoolbook memory schedules:
+The generic path supports three schoolbook schedules:
 
-- a full linear convolution buffer followed by ring folding;
-- a blocked ring accumulator with selectable block size;
-- a direct-output schedule with no scratch allocation.
+- `sb_full`: accumulate a linear convolution, then fold it into the ring;
+- `sb_fold`: accumulate directly into the ring through fixed-size blocks;
+- `sb_out`: compute each output coefficient without scratch storage.
 
-The supporting compiler path contains only state used by a runnable candidate:
+For each supported 32- or 64-bit accumulator, the selector computes the signed
+accumulator bound, operation counts, alias safety, and explicit scratch use. A
+separate consistency pass recomputes those values before code generation.
 
-- a range-aware polynomial IR with exact signed coefficient intervals;
-- reduction-state and required-width tracking;
-- explicit operation dependencies and last-use information;
-- aligned scratch regions with offsets and live ranges;
-- an independent plan checker and a separate IR checker;
-- verified-only empirical winner selection;
-- measured latency/RAM/code-size Pareto frontiers;
-- deterministic JSON artifacts and a standalone HTML report.
-
-## Architecture
-
-- `pqc_poly_compiler` contains request validation, selection, IR verification,
-  code generation, host tuning, and reporting.
-- `pqc_poly_formula` retains the allocation-free NTRU-HPS-2048-509 research
-  kernels: schoolbook, Karatsuba, exact dual-prime NTT, Toom-Cook, and TMVP.
-
-Public arithmetic APIs follow output-first `r, a, b` ordering. The C++ layout,
-Allman braces, right-aligned pointers, lower snake case, and prefixed global
-symbols are loosely based on
-[mlkem-native](https://github.com/pq-code-package/mlkem-native). Source comments
-are intentionally sparse, lowercase, and limited to design or safety rationale.
+The repository also contains fixed NTRU-HPS-2048-509 formula experiments
+(schoolbook, Karatsuba, NTT, Toom-Cook, and TMVP). They are a separate benchmark:
+the JSON selector does not choose between them, and its RAM limit does not apply
+to their fixed internal storage.
 
 ## Build and test
-
-Portable optimized build:
 
 ```bash
 cmake --preset release
@@ -51,7 +33,7 @@ cmake --build --preset release --parallel
 ctest --preset release
 ```
 
-Host-native optimized build and fixed-kernel benchmark:
+For host-native formula benchmarks:
 
 ```bash
 cmake --preset release-native
@@ -60,7 +42,7 @@ ctest --preset release-native
 ./build/release-native/pqc-poly-formula-bench 1000
 ```
 
-ASan and UBSan build:
+For ASan and UBSan:
 
 ```bash
 cmake --preset sanitize
@@ -68,25 +50,36 @@ cmake --build --preset sanitize --parallel
 ASAN_OPTIONS=detect_leaks=0 ctest --preset sanitize
 ```
 
-Leak detection is disabled in that command because LeakSanitizer cannot run
-under the workspace's ptrace wrapper. AddressSanitizer and
-UndefinedBehaviorSanitizer remain enabled.
+## Use
 
-## Static compilation
+Requests use one strict schema; duplicate or unknown fields are rejected:
 
-Static selection uses the conservative bootstrap cost model and does not claim
-target measurements:
+```json
+{
+  "op": "negacyclic_mul",
+  "n": 256,
+  "q": 3329,
+  "input": "centered",
+  "output": "canonical",
+  "alias": "no",
+  "target": {
+    "name": "rv32im",
+    "word_bits": 32,
+    "size_bits": 32,
+    "acc_bits": [32, 64]
+  },
+  "limits": {"ram": 4096}
+}
+```
+
+Static selection is deterministic and does not claim measured target performance:
 
 ```bash
 ./build/release/pqc-poly-bench examples/mlkem.json -o out
 ```
 
-Use `--plan PLAN_ID` to force a particular legal, supported bootstrap plan.
-
-## Verified host autotuning
-
-The first empirical backend is explicit because a host result must not be
-confused with an RV32 result:
+Use `--plan PLAN_ID` to force a legal candidate. Use host tuning to compile,
+test, and measure every candidate locally:
 
 ```bash
 ./build/release/pqc-poly-bench \
@@ -98,87 +91,56 @@ confused with an RV32 result:
   -o out
 ```
 
-For every legal supported candidate, this mode:
+Host tuning runs deterministic differential tests under ASan and UBSan, builds
+a separate `-O3` executable, records median latency and code size, and selects
+the fastest passing candidate. Results are labeled `host-proxy-for-*`; they are
+not results from the target named in a request.
 
-1. regenerates the checked kernel;
-2. compiles and runs boundary, impulse, deterministic-random, and exact-alias
-   differential tests under ASan and UBSan;
-3. compiles a separate `-O3` kernel;
-4. records median nanoseconds and, on x86, timestamp-counter ticks;
-5. records `.text` size when the platform size tool is available;
-6. chooses the fastest locally verified candidate for the requested metric;
-7. reports nondominated latency, scratch, and code-size points.
+## Output
 
-Measurements are labeled `host-proxy-for-*`. They are not presented as target
-cycles for a different architecture.
+A successful run writes:
 
-## Emitted artifacts
+- `kernel.hpp`, `kernel.cpp`: standalone C++20 with the `pqc_poly_mul` entry point;
+- `plan.json`: the selected candidate and optional host measurement;
+- `candidates.json`: every candidate, its analysis, score, and rejection reasons;
+- `benchmarks.json`: checks, provenance, measurements, winner, and Pareto frontier.
 
-Every successful run writes:
+`scratch_bytes` is the size of arrays emitted inside `pqc_poly_mul`. It does not
+include input/output buffers, alignment or stack-frame overhead, compiler spills,
+or the separate fixed-formula benchmark.
 
-- `kernel.hpp` and `kernel.cpp`: standalone optimized C++20;
-- `plan.json`: selected lowering, analysis, verification state, and optional
-  measurement;
-- `cands.json`: bootstrap candidates, including rejection reasons;
-- `ir.json`: ranges, widths, dependencies, reductions, storage, and lifetimes;
-- `benchmarks.json`: provenance, verification gates, measurements, winner, and
-  measured Pareto frontier;
-- `report.html`: a standalone human-readable experiment report.
+## Repository layout
 
-The generated ABI entry point is `pqc_poly_mul`. `kernel.hpp` also provides an
-inline `polysel_mul` compatibility name without another generated function.
+- `src/selector.cpp`: parse requests, enumerate plans, enforce bounds, and rank;
+- `src/codegen.cpp`: emit one standalone kernel from the selected plan;
+- `src/host_tuner.cpp`: compile, test, and measure generated kernels locally;
+- `src/tuning.cpp`: validate benchmark records and serialize results;
+- `src/explore.cpp`: CLI parsing and artifact orchestration;
+- `src/formula/`: fixed NTRU-509 formula experiments;
+- `tests/`: selector, generator, tuner, CLI, ring, and formula tests.
 
-## Verification scope
+## RISC-V status
 
-A record is eligible for the current empirical selector only after:
+There is no RISC-V instruction backend yet. Setting a target name such as
+`rv32im` applies the requested `word_bits`, `size_bits`, accumulator widths, and
+RAM limit to selection, but it does not cross-compile, run a simulator, emit
+custom instructions, or measure RISC-V cycles. The generated kernel is portable
+C++ intended for a later target backend.
 
-- the original plan analysis is independently recomputed;
-- the IR is independently recomputed and checked;
-- differential tests pass;
-- ASan and UBSan execution passes;
-- the explicit scratch allocation fits the requested RAM budget.
+A credible RISC-V backend still needs a pinned compiler triple and ABI, linker
+script, simulator or board runner, machine-readable counters, and a defined
+custom-instruction interface. Until those exist, host measurements remain only
+a development proxy.
 
-This local gate is deliberately not called a CBMC proof or a real target run.
-Those states remain `not_run` until the corresponding backend actually runs.
-Generated loops and memory access are independent of coefficient values, but
-the generic `% q` lowering is not itself a complete microarchitectural
-constant-time proof. Power-of-two moduli use an unsigned mask.
+## Verification limits
 
-## Fixed-kernel performance
+A measured candidate is selectable only when plan consistency, scratch limits,
+differential tests, and ASan/UBSan all pass. This is useful test coverage, not a
+formal proof. The project does not currently run CBMC, prove constant-time
+execution, include compiler-generated spill space in the RAM bound, or execute
+on the requested target.
 
-The NTRU-509 formula backends perform no heap allocation. Scratch is fixed-size
-and 64-byte aligned; the native schoolbook path uses AVX2; recursive algorithms
-reuse one arena; and NTT tables are computed at compile time. On the development
-Intel Core i7-13700H, TMVP measured about 3.5 microseconds per multiplication
-and the AVX2 schoolbook backend about 7.6 microseconds. Results depend on the
-compiler, CPU, frequency policy, and thermal state.
-
-## External backends still requiring configuration
-
-The following canonical features need concrete external choices before they
-can be implemented responsibly:
-
-- the RV32 compiler triple, ABI, multilib, linker script, and allowed flags;
-- the simulator and its machine-readable cycle/instruction-count interface;
-- the real board or FPGA, deployment transport, firmware harness, cycle
-  counter, and reset protocol;
-- the CBMC version, loop-unwind policy, proof bounds, timeout budget, and exact
-  properties required for release gating;
-- the PQC integration target and revision, such as mlkem-native, liboqs, or a
-  specific firmware tree, plus its required kernel ABI;
-- experiment-budget policy for large recursive/hybrid search spaces.
-
-These are isolated behind future backend boundaries. The current host path,
-IR, plan checking, artifact generation, and reporting do not fabricate their
-results.
-
-## Portability limits
-
-- The host selector uses exact unsigned 128-bit model arithmetic and therefore
-  requires a GCC or Clang target providing `unsigned __int128`.
-- Standalone emitted kernels do not require 128-bit arithmetic and can be
-  cross-compiled for narrower targets such as RV32.
-- Scratch accounting covers explicit algorithm arrays, not compiler spills or
-  caller-owned buffers.
-- Host code size falls back to optimized object-file size if no compatible
-  section-size tool is available; provenance records that measurement path.
+The next meaningful extensions are a real RV32 runner and additional generic
+algorithms whose exact scratch usage is modeled by the selector. They should be
+added only when they drive emitted code and tests, rather than as descriptive
+metadata.

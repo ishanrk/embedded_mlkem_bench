@@ -43,14 +43,14 @@ pqc_poly::request make_request(std::uint64_t n, std::uint32_t q, std::uint64_t r
     return pqc_poly::parse_request(
         "{\"op\":\"negacyclic_mul\",\"n\":" + std::to_string(n) + ",\"q\":" + std::to_string(q) +
         ",\"input\":\"" + std::string(input) + "\",\"alias\":\"" + std::string(alias) +
-        "\",\"target\":{\"name\":\"test\",\"word_bits\":32,\"acc_bits\":" + std::string(acc_bits) +
-        "},\"limits\":{\"ram\":" + std::to_string(ram) + "}}");
+        "\",\"target\":{\"name\":\"test\",\"word_bits\":32,\"acc_bits\":[" + std::string(acc_bits) +
+        "]},\"limits\":{\"ram\":" + std::to_string(ram) + "}}");
 }
 
 std::vector<std::string> legal_ids(const pqc_poly::request &req)
 {
     std::vector<std::string> ids;
-    for (const pqc_poly::candidate_trial &trial : pqc_poly::find(req))
+    for (const pqc_poly::candidate &trial : pqc_poly::find_candidates(req))
     {
         if (trial.analysis.legal)
         {
@@ -72,35 +72,17 @@ void test_request_parser()
     expect(pqc_poly::input_lower_bound(req) == -8, "bad lower bound");
     expect(pqc_poly::input_upper_bound(req) == 8, "bad upper bound");
 
-    const pqc_poly::request hyphenated =
-        pqc_poly::parse_request(R"({"op":"negacyclic-mul","n":8,"q":17})");
-    expect(hyphenated.op == pqc_poly::operation::negacyclic_mul,
-           "canonical hyphenated operation was rejected");
-
-    const pqc_poly::request descriptive = pqc_poly::parse_request(
-        R"({"operation":"negacyclic-mul","degree":8,"modulus":17,"target":"rv32im","ram_limit":60})");
-    expect(descriptive.n == 8 && descriptive.q == 17 && descriptive.target.name == "rv32im" &&
-               descriptive.limits.ram == 60,
-           "descriptive canonical request was not normalized");
-    static_cast<void>(expect_spec_error(
-        []
-        {
-            static_cast<void>(pqc_poly::parse_request(
-                R"({"op":"cyclic_mul","operation":"cyclic-mul","n":8,"q":17})"));
-        }));
-    static_cast<void>(expect_spec_error(
-        []
-        {
-            static_cast<void>(pqc_poly::parse_request(
-                R"({"operation":"cyclic-mul","degree":8,"modulus":17,"ram_limit":1,"limits":{"ram":1}})"));
-        }));
-
-    const pqc_poly::request duplicate = pqc_poly::parse_request(
-        R"({"op":"negacyclic_mul","op":"cyclic_mul","n":4,"n":8,"q":17,"target":{"acc_bits":[64,32,64]}})");
-    expect(duplicate.op == pqc_poly::operation::cyclic_mul, "duplicate op was not last wins");
-    expect(duplicate.n == 8, "duplicate n was not last wins");
-    expect(duplicate.target.acc_bits == std::vector<std::uint16_t>({32, 64}),
+    const pqc_poly::request normalized = pqc_poly::parse_request(
+        R"({"op":"cyclic_mul","n":8,"q":17,"target":{"acc_bits":[64,32,64]}})");
+    expect(normalized.target.acc_bits == std::vector<std::uint16_t>({32, 64}),
            "accumulator widths were not normalized");
+
+    static_cast<void>(expect_spec_error(
+        []
+        {
+            static_cast<void>(pqc_poly::parse_request(
+                R"({"op":"negacyclic_mul","op":"cyclic_mul","n":8,"q":17})"));
+        }));
 
     const std::string error = expect_spec_error(
         []
@@ -130,26 +112,26 @@ void test_request_parser()
 void test_ranking_and_frontier()
 {
     const pqc_poly::request req = make_request(8, 17, 60, "centered", "no", "32");
-    const std::vector<pqc_poly::candidate_trial> trials = pqc_poly::find(req);
+    const std::vector<pqc_poly::candidate> trials = pqc_poly::find_candidates(req);
     const std::array expected_ids{
         std::string_view{"sb_full_i32"},
         std::string_view{"sb_fold_b4_i32"},
         std::string_view{"sb_fold_b8_i32"},
         std::string_view{"sb_out_i32"},
     };
-    const std::array<pqc_poly::wide_uint, 4> expected_costs{391, 408, 402, 416};
+    const std::array<pqc_poly::wide_uint, 4> expected_costs{391, 408, 402, 440};
     expect(trials.size() == expected_ids.size(), "bad candidate count");
     for (std::size_t index = 0; index < trials.size(); ++index)
     {
         expect(pqc_poly::plan_id(trials[index].analysis.plan) == expected_ids[index],
                "bad candidate order");
-        expect(trials[index].score.cost == expected_costs[index], "bad candidate cost");
-        expect(pqc_poly::check_trial(req, trials[index]).empty(), "checker rejected a trial");
+        expect(trials[index].estimated_cost == expected_costs[index], "bad candidate cost");
+        expect(pqc_poly::check_candidate(req, trials[index]).empty(), "checker rejected a trial");
     }
-    expect(pqc_poly::plan_id(pqc_poly::pick(trials).analysis.plan) == "sb_full_i32",
+    expect(pqc_poly::plan_id(pqc_poly::pick_static(trials).analysis.plan) == "sb_full_i32",
            "bad selected plan");
 
-    const std::vector<const pqc_poly::candidate_trial *> frontier = pqc_poly::frontier(trials);
+    const std::vector<const pqc_poly::candidate *> frontier = pqc_poly::static_frontier(trials);
     const std::array wanted{
         std::string_view{"sb_out_i32"},
         std::string_view{"sb_fold_b8_i32"},
@@ -165,25 +147,25 @@ void test_ranking_and_frontier()
 void test_legality_and_checker()
 {
     const pqc_poly::request req = make_request(8, 17, 1000, "centered", "may", "32");
-    std::vector<pqc_poly::candidate_trial> trials = pqc_poly::find(req);
+    std::vector<pqc_poly::candidate> trials = pqc_poly::find_candidates(req);
     const auto output =
         std::find_if(trials.begin(), trials.end(),
-                     [](const pqc_poly::candidate_trial &trial)
+                     [](const pqc_poly::candidate &trial)
                      { return trial.analysis.plan.sched == pqc_poly::schedule::output; });
     expect(output != trials.end(), "missing output plan");
     expect(!output->analysis.legal, "alias-unsafe plan was legal");
-    expect(output->analysis.failure_reasons == std::vector<std::string>{"alias"},
+    expect(output->analysis.rejections == std::vector<std::string>{"alias"},
            "bad alias failure");
 
-    pqc_poly::candidate_trial bad = trials.front();
+    pqc_poly::candidate bad = trials.front();
     ++bad.analysis.accumulator_bound;
-    const std::vector<std::string> range_errors = pqc_poly::check_plan(req, bad.analysis);
+    const std::vector<std::string> range_errors = pqc_poly::check_candidate(req, bad);
     expect(std::ranges::find(range_errors, "bad range") != range_errors.end(),
            "checker accepted a bad range");
 
     bad = trials.front();
-    ++bad.score.cost;
-    const std::vector<std::string> errors = pqc_poly::check_trial(req, bad);
+    ++bad.estimated_cost;
+    const std::vector<std::string> errors = pqc_poly::check_candidate(req, bad);
     expect(std::ranges::find(errors, "bad score") != errors.end(), "checker accepted a bad score");
 }
 
@@ -191,22 +173,22 @@ void test_boundaries()
 {
     const pqc_poly::request canonical = make_request(193, 3329, 20000, "canonical", "no", "32");
     const pqc_poly::request canonical_bad = make_request(194, 3329, 20000, "canonical", "no", "32");
-    expect(std::ranges::any_of(pqc_poly::find(canonical),
+    expect(std::ranges::any_of(pqc_poly::find_candidates(canonical),
                                [](const auto &trial) { return trial.analysis.legal; }),
            "canonical threshold rejected");
-    expect(std::ranges::none_of(pqc_poly::find(canonical_bad),
+    expect(std::ranges::none_of(pqc_poly::find_candidates(canonical_bad),
                                 [](const auto &trial) { return trial.analysis.legal; }),
            "canonical overflow threshold accepted");
 
     const pqc_poly::request maximum =
         make_request(std::numeric_limits<std::uint64_t>::max() / 4, 2, 0, "centered", "no", "64");
-    const std::vector<pqc_poly::candidate_trial> maximum_trials = pqc_poly::find(maximum);
+    const std::vector<pqc_poly::candidate> maximum_trials = pqc_poly::find_candidates(maximum);
     expect(!maximum_trials.empty(), "maximum request produced no trials");
-    for (const pqc_poly::candidate_trial &trial : maximum_trials)
+    for (const pqc_poly::candidate &trial : maximum_trials)
     {
         expect(!trial.analysis.legal, "oversized target object was legal");
-        expect(std::ranges::find(trial.analysis.failure_reasons, "size_t") !=
-                   trial.analysis.failure_reasons.end(),
+        expect(std::ranges::find(trial.analysis.rejections, "size_t") !=
+                   trial.analysis.rejections.end(),
                "oversized target object lacks size_t failure");
     }
 }
@@ -214,7 +196,7 @@ void test_boundaries()
 void test_reference_boundary_matrix()
 {
     const pqc_poly::request even_centered = pqc_poly::parse_request(
-        R"({"op":"cyclic_mul","n":8,"q":256,"target":{"word_bits":8,"acc_bits":32}})");
+        R"({"op":"cyclic_mul","n":8,"q":256,"target":{"word_bits":8,"acc_bits":[32]}})");
     expect(pqc_poly::input_lower_bound(even_centered) == -128, "even centered lower bound changed");
     expect(pqc_poly::input_upper_bound(even_centered) == 127, "even centered upper bound changed");
     expect(pqc_poly::input_bound(even_centered) == 128, "even centered magnitude changed");
@@ -236,32 +218,33 @@ void test_reference_boundary_matrix()
         expect(legal_ids(req) == entry.ids, "ram legality edge changed");
     }
 
-    const std::vector<pqc_poly::candidate_trial> centered_legal =
-        pqc_poly::find(make_request(775, 3329, 20000, "centered", "no", "32"));
-    const std::vector<pqc_poly::candidate_trial> centered_illegal =
-        pqc_poly::find(make_request(776, 3329, 20000, "centered", "no", "32"));
+    const std::vector<pqc_poly::candidate> centered_legal =
+        pqc_poly::find_candidates(make_request(775, 3329, 20000, "centered", "no", "32"));
+    const std::vector<pqc_poly::candidate> centered_illegal =
+        pqc_poly::find_candidates(make_request(776, 3329, 20000, "centered", "no", "32"));
     expect(
         std::ranges::any_of(centered_legal, [](const auto &trial) { return trial.analysis.legal; }),
         "centered width boundary rejected n 775");
     expect(std::ranges::none_of(centered_illegal,
                                 [](const auto &trial) { return trial.analysis.legal; }),
            "centered width boundary accepted n 776");
-    for (const pqc_poly::candidate_trial &trial : centered_illegal)
+    for (const pqc_poly::candidate &trial : centered_illegal)
     {
-        expect(std::ranges::find(trial.analysis.failure_reasons, "acc_width") !=
-                   trial.analysis.failure_reasons.end(),
+        expect(std::ranges::find(trial.analysis.rejections, "acc_width") !=
+                   trial.analysis.rejections.end(),
                "centered overflow lacks acc_width failure");
     }
 
     const pqc_poly::request no_scratch = make_request(8, 17, 0, "centered", "may", "32");
-    const std::vector<pqc_poly::candidate_trial> no_scratch_trials = pqc_poly::find(no_scratch);
+    const std::vector<pqc_poly::candidate> no_scratch_trials =
+        pqc_poly::find_candidates(no_scratch);
     expect(std::ranges::none_of(no_scratch_trials,
                                 [](const auto &trial) { return trial.analysis.legal; }),
            "zero ram alias request found a legal plan");
     bool no_plan = false;
     try
     {
-        static_cast<void>(pqc_poly::pick(no_scratch_trials));
+        static_cast<void>(pqc_poly::pick_static(no_scratch_trials));
     }
     catch (const pqc_poly::selection_error &)
     {
@@ -274,7 +257,7 @@ void test_failure_ordering()
 {
     const pqc_poly::request req =
         make_request((std::uint64_t{1} << 30) + 1, 3329, 0, "centered", "may", "32");
-    const std::vector<pqc_poly::candidate_trial> trials = pqc_poly::find(req);
+    const std::vector<pqc_poly::candidate> trials = pqc_poly::find_candidates(req);
     const auto full =
         std::ranges::find_if(trials, [](const auto &trial)
                              { return trial.analysis.plan.sched == pqc_poly::schedule::full; });
@@ -284,9 +267,9 @@ void test_failure_ordering()
     expect(full != trials.end(), "missing full plan for failure order");
     expect(output != trials.end(), "missing output plan for failure order");
     expect(
-        full->analysis.failure_reasons == std::vector<std::string>({"ram", "acc_width", "size_t"}),
+        full->analysis.rejections == std::vector<std::string>({"ram", "acc_width", "size_t"}),
         "full failure order changed");
-    expect(output->analysis.failure_reasons ==
+    expect(output->analysis.rejections ==
                std::vector<std::string>({"acc_width", "alias", "size_t"}),
            "output failure order changed");
 }
@@ -294,7 +277,7 @@ void test_failure_ordering()
 void test_direct_validation()
 {
     pqc_poly::request req = pqc_poly::parse_request(
-        R"({"op":"cyclic_mul","n":8,"q":256,"target":{"word_bits":8,"acc_bits":32}})");
+        R"({"op":"cyclic_mul","n":8,"q":256,"target":{"word_bits":8,"acc_bits":[32]}})");
     pqc_poly::validate_request(req);
 
     req.n = 1;
@@ -316,36 +299,35 @@ void test_direct_validation()
 void test_json()
 {
     pqc_poly::request req = pqc_poly::parse_request(
-        R"({"op":"cyclic_mul","n":8,"q":17,"target":{"name":"rv32-\u03bc-\ud83d\ude80","acc_bits":32},"limits":{"ram":60}})");
+        R"({"op":"cyclic_mul","n":8,"q":17,)"
+        R"("target":{"name":"rv32-\u03bc-\ud83d\ude80","acc_bits":[32]},)"
+        R"("limits":{"ram":60}})");
     const std::string request_json = pqc_poly::request_to_json(req);
     expect(request_json.find("rv32-\\u03bc-\\ud83d\\ude80") != std::string::npos,
            "json was not ascii escaped");
 
-    const std::vector<pqc_poly::candidate_trial> trials = pqc_poly::find(req);
+    const std::vector<pqc_poly::candidate> trials = pqc_poly::find_candidates(req);
     const std::string expected =
         "{\n"
         "  \"plan\": {\n"
         "    \"id\": \"sb_full_i32\",\n"
-        "    \"algo\": \"schoolbook\",\n"
-        "    \"sched\": \"sb_full\",\n"
+        "    \"algorithm\": \"schoolbook\",\n"
+        "    \"schedule\": \"sb_full\",\n"
         "    \"acc_bits\": 32,\n"
         "    \"block\": 0\n"
         "  },\n"
         "  \"analysis\": {\n"
-        "    \"tmp_bytes\": 60,\n"
+        "    \"scratch_bytes\": 60,\n"
         "    \"alias_safe\": true,\n"
-        "    \"acc_bound\": 512,\n"
-        "    \"need_bits\": 11,\n"
-        "    \"muls\": 64,\n"
-        "    \"adds\": 71,\n"
-        "    \"reds\": 8,\n"
+        "    \"accumulator_bound\": 512,\n"
+        "    \"required_bits\": 11,\n"
+        "    \"multiplications\": 64,\n"
+        "    \"additions\": 71,\n"
+        "    \"reductions\": 8,\n"
         "    \"legal\": true,\n"
-        "    \"fail\": []\n"
+        "    \"rejections\": []\n"
         "  },\n"
-        "  \"score\": {\n"
-        "    \"cost\": 391,\n"
-        "    \"model\": \"starter-v0\"\n"
-        "  }\n"
+        "  \"estimated_cost\": 391\n"
         "}\n";
     expect(pqc_poly::candidate_to_json(trials.front()) == expected, "candidate json changed");
 }

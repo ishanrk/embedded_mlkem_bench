@@ -26,6 +26,7 @@ inline constexpr std::array<formula_kind, 5> formula_kinds = {
 
 [[nodiscard]] std::string_view formula_name(formula_kind kind) noexcept;
 
+// inputs are interpreted modulo poly_q; outputs use canonical representatives
 void schoolbook(poly &r, const signed_poly &a, const signed_poly &b) noexcept;
 void karatsuba(poly &r, const signed_poly &a, const signed_poly &b) noexcept;
 void ntt(poly &r, const signed_poly &a, const signed_poly &b) noexcept;

@@ -20,7 +20,8 @@ inline constexpr std::uint32_t crt_inverse = 43694;
 inline constexpr std::uint32_t primitive_root = 3;
 inline constexpr std::size_t twiddle_n = ntt_n - 1;
 
-// the prime product covers the largest canonical coefficient before reduction by q
+static_assert(static_cast<std::uint64_t>(prime_0) * prime_1 >
+              poly_n * static_cast<std::uint64_t>(poly_q - 1) * (poly_q - 1));
 
 [[nodiscard]] constexpr std::uint32_t reverse_bits(std::uint32_t v) noexcept
 {

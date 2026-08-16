@@ -65,13 +65,13 @@ std::string expect_tuning_error(function_type &&function)
         .verification =
             {
                 .differential_tests = true,
-                .independent_plan = true,
-                .memory_safety = true,
-                .ram_bound = true,
+                .plan_check = true,
+                .sanitizers = true,
+                .ram_check = true,
             },
         .nanoseconds = nanoseconds,
         .cycles = cycles,
-        .peak_scratch_bytes = scratch,
+        .scratch_bytes = scratch,
         .code_size_bytes = code,
         .provenance = provenance(),
     };
@@ -103,7 +103,7 @@ void test_validation()
     pqc_poly::validate_benchmark_record(record);
     pqc_poly::validate_benchmark_record(pending("later"));
     pqc_poly::validate_benchmark_record(rejected("bad"));
-    require(pqc_poly::fully_verified(record), "verified measurement was rejected");
+    require(pqc_poly::selectable(record), "verified measurement was rejected");
 
     record.plan_id.clear();
     require(expect_tuning_error([&record] { pqc_poly::validate_benchmark_record(record); }) ==
@@ -177,7 +177,7 @@ void test_validation()
 void test_winner_and_tie_breaks()
 {
     pqc_poly::benchmark_record unverified = measured("unverified", 1, 1, 1, 1);
-    unverified.verification.memory_safety = false;
+    unverified.verification.sanitizers = false;
 
     std::vector<pqc_poly::benchmark_record> records{
         rejected("rejected"),
@@ -191,7 +191,7 @@ void test_winner_and_tie_breaks()
         unverified,
     };
 
-    require(!pqc_poly::fully_verified(unverified), "failed verification was treated as complete");
+    require(!pqc_poly::selectable(unverified), "failed verification was treated as complete");
     require(pqc_poly::pick_measured(records, pqc_poly::latency_metric::cycles).plan_id == "a-plan",
             "cycle winner tie breaks changed");
     require(
@@ -211,14 +211,14 @@ void test_winner_and_tie_breaks()
                 [&unavailable] {
                     static_cast<void>(
                         pqc_poly::pick_measured(unavailable, pqc_poly::latency_metric::cycles));
-                }) == "no fully verified cycles benchmark",
+                }) == "no selectable cycles benchmark",
             "missing measurement error changed");
 }
 
 void test_pareto_frontier()
 {
     pqc_poly::benchmark_record unverified = measured("unsafe", 1, 1, 1, 1);
-    unverified.verification.memory_safety = false;
+    unverified.verification.sanitizers = false;
 
     std::vector<pqc_poly::benchmark_record> records{
         measured("dominated", 130, 130, 110, 110),
@@ -274,16 +274,13 @@ void test_serializers()
     };
     const std::string json =
         pqc_poly::benchmarks_to_json(records, pqc_poly::latency_metric::cycles);
-    const std::string html = pqc_poly::report_to_html(records, pqc_poly::latency_metric::cycles);
 
     std::reverse(records.begin(), records.end());
     std::reverse(records.back().rejection_reasons.begin(), records.back().rejection_reasons.end());
     require(json == pqc_poly::benchmarks_to_json(records, pqc_poly::latency_metric::cycles),
             "json depends on input ordering");
-    require(html == pqc_poly::report_to_html(records, pqc_poly::latency_metric::cycles),
-            "html depends on input ordering");
 
-    require(json.starts_with("{\n  \"schema\": \"pqc-poly-bench/benchmarks-v1\""),
+    require(json.starts_with("{\n  \"schema\": \"pqc-poly-bench/benchmarks-v2\""),
             "json schema is missing");
     require(json.ends_with("\n"), "json lacks final newline");
     require(json.find("\"selected\": \"plan<&\\\"'\\n\"") != std::string::npos,
@@ -294,20 +291,9 @@ void test_serializers()
     require(std::all_of(json.begin(), json.end(),
                         [](char value) { return static_cast<unsigned char>(value) < 0x80U; }),
             "json is not ascii reproducible");
-
-    require(html.starts_with("<!doctype html>\n<html lang=\"en\">"), "html is not standalone");
-    require(html.ends_with("</html>\n"), "html lacks closing document");
-    require(html.find("plan&lt;&amp;&quot;&#39;\n") != std::string::npos,
-            "html plan escaping changed");
-    require(html.find("rv32-\u03bc&lt;&amp;") != std::string::npos, "html target escaping changed");
-    require(html.find("-DVALUE=&quot;&lt;&amp;&quot;") != std::string::npos,
-            "html compiler flag escaping changed");
-    require(html.find("&lt;/script&gt;&quot;&#39;") != std::string::npos,
-            "html rejection escaping changed");
-    require(html.find("</script>") == std::string::npos, "html contains injected markup");
 }
 
-void test_names_and_empty_report()
+void test_names_and_empty_json()
 {
     require(pqc_poly::benchmark_status_name(pqc_poly::benchmark_status::pending) == "pending",
             "pending name changed");
@@ -322,13 +308,9 @@ void test_names_and_empty_report()
 
     const std::string json = pqc_poly::benchmarks_to_json(
         std::span<const pqc_poly::benchmark_record>{}, pqc_poly::latency_metric::cycles);
-    const std::string html = pqc_poly::report_to_html(std::span<const pqc_poly::benchmark_record>{},
-                                                      pqc_poly::latency_metric::cycles);
 
     require(json.find("\"selected\": null") != std::string::npos, "empty json has a selection");
     require(json.find("\"frontier\": []") != std::string::npos, "empty json has a frontier");
-    require(html.find("no fully verified measurement is available") != std::string::npos,
-            "empty html lacks explanation");
 }
 
 }
@@ -339,6 +321,6 @@ int main()
     test_winner_and_tie_breaks();
     test_pareto_frontier();
     test_serializers();
-    test_names_and_empty_report();
+    test_names_and_empty_json();
     return 0;
 }
