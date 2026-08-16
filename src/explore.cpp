@@ -1,9 +1,10 @@
 #include "pqc_poly/explore.hpp"
 
 #include "pqc_poly/codegen.hpp"
-#include "pqc_poly/compiler_plan.hpp"
 #include "pqc_poly/host_tuner.hpp"
 #include "pqc_poly/ir.hpp"
+
+#include "json.hpp"
 
 #include <algorithm>
 #include <array>
@@ -28,6 +29,9 @@ namespace pqc_poly
 namespace
 {
 
+using detail::append_indent;
+using detail::append_json_string;
+
 struct arguments
 {
     std::filesystem::path specification;
@@ -43,314 +47,6 @@ constexpr std::string_view usage =
     "usage: pqc-poly-bench [-h] [-o out] [--plan plan] [--tune-host] "
     "[--metric nanoseconds|cycles] [--samples n] [--iterations n] spec\n";
 
-void append_indent(std::string &out, std::size_t level)
-{
-    out.append(level * 2, ' ');
-}
-
-void append_hex_escape(std::string &out, std::uint16_t value)
-{
-    constexpr std::string_view digits = "0123456789abcdef";
-
-    out += "\\u";
-    for (unsigned shift : {12U, 8U, 4U, 0U})
-    {
-        out += digits[(value >> shift) & 0xfU];
-    }
-}
-
-void append_code_point(std::string &out, std::uint32_t value)
-{
-    if (value <= 0xffffU)
-    {
-        append_hex_escape(out, static_cast<std::uint16_t>(value));
-        return;
-    }
-
-    value -= 0x10000U;
-    append_hex_escape(out, static_cast<std::uint16_t>(0xd800U | (value >> 10U)));
-    append_hex_escape(out, static_cast<std::uint16_t>(0xdc00U | (value & 0x3ffU)));
-}
-
-void append_json_string(std::string &out, std::string_view value)
-{
-    // ascii-only output mirrors python json and keeps every artifact byte reproducible
-    out += '"';
-
-    for (std::size_t i = 0; i < value.size();)
-    {
-        const std::uint8_t first = static_cast<std::uint8_t>(value[i]);
-
-        if (first < 0x80U)
-        {
-            ++i;
-            switch (first)
-            {
-                case '"':
-                    out += "\\\"";
-                    break;
-                case '\\':
-                    out += "\\\\";
-                    break;
-                case '\b':
-                    out += "\\b";
-                    break;
-                case '\f':
-                    out += "\\f";
-                    break;
-                case '\n':
-                    out += "\\n";
-                    break;
-                case '\r':
-                    out += "\\r";
-                    break;
-                case '\t':
-                    out += "\\t";
-                    break;
-                default:
-                    if (first < 0x20U)
-                    {
-                        append_hex_escape(out, first);
-                    }
-                    else
-                    {
-                        out += static_cast<char>(first);
-                    }
-                    break;
-            }
-            continue;
-        }
-
-        std::uint32_t code_point = 0;
-        std::size_t width = 0;
-
-        if ((first & 0xe0U) == 0xc0U)
-        {
-            code_point = first & 0x1fU;
-            width = 2;
-        }
-        else if ((first & 0xf0U) == 0xe0U)
-        {
-            code_point = first & 0x0fU;
-            width = 3;
-        }
-        else if ((first & 0xf8U) == 0xf0U)
-        {
-            code_point = first & 0x07U;
-            width = 4;
-        }
-        else
-        {
-            append_hex_escape(out, first);
-            ++i;
-            continue;
-        }
-
-        if (i + width > value.size())
-        {
-            append_hex_escape(out, first);
-            ++i;
-            continue;
-        }
-
-        bool valid = true;
-        for (std::size_t j = 1; j < width; ++j)
-        {
-            const std::uint8_t next = static_cast<std::uint8_t>(value[i + j]);
-
-            if ((next & 0xc0U) != 0x80U)
-            {
-                valid = false;
-                break;
-            }
-            code_point = (code_point << 6U) | (next & 0x3fU);
-        }
-
-        if (!valid)
-        {
-            append_hex_escape(out, first);
-            ++i;
-            continue;
-        }
-
-        append_code_point(out, code_point);
-        i += width;
-    }
-
-    out += '"';
-}
-
-void append_wide(std::string &out, wide_uint value)
-{
-    out += wide_to_string(value);
-}
-
-void append_request(std::string &out, const request &req, std::size_t level)
-{
-    out += "{\n";
-    append_indent(out, level + 1);
-    out += "\"op\": ";
-    append_json_string(out, operation_name(req.op));
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"n\": " + std::to_string(req.n) + ",\n";
-    append_indent(out, level + 1);
-    out += "\"q\": " + std::to_string(req.q) + ",\n";
-    append_indent(out, level + 1);
-    out += "\"input\": ";
-    append_json_string(out, input_name(req.input));
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"output\": ";
-    append_json_string(out, output_name(req.output));
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"alias\": ";
-    append_json_string(out, aliasing_name(req.alias));
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"target\": {\n";
-    append_indent(out, level + 2);
-    out += "\"name\": ";
-    append_json_string(out, req.target.name);
-    out += ",\n";
-    append_indent(out, level + 2);
-    out += "\"word_bits\": " + std::to_string(req.target.word_bits) + ",\n";
-    append_indent(out, level + 2);
-    out += "\"size_bits\": " + std::to_string(req.target.size_bits) + ",\n";
-    append_indent(out, level + 2);
-    out += "\"acc_bits\": [\n";
-    for (std::size_t i = 0; i < req.target.acc_bits.size(); ++i)
-    {
-        append_indent(out, level + 3);
-        out += std::to_string(req.target.acc_bits[i]);
-        out += i + 1 == req.target.acc_bits.size() ? "\n" : ",\n";
-    }
-    append_indent(out, level + 2);
-    out += "]\n";
-    append_indent(out, level + 1);
-    out += "},\n";
-    append_indent(out, level + 1);
-    out += "\"limits\": {\n";
-    append_indent(out, level + 2);
-    out += "\"ram\": " + std::to_string(req.limits.ram) + "\n";
-    append_indent(out, level + 1);
-    out += "}\n";
-    append_indent(out, level);
-    out += '}';
-}
-
-void append_plan(std::string &out, const schoolbook_plan &plan, std::size_t level)
-{
-    out += "{\n";
-    append_indent(out, level + 1);
-    out += "\"id\": ";
-    append_json_string(out, plan_id(plan));
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"algo\": \"schoolbook\",\n";
-    append_indent(out, level + 1);
-    out += "\"sched\": ";
-    append_json_string(out, schedule_name(plan.sched));
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"acc_bits\": " + std::to_string(plan.acc_bits) + ",\n";
-    append_indent(out, level + 1);
-    out += "\"block\": " + std::to_string(plan.block) + "\n";
-    append_indent(out, level);
-    out += '}';
-}
-
-void append_string_array(std::string &out, std::span<const std::string> values, std::size_t level)
-{
-    if (values.empty())
-    {
-        out += "[]";
-        return;
-    }
-
-    out += "[\n";
-    for (std::size_t i = 0; i < values.size(); ++i)
-    {
-        append_indent(out, level + 1);
-        append_json_string(out, values[i]);
-        out += i + 1 == values.size() ? "\n" : ",\n";
-    }
-    append_indent(out, level);
-    out += ']';
-}
-
-void append_analysis(std::string &out, const analysis_verdict &v, std::size_t level)
-{
-    out += "{\n";
-    append_indent(out, level + 1);
-    out += "\"tmp_bytes\": ";
-    append_wide(out, v.temporary_bytes);
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += std::string("\"alias_safe\": ") + (v.alias_safe ? "true" : "false") + ",\n";
-    append_indent(out, level + 1);
-    out += "\"acc_bound\": ";
-    append_wide(out, v.accumulator_bound);
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"need_bits\": " + std::to_string(v.required_bits) + ",\n";
-    append_indent(out, level + 1);
-    out += "\"muls\": ";
-    append_wide(out, v.multiplications);
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"adds\": ";
-    append_wide(out, v.additions);
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"reds\": ";
-    append_wide(out, v.reductions);
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += std::string("\"legal\": ") + (v.legal ? "true" : "false") + ",\n";
-    append_indent(out, level + 1);
-    out += "\"fail\": ";
-    append_string_array(out, v.failure_reasons, level + 1);
-    out += '\n';
-    append_indent(out, level);
-    out += '}';
-}
-
-void append_score(std::string &out, const static_score &score, std::size_t level)
-{
-    out += "{\n";
-    append_indent(out, level + 1);
-    out += "\"cost\": ";
-    append_wide(out, score.cost);
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"model\": ";
-    append_json_string(out, score.model);
-    out += '\n';
-    append_indent(out, level);
-    out += '}';
-}
-
-void append_candidate(std::string &out, const candidate_trial &trial, std::size_t level)
-{
-    out += "{\n";
-    append_indent(out, level + 1);
-    out += "\"plan\": ";
-    append_plan(out, trial.analysis.plan, level + 1);
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"analysis\": ";
-    append_analysis(out, trial.analysis, level + 1);
-    out += ",\n";
-    append_indent(out, level + 1);
-    out += "\"score\": ";
-    append_score(out, trial.score, level + 1);
-    out += '\n';
-    append_indent(out, level);
-    out += '}';
-}
-
 void append_embedded_json(std::string &out, std::string_view value, std::size_t indent)
 {
     for (std::size_t index = 0; index < value.size(); ++index)
@@ -364,21 +60,20 @@ void append_embedded_json(std::string &out, std::string_view value, std::size_t 
 }
 
 [[nodiscard]] std::string plan_json(const request &req, const candidate_trial &trial,
-                                    const compiler_plan &compiled,
                                     const benchmark_record *benchmark, latency_metric metric)
 {
     const bool measured = benchmark != nullptr && fully_verified(*benchmark);
     std::string out;
 
-    out.reserve(2048);
+    out.reserve(1536);
     out += "{\n  \"request\": ";
-    append_request(out, req, 1);
-    out += ",\n  \"plan\": ";
-    append_plan(out, trial.analysis.plan, 1);
-    out += ",\n  \"analysis\": ";
-    append_analysis(out, trial.analysis, 1);
-    out += ",\n  \"score\": ";
-    append_score(out, trial.score, 1);
+    std::string request_json = request_to_json(req);
+    request_json.pop_back();
+    append_embedded_json(out, request_json, 2);
+    out += ",\n  \"candidate\": ";
+    std::string candidate_json = candidate_to_json(trial);
+    candidate_json.pop_back();
+    append_embedded_json(out, candidate_json, 2);
     out += ",\n  \"verification\": {\n    \"analysis_consistency\": \"pass\",\n";
     out += measured ? "    \"compile\": \"pass\",\n" : "    \"compile\": \"not_run\",\n";
     out += measured ? "    \"differential_test\": \"pass\",\n"
@@ -389,18 +84,7 @@ void append_embedded_json(std::string &out, std::string_view value, std::size_t 
     out += "  \"scratch_accounting\": \"explicit arrays only\",\n";
     out += measured ? "  \"selection\": \"measured host proxy; not a target run\",\n"
                     : "  \"selection\": \"static bootstrap; no target benchmark\",\n";
-    out += "  \"compiler_plan_id\": ";
-    append_json_string(out, compiler_plan_id(compiled));
-    out += ",\n  \"compiler_plan\": ";
-    std::string compiled_json = compiler_plan_to_json(compiled);
-    if (!compiled_json.empty() && compiled_json.back() == '\n')
-    {
-        compiled_json.pop_back();
-    }
-    append_embedded_json(out, compiled_json, 2);
-    out +=
-        ",\n  \"plan_space\": \"plans.json\",\n  \"ir\": \"ir.json\",\n"
-        "  \"host_measurement\": ";
+    out += "  \"ir\": \"ir.json\",\n  \"host_measurement\": ";
 
     if (!measured)
     {
@@ -421,26 +105,6 @@ void append_embedded_json(std::string &out, std::string_view value, std::size_t 
     out += ",\n    \"runner\": ";
     append_json_string(out, benchmark->provenance.runner);
     out += "\n  }\n}\n";
-    return out;
-}
-
-[[nodiscard]] std::string candidates_json(std::span<const candidate_trial> candidates)
-{
-    std::string out;
-
-    out.reserve(candidates.size() * 512);
-    out += "[";
-    if (!candidates.empty())
-    {
-        out += '\n';
-    }
-    for (std::size_t i = 0; i < candidates.size(); ++i)
-    {
-        append_indent(out, 1);
-        append_candidate(out, candidates[i], 1);
-        out += i + 1 == candidates.size() ? "\n" : ",\n";
-    }
-    out += "]\n";
     return out;
 }
 
@@ -716,7 +380,7 @@ void write_text(const std::filesystem::path &path, std::string_view text)
     append_json_string(out, plan_id(selected.analysis.plan));
     out += ",\n  \"acc_bits\": " + std::to_string(selected.analysis.plan.acc_bits);
     out += ",\n  \"tmp_bytes\": ";
-    append_wide(out, selected.analysis.temporary_bytes);
+    out += wide_to_string(selected.analysis.temporary_bytes);
     out += ",\n  \"need_bits\": " + std::to_string(selected.analysis.required_bits);
     out += ",\n  \"selection_mode\": ";
     append_json_string(out, measured ? "measured_host_proxy" : "static_model");
@@ -801,27 +465,6 @@ void emit(const std::filesystem::path &out, const request &req, const candidate_
         throw explore_error("bad ir: " + join_errors(graph_errors));
     }
 
-    const std::vector<compiler_plan> compiler_plans = enumerate_compiler_plans(req);
-    for (const compiler_plan &plan : compiler_plans)
-    {
-        const std::vector<std::string> plan_errors = check_compiler_plan(req, plan);
-        if (!plan_errors.empty())
-        {
-            throw explore_error("bad compiler plan: " + join_errors(plan_errors));
-        }
-    }
-    const auto compiled =
-        std::find_if(compiler_plans.begin(), compiler_plans.end(),
-                     [&selected](const compiler_plan &plan)
-                     {
-                         return compiler_plan_ready(plan) && plan.has_schoolbook_lowering &&
-                                plan.schoolbook_lowering == selected.analysis.plan;
-                     });
-    if (compiled == compiler_plans.end())
-    {
-        throw explore_error("selected candidate has no verified compiler plan");
-    }
-
     const benchmark_record *measurement =
         benchmark_for_id(benchmarks, plan_id(selected.analysis.plan));
 
@@ -835,9 +478,8 @@ void emit(const std::filesystem::path &out, const request &req, const candidate_
 
     write_text(out / "kernel.hpp", generate_header(req, selected));
     write_text(out / "kernel.cpp", generate_source(req, selected));
-    write_text(out / "plan.json", plan_json(req, selected, *compiled, measurement, metric));
-    write_text(out / "cands.json", candidates_json(candidates));
-    write_text(out / "plans.json", compiler_plans_to_json(compiler_plans));
+    write_text(out / "plan.json", plan_json(req, selected, measurement, metric));
+    write_text(out / "cands.json", candidates_to_json(candidates));
     write_text(out / "ir.json", ir_to_json(graph));
     write_text(out / "benchmarks.json", benchmarks_to_json(benchmarks, metric));
     write_text(out / "report.html", report_to_html(benchmarks, metric));

@@ -1,5 +1,7 @@
 #include "pqc_poly/selector.hpp"
 
+#include "json.hpp"
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -17,6 +19,9 @@ namespace pqc_poly
 {
 namespace
 {
+
+using detail::append_indent;
+using detail::append_json_string;
 
 constexpr std::uint64_t max_coefficient_count = std::numeric_limits<std::uint64_t>::max() / 4;
 constexpr wide_uint wide_max = ~wide_uint{0};
@@ -863,141 +868,6 @@ struct operation_counts
             return true;
     }
     return false;
-}
-
-void append_indent(std::string &output, std::size_t count)
-{
-    output.append(count, ' ');
-}
-
-void append_hex_quad(std::string &output, std::uint16_t value)
-{
-    constexpr std::string_view digits = "0123456789abcdef";
-    output += "\\u";
-    for (const unsigned shift : {12u, 8u, 4u, 0u})
-    {
-        output.push_back(digits[(value >> shift) & 0xf]);
-    }
-}
-
-[[nodiscard]] bool decode_utf8(std::string_view input, std::size_t &position,
-                               std::uint32_t &code_point) noexcept
-{
-    const auto lead = static_cast<unsigned char>(input[position]);
-    unsigned length = 0;
-    std::uint32_t minimum = 0;
-    if ((lead & 0xe0) == 0xc0)
-    {
-        length = 2;
-        code_point = lead & 0x1f;
-        minimum = 0x80;
-    }
-    else if ((lead & 0xf0) == 0xe0)
-    {
-        length = 3;
-        code_point = lead & 0x0f;
-        minimum = 0x800;
-    }
-    else if ((lead & 0xf8) == 0xf0)
-    {
-        length = 4;
-        code_point = lead & 0x07;
-        minimum = 0x10000;
-    }
-    else
-    {
-        return false;
-    }
-    if (input.size() - position < length)
-    {
-        return false;
-    }
-    for (unsigned index = 1; index < length; ++index)
-    {
-        const auto continuation = static_cast<unsigned char>(input[position + index]);
-        if ((continuation & 0xc0) != 0x80)
-        {
-            return false;
-        }
-        code_point = (code_point << 6) | (continuation & 0x3f);
-    }
-    if (code_point < minimum || code_point > 0x10ffff ||
-        (code_point >= 0xd800 && code_point <= 0xdfff))
-    {
-        return false;
-    }
-    position += length;
-    return true;
-}
-
-void append_json_string(std::string &output, std::string_view value)
-{
-    // json stays ascii so artifacts are byte-stable across host locales.
-    output.push_back('"');
-    std::size_t position = 0;
-    while (position < value.size())
-    {
-        const auto byte = static_cast<unsigned char>(value[position]);
-        if (byte >= 0x80)
-        {
-            std::uint32_t code_point = 0;
-            if (!decode_utf8(value, position, code_point))
-            {
-                append_hex_quad(output, byte);
-                ++position;
-                continue;
-            }
-            if (code_point <= 0xffff)
-            {
-                append_hex_quad(output, static_cast<std::uint16_t>(code_point));
-            }
-            else
-            {
-                const std::uint32_t supplementary = code_point - 0x10000;
-                append_hex_quad(output, static_cast<std::uint16_t>(0xd800 | (supplementary >> 10)));
-                append_hex_quad(output,
-                                static_cast<std::uint16_t>(0xdc00 | (supplementary & 0x3ff)));
-            }
-            continue;
-        }
-
-        ++position;
-        switch (byte)
-        {
-            case '"':
-                output += "\\\"";
-                break;
-            case '\\':
-                output += "\\\\";
-                break;
-            case '\b':
-                output += "\\b";
-                break;
-            case '\f':
-                output += "\\f";
-                break;
-            case '\n':
-                output += "\\n";
-                break;
-            case '\r':
-                output += "\\r";
-                break;
-            case '\t':
-                output += "\\t";
-                break;
-            default:
-                if (byte < 0x20)
-                {
-                    append_hex_quad(output, byte);
-                }
-                else
-                {
-                    output.push_back(static_cast<char>(byte));
-                }
-                break;
-        }
-    }
-    output.push_back('"');
 }
 
 void append_plan_json(std::string &output, const schoolbook_plan &plan, std::size_t indent)

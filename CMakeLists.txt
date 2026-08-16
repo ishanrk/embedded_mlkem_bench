@@ -98,54 +98,26 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 endif()
 
-add_library(pqc_poly_selector STATIC src/selector.cpp)
-pqc_poly_configure(pqc_poly_selector)
-
-add_library(pqc_poly_compiler_plan STATIC src/compiler_plan.cpp)
-pqc_poly_configure(pqc_poly_compiler_plan)
-target_link_libraries(pqc_poly_compiler_plan PUBLIC pqc_poly_selector)
-
-add_library(pqc_poly_ir STATIC src/ir.cpp)
-pqc_poly_configure(pqc_poly_ir)
-target_link_libraries(pqc_poly_ir PUBLIC pqc_poly_selector)
-
-add_library(pqc_poly_tuning STATIC src/tuning.cpp)
-pqc_poly_configure(pqc_poly_tuning)
-
-add_library(pqc_poly_codegen STATIC src/codegen.cpp)
-pqc_poly_configure(pqc_poly_codegen)
-target_link_libraries(pqc_poly_codegen PUBLIC pqc_poly_selector)
-
-add_library(pqc_poly_host_tuner STATIC src/host_tuner.cpp)
-pqc_poly_configure(pqc_poly_host_tuner)
-target_link_libraries(
-    pqc_poly_host_tuner
-    PUBLIC
-        pqc_poly_codegen
-        pqc_poly_ir
-        pqc_poly_tuning)
+add_library(
+    pqc_poly_compiler
+    STATIC
+        src/codegen.cpp
+        src/explore.cpp
+        src/host_tuner.cpp
+        src/ir.cpp
+        src/selector.cpp
+        src/tuning.cpp)
+pqc_poly_configure(pqc_poly_compiler)
 target_compile_definitions(
-    pqc_poly_host_tuner
+    pqc_poly_compiler
     PRIVATE
         PQC_POLY_HOST_CXX="${CMAKE_CXX_COMPILER}"
         PQC_POLY_HOST_CXX_VERSION="${CMAKE_CXX_COMPILER_VERSION}"
         PQC_POLY_HOST_SIZE="${PQC_POLY_SIZE_TOOL}")
 
-add_library(pqc_poly_explore STATIC src/explore.cpp)
-pqc_poly_configure(pqc_poly_explore)
-target_link_libraries(
-    pqc_poly_explore
-    PUBLIC
-        pqc_poly_codegen
-        pqc_poly_compiler_plan
-        pqc_poly_host_tuner
-        pqc_poly_ir
-        pqc_poly_selector
-        pqc_poly_tuning)
-
 add_executable(pqc-poly-bench src/main.cpp)
 pqc_poly_configure(pqc-poly-bench)
-target_link_libraries(pqc-poly-bench PRIVATE pqc_poly_explore pqc_poly_formula)
+target_link_libraries(pqc-poly-bench PRIVATE pqc_poly_compiler)
 
 add_executable(pqc-poly-formula-bench benchmarks/formula_bench.cpp)
 pqc_poly_configure(pqc-poly-formula-bench)
@@ -164,27 +136,22 @@ if(BUILD_TESTING)
 
     add_executable(pqc-poly-selector-test tests/selector_tests.cpp)
     pqc_poly_configure(pqc-poly-selector-test)
-    target_link_libraries(pqc-poly-selector-test PRIVATE pqc_poly_selector)
+    target_link_libraries(pqc-poly-selector-test PRIVATE pqc_poly_compiler)
     add_test(NAME selector COMMAND pqc-poly-selector-test)
 
     add_executable(pqc-poly-ir-test tests/ir_test.cpp)
     pqc_poly_configure(pqc-poly-ir-test)
-    target_link_libraries(pqc-poly-ir-test PRIVATE pqc_poly_ir)
+    target_link_libraries(pqc-poly-ir-test PRIVATE pqc_poly_compiler)
     add_test(NAME ir COMMAND pqc-poly-ir-test)
-
-    add_executable(pqc-poly-compiler-plan-test tests/compiler_plan_test.cpp)
-    pqc_poly_configure(pqc-poly-compiler-plan-test)
-    target_link_libraries(pqc-poly-compiler-plan-test PRIVATE pqc_poly_compiler_plan)
-    add_test(NAME compiler-plan COMMAND pqc-poly-compiler-plan-test)
 
     add_executable(pqc-poly-tuning-test tests/tuning_test.cpp)
     pqc_poly_configure(pqc-poly-tuning-test)
-    target_link_libraries(pqc-poly-tuning-test PRIVATE pqc_poly_tuning)
+    target_link_libraries(pqc-poly-tuning-test PRIVATE pqc_poly_compiler)
     add_test(NAME tuning COMMAND pqc-poly-tuning-test)
 
     add_executable(pqc-poly-codegen-test tests/codegen_test.cpp)
     pqc_poly_configure(pqc-poly-codegen-test)
-    target_link_libraries(pqc-poly-codegen-test PRIVATE pqc_poly_codegen)
+    target_link_libraries(pqc-poly-codegen-test PRIVATE pqc_poly_compiler)
     target_compile_definitions(
         pqc-poly-codegen-test
         PRIVATE PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}")
@@ -192,12 +159,12 @@ if(BUILD_TESTING)
 
     add_executable(pqc-poly-host-tuner-test tests/host_tuner_test.cpp)
     pqc_poly_configure(pqc-poly-host-tuner-test)
-    target_link_libraries(pqc-poly-host-tuner-test PRIVATE pqc_poly_host_tuner)
+    target_link_libraries(pqc-poly-host-tuner-test PRIVATE pqc_poly_compiler)
     add_test(NAME host-tuner COMMAND pqc-poly-host-tuner-test)
 
     add_executable(pqc-poly-explore-test tests/explore_test.cpp)
     pqc_poly_configure(pqc-poly-explore-test)
-    target_link_libraries(pqc-poly-explore-test PRIVATE pqc_poly_explore)
+    target_link_libraries(pqc-poly-explore-test PRIVATE pqc_poly_compiler)
     add_test(NAME explore COMMAND pqc-poly-explore-test)
 
     add_test(NAME cli-help COMMAND pqc-poly-bench --help)

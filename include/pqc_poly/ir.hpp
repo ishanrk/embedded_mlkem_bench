@@ -3,8 +3,9 @@
 
 #include "pqc_poly/selector.hpp"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -15,8 +16,19 @@ namespace pqc_poly
 
 __extension__ typedef __int128 wide_int;
 
-using ir_id = std::uint32_t;
-inline constexpr ir_id invalid_ir_id = std::numeric_limits<ir_id>::max();
+using ir_id = std::uint8_t;
+inline constexpr ir_id invalid_ir_id = 0xffU;
+inline constexpr std::size_t maximum_ir_stages = 7;
+
+enum class ir_operation_kind
+{
+    bind_input,
+    clear,
+    convolve,
+    fold,
+    reduce,
+    write_output,
+};
 
 enum class ir_value_kind
 {
@@ -27,16 +39,6 @@ enum class ir_value_kind
     ring_result,
     reduced,
     output,
-};
-
-enum class ir_operation_kind
-{
-    bind_input,
-    clear,
-    convolve,
-    fold,
-    reduce,
-    write_output,
 };
 
 enum class reduction_state
@@ -69,63 +71,39 @@ struct coefficient_interval
     friend bool operator==(const coefficient_interval &, const coefficient_interval &) = default;
 };
 
-struct ir_value
+struct ir_stage
 {
-    ir_id id{invalid_ir_id};
-    ir_value_kind kind{ir_value_kind::zero};
-    std::uint64_t extent{0};
+    ir_operation_kind operation{ir_operation_kind::bind_input};
+    ir_value_kind value{ir_value_kind::zero};
     coefficient_interval range{};
+    std::uint64_t extent{0};
+    std::uint64_t maximum_terms{0};
     std::uint16_t required_bits{0};
     reduction_state reduction{reduction_state::unreduced};
     storage_kind storage{storage_kind::registers};
-    ir_id producer{invalid_ir_id};
-    ir_id last_use{invalid_ir_id};
-    ir_id scratch_region{invalid_ir_id};
-
-    friend bool operator==(const ir_value &, const ir_value &) = default;
-};
-
-struct ir_operation
-{
-    ir_id id{invalid_ir_id};
-    ir_operation_kind kind{ir_operation_kind::bind_input};
-    std::vector<ir_id> inputs{};
-    ir_id output{invalid_ir_id};
-    std::vector<ir_id> dependencies{};
     ring_wrap wrap{ring_wrap::none};
-    std::uint64_t coefficient_count{0};
-    std::uint64_t maximum_terms{0};
-    std::uint16_t accumulator_bits{0};
+    std::uint8_t dependencies{0};
+    ir_id last_use{invalid_ir_id};
     bool in_place{false};
 
-    friend bool operator==(const ir_operation &, const ir_operation &) = default;
-};
-
-struct scratch_allocation
-{
-    ir_id id{invalid_ir_id};
-    wide_uint offset{0};
-    wide_uint bytes{0};
-    std::uint32_t alignment{1};
-    ir_id first_operation{invalid_ir_id};
-    ir_id last_operation{invalid_ir_id};
-
-    friend bool operator==(const scratch_allocation &, const scratch_allocation &) = default;
+    friend bool operator==(const ir_stage &, const ir_stage &) = default;
 };
 
 struct polynomial_ir
 {
     operation ring_operation{operation::negacyclic_mul};
+    schedule sched{schedule::full};
     std::uint64_t n{0};
     std::uint32_t q{0};
-    schedule sched{schedule::full};
-    std::uint16_t accumulator_bits{0};
     std::uint64_t block{0};
+    std::uint16_t accumulator_bits{0};
     wide_uint estimated_cost{0};
     wide_uint peak_scratch_bytes{0};
-    std::vector<ir_value> values{};
-    std::vector<ir_operation> operations{};
-    std::vector<scratch_allocation> scratch{};
+    std::uint32_t scratch_alignment{0};
+    ir_id scratch_first_use{invalid_ir_id};
+    ir_id scratch_last_use{invalid_ir_id};
+    std::array<ir_stage, maximum_ir_stages> stages{};
+    std::uint8_t stage_count{0};
 
     friend bool operator==(const polynomial_ir &, const polynomial_ir &) = default;
 };
@@ -136,8 +114,8 @@ public:
     using std::runtime_error::runtime_error;
 };
 
-[[nodiscard]] std::string_view ir_value_kind_name(ir_value_kind value) noexcept;
 [[nodiscard]] std::string_view ir_operation_kind_name(ir_operation_kind value) noexcept;
+[[nodiscard]] std::string_view ir_value_kind_name(ir_value_kind value) noexcept;
 [[nodiscard]] std::string_view reduction_state_name(reduction_state value) noexcept;
 [[nodiscard]] std::string_view storage_kind_name(storage_kind value) noexcept;
 [[nodiscard]] std::string_view ring_wrap_name(ring_wrap value) noexcept;

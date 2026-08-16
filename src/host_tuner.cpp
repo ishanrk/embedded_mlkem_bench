@@ -505,7 +505,8 @@ void parse_measurement(const std::filesystem::path &path, benchmark_record &reco
     std::ostringstream checked_compile;
     checked_compile << shell_quote(PQC_POLY_HOST_CXX)
                     << " -std=c++20 -O1 -Wall -Wextra -Wconversion -Werror"
-                       " -fsanitize=address,undefined -fno-sanitize-recover=all -I"
+                       " -fsanitize=address,undefined -fno-sanitize-recover=all"
+                       " -fno-pie -no-pie -I"
                     << shell_quote(directory.string()) << ' ' << shell_quote(source.string()) << ' '
                     << shell_quote(harness.string()) << " -o "
                     << shell_quote(checked_executable.string());
