@@ -37,6 +37,27 @@
         "PQC_POLY_NATIVE": "OFF",
         "PQC_POLY_SANITIZE": "ON"
       }
+    },
+    {
+      "name": "picorv32-sim",
+      "displayName": "pinned picorv32 simulation",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/picorv32-sim",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "PQC_POLY_LTO": "OFF",
+        "PQC_POLY_NATIVE": "OFF",
+        "PQC_POLY_PICORV32": "ON"
+      }
+    },
+    {
+      "name": "picorv32-synthesis",
+      "displayName": "pinned picorv32 ecp5 synthesis",
+      "inherits": "picorv32-sim",
+      "binaryDir": "${sourceDir}/build/picorv32-synthesis",
+      "cacheVariables": {
+        "PQC_POLY_PICORV32_SYNTHESIS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -51,6 +72,16 @@
     {
       "name": "sanitize",
       "configurePreset": "sanitize"
+    },
+    {
+      "name": "picorv32-sim",
+      "configurePreset": "picorv32-sim",
+      "targets": ["pqc-picorv32-sim"]
+    },
+    {
+      "name": "picorv32-synthesis",
+      "configurePreset": "picorv32-synthesis",
+      "targets": ["pqc-picorv32-sim", "pqc-picorv32-synthesis"]
     }
   ],
   "testPresets": [

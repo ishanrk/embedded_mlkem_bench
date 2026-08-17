@@ -1,0 +1,416 @@
+set(PQC_RISCV_RELEASE "2026.07.15")
+set(PQC_CAD_RELEASE "2026-07-29")
+
+set(pqc_required_tools
+    PQC_RISCV_GCC|riscv32-unknown-elf-gcc|RISC-V_GNU_toolchain_${PQC_RISCV_RELEASE}
+    PQC_RISCV_LD|riscv32-unknown-elf-ld|RISC-V_GNU_toolchain_${PQC_RISCV_RELEASE}
+    PQC_RISCV_OBJCOPY|riscv32-unknown-elf-objcopy|RISC-V_GNU_toolchain_${PQC_RISCV_RELEASE}
+    PQC_RISCV_OBJDUMP|riscv32-unknown-elf-objdump|RISC-V_GNU_toolchain_${PQC_RISCV_RELEASE}
+    PQC_RISCV_SIZE|riscv32-unknown-elf-size|RISC-V_GNU_toolchain_${PQC_RISCV_RELEASE}
+    PQC_VERILATOR|verilator|OSS_CAD_Suite_${PQC_CAD_RELEASE}
+    PQC_NINJA|ninja|OSS_CAD_Suite_${PQC_CAD_RELEASE}
+    PQC_PYTHON|python3|OSS_CAD_Suite_${PQC_CAD_RELEASE})
+
+if(PQC_POLY_PICORV32_SYNTHESIS)
+    list(
+        APPEND
+        pqc_required_tools
+        PQC_YOSYS|yosys|OSS_CAD_Suite_${PQC_CAD_RELEASE}
+        PQC_NEXTPNR|nextpnr-ecp5|OSS_CAD_Suite_${PQC_CAD_RELEASE}
+        PQC_ECPPACK|ecppack|OSS_CAD_Suite_${PQC_CAD_RELEASE}
+        PQC_SOLVER|z3|OSS_CAD_Suite_${PQC_CAD_RELEASE})
+endif()
+
+set(pqc_missing_tools)
+foreach(pqc_tool IN LISTS pqc_required_tools)
+    string(REPLACE "|" ";" pqc_parts "${pqc_tool}")
+    list(GET pqc_parts 0 pqc_variable)
+    list(GET pqc_parts 1 pqc_executable)
+    list(GET pqc_parts 2 pqc_release)
+    find_program(${pqc_variable} NAMES ${pqc_executable})
+    if(NOT ${pqc_variable})
+        string(REPLACE "_" " " pqc_release_text "${pqc_release}")
+        list(APPEND pqc_missing_tools "${pqc_executable} from ${pqc_release_text}")
+    endif()
+endforeach()
+
+if(pqc_missing_tools)
+    list(JOIN pqc_missing_tools "\n  " pqc_missing_text)
+    message(FATAL_ERROR "missing required target executables:\n  ${pqc_missing_text}")
+endif()
+
+get_filename_component(pqc_riscv_bin "${PQC_RISCV_GCC}" DIRECTORY)
+foreach(pqc_tool IN ITEMS PQC_RISCV_LD PQC_RISCV_OBJCOPY PQC_RISCV_OBJDUMP PQC_RISCV_SIZE)
+    get_filename_component(pqc_tool_bin "${${pqc_tool}}" DIRECTORY)
+    if(NOT pqc_tool_bin STREQUAL pqc_riscv_bin)
+        message(
+            FATAL_ERROR
+                "RISC-V tools must come from one RISC-V GNU toolchain release ${PQC_RISCV_RELEASE}")
+    endif()
+endforeach()
+
+if(PQC_POLY_PICORV32_SYNTHESIS)
+    get_filename_component(pqc_cad_bin "${PQC_VERILATOR}" DIRECTORY)
+    foreach(pqc_tool IN ITEMS PQC_YOSYS PQC_NEXTPNR PQC_ECPPACK PQC_SOLVER)
+        get_filename_component(pqc_tool_bin "${${pqc_tool}}" DIRECTORY)
+        if(NOT pqc_tool_bin STREQUAL pqc_cad_bin)
+            message(
+                FATAL_ERROR
+                    "Verilator Yosys nextpnr ecppack and solver must come from OSS CAD Suite release ${PQC_CAD_RELEASE}")
+        endif()
+    endforeach()
+endif()
+
+include("${PROJECT_SOURCE_DIR}/cmake/FetchPinned.cmake")
+pqc_poly_fetch_picorv32()
+
+set(pqc_target_dir "${CMAKE_CURRENT_BINARY_DIR}")
+set(pqc_firmware_dir "${CMAKE_CURRENT_SOURCE_DIR}/firmware")
+set(pqc_rtl_dir "${CMAKE_CURRENT_SOURCE_DIR}/rtl")
+set(pqc_sim_dir "${CMAKE_CURRENT_SOURCE_DIR}/sim")
+set(pqc_synth_dir "${CMAKE_CURRENT_SOURCE_DIR}/synth")
+set(pqc_picorv32_source "${PQC_POLY_PICORV32_SOURCE_DIR}/picorv32.v")
+
+set(
+    pqc_c_flags
+    -std=c11
+    -march=rv32imc
+    -mabi=ilp32
+    -O3
+    -DNDEBUG
+    -ffreestanding
+    -fno-common
+    -fdata-sections
+    -ffunction-sections
+    -fno-unwind-tables
+    -fno-asynchronous-unwind-tables
+    -fno-pic
+    -fno-pie
+    -fno-stack-protector
+    -fomit-frame-pointer
+    -msmall-data-limit=0
+    -mstrict-align
+    -mcmodel=medlow
+    -fstack-usage
+    -Wall
+    -Wextra
+    -Wconversion
+    -Werror)
+set(
+    pqc_link_flags
+    -march=rv32imc
+    -mabi=ilp32
+    -nostdlib
+    -nostartfiles
+    -nodefaultlibs
+    -no-pie
+    -static
+    -Wl,--gc-sections
+    -Wl,--build-id=none
+    -Wl,--orphan-handling=error
+    -T
+    "${pqc_firmware_dir}/link.ld"
+    -lgcc)
+
+add_custom_command(
+    OUTPUT "${pqc_target_dir}/crt0.o"
+    COMMAND
+        "${PQC_RISCV_GCC}" -march=rv32imc -mabi=ilp32 -ffreestanding -fno-pic -fno-pie
+        -msmall-data-limit=0 -mstrict-align -mcmodel=medlow -Wall -Wextra -Werror -c
+        "${pqc_firmware_dir}/crt0.S" -o "${pqc_target_dir}/crt0.o"
+    DEPENDS "${pqc_firmware_dir}/crt0.S"
+    VERBATIM)
+
+add_custom_command(
+    OUTPUT "${pqc_target_dir}/runtime.o"
+    BYPRODUCTS "${pqc_target_dir}/runtime.su"
+    COMMAND
+        "${PQC_RISCV_GCC}" ${pqc_c_flags} -I "${pqc_firmware_dir}" -c
+        "${pqc_firmware_dir}/runtime.c" -o "${pqc_target_dir}/runtime.o"
+    DEPENDS "${pqc_firmware_dir}/runtime.c" "${pqc_firmware_dir}/bench_mmio.h"
+    VERBATIM)
+
+function(pqc_add_firmware name define)
+    set(object "${pqc_target_dir}/${name}.o")
+    set(elf "${pqc_target_dir}/${name}.elf")
+    set(map "${pqc_target_dir}/${name}.map")
+    set(binary "${pqc_target_dir}/${name}.bin")
+    set(hex "${pqc_target_dir}/${name}.hex")
+    set(disassembly "${pqc_target_dir}/${name}.dis")
+    set(compile_definition)
+    if(NOT "${define}" STREQUAL "")
+        set(compile_definition "-D${define}")
+    endif()
+
+    add_custom_command(
+        OUTPUT "${object}"
+        BYPRODUCTS "${pqc_target_dir}/${name}.su"
+        COMMAND
+            "${PQC_RISCV_GCC}" ${pqc_c_flags} ${compile_definition} -I "${pqc_firmware_dir}"
+            -c "${pqc_firmware_dir}/smoke.c" -o "${object}"
+        DEPENDS "${pqc_firmware_dir}/smoke.c" "${pqc_firmware_dir}/bench_mmio.h"
+        VERBATIM)
+    add_custom_command(
+        OUTPUT "${elf}" "${binary}" "${hex}" "${disassembly}"
+        BYPRODUCTS "${map}"
+        COMMAND
+            "${PQC_RISCV_GCC}" "${pqc_target_dir}/crt0.o" "${pqc_target_dir}/runtime.o"
+            "${object}" ${pqc_link_flags} "-Wl,-Map,${map}" -o "${elf}"
+        COMMAND "${PQC_RISCV_OBJCOPY}" -O binary "${elf}" "${binary}"
+        COMMAND
+            "${PQC_RISCV_OBJCOPY}" -O verilog --verilog-data-width=4 "${elf}" "${hex}"
+        COMMAND
+            /bin/sh -c
+            "\"${PQC_RISCV_OBJDUMP}\" -d -S \"${elf}\" > \"${disassembly}\""
+        DEPENDS "${pqc_target_dir}/crt0.o" "${pqc_target_dir}/runtime.o" "${object}"
+                "${pqc_firmware_dir}/link.ld"
+        VERBATIM)
+
+    set(${name}_elf "${elf}" PARENT_SCOPE)
+    set(${name}_hex "${hex}" PARENT_SCOPE)
+    set(${name}_dis "${disassembly}" PARENT_SCOPE)
+endfunction()
+
+pqc_add_firmware(baseline "")
+pqc_add_firmware(misaligned PQC_TEST_MISALIGNED)
+pqc_add_firmware(illegal PQC_TEST_ILLEGAL)
+
+set(pqc_sim_cflags "-std=c++20 -O3 -I${PROJECT_SOURCE_DIR}/include")
+
+function(pqc_add_verilated name top prefix cflags parameter)
+    set(model_dir "${pqc_target_dir}/${name}-model")
+    set(executable "${model_dir}/${prefix}")
+    set(sources ${ARGN})
+    set(parameter_arg)
+    if(NOT "${parameter}" STREQUAL "")
+        set(parameter_arg "${parameter}")
+    endif()
+    add_custom_command(
+        OUTPUT "${executable}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${model_dir}"
+        COMMAND
+            "${PQC_VERILATOR}" --cc --exe --build -j 0 --Mdir "${model_dir}" --top-module
+            "${top}" --prefix "${prefix}" --Wno-fatal -CFLAGS "${cflags}" ${parameter_arg}
+            ${sources} "${pqc_sim_dir}/main.cpp" "${PROJECT_SOURCE_DIR}/src/target_measurement.cpp"
+        DEPENDS
+            "${pqc_sim_dir}/main.cpp"
+            "${PROJECT_SOURCE_DIR}/src/target_measurement.cpp"
+            "${PROJECT_SOURCE_DIR}/include/pqc_poly/target_measurement.hpp"
+            ${sources}
+        VERBATIM)
+    set(${name}_sim "${executable}" PARENT_SCOPE)
+endfunction()
+
+pqc_add_verilated(
+    pcpi
+    pqc_pcpi_mlkem
+    Vpqc_pcpi_mlkem
+    "${pqc_sim_cflags} -DPQC_PCPI_UNIT=1"
+    ""
+    "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv")
+pqc_add_verilated(
+    project
+    pqc_picorv32_sim_top
+    Vpqc_picorv32_sim_top
+    "${pqc_sim_cflags}"
+    ""
+    "${pqc_picorv32_source}"
+    "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
+    "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
+    "${pqc_rtl_dir}/pqc_picorv32_sim_top.sv")
+pqc_add_verilated(
+    stock
+    pqc_picorv32_sim_top
+    Vpqc_picorv32_sim_top
+    "${pqc_sim_cflags} -DPQC_STOCK_MUL=1"
+    -GSTOCK_MUL=1
+    "${pqc_picorv32_source}"
+    "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
+    "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
+    "${pqc_rtl_dir}/pqc_picorv32_sim_top.sv")
+
+set(pqc_results "${pqc_target_dir}/results")
+set(pqc_baseline_run "${pqc_results}/project-run-1.jsonl")
+set(pqc_repeat_run "${pqc_results}/project-run-2.jsonl")
+set(pqc_stock_run "${pqc_results}/stock-smoke.jsonl")
+set(pqc_stack_result "${pqc_results}/baseline-stack.json")
+set(pqc_size_result "${pqc_results}/baseline-code-size.json")
+set(pqc_size_text "${pqc_target_dir}/baseline.size")
+set(pqc_stack_usage "${pqc_target_dir}/baseline-stack-usage.su")
+set(pqc_sim_stamp "${pqc_results}/simulation.stamp")
+
+add_custom_command(
+    OUTPUT "${pqc_sim_stamp}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_results}"
+    COMMAND "${pcpi_sim}"
+    COMMAND
+        /bin/sh -c
+        "\"${PQC_RISCV_SIZE}\" -A \"${baseline_elf}\" > \"${pqc_size_text}\""
+    COMMAND
+        /bin/sh -c
+        "cat \"${pqc_target_dir}/runtime.su\" \"${pqc_target_dir}/baseline.su\" > \"${pqc_stack_usage}\""
+    COMMAND
+        "${project_sim}" "+firmware=${baseline_hex}" --output "${pqc_baseline_run}"
+        --stack-output "${pqc_stack_result}" --stack-usage "${pqc_stack_usage}" --disassembly
+        "${baseline_dis}" --size-input "${pqc_size_text}" --size-output "${pqc_size_result}"
+    COMMAND
+        "${project_sim}" "+firmware=${baseline_hex}" --output "${pqc_repeat_run}"
+    COMMAND "${CMAKE_COMMAND}" -E compare_files "${pqc_baseline_run}" "${pqc_repeat_run}"
+    COMMAND "${stock_sim}" "+firmware=${baseline_hex}" --output "${pqc_stock_run}"
+    COMMAND
+        "${project_sim}" "+firmware=${misaligned_hex}" --expect-trap --output
+        "${pqc_results}/misaligned.jsonl"
+    COMMAND
+        "${project_sim}" "+firmware=${illegal_hex}" --expect-trap --output
+        "${pqc_results}/illegal.jsonl"
+    COMMAND
+        /bin/sh -c
+        "cat \"${pqc_baseline_run}\" \"${pqc_stock_run}\" > \"${pqc_results}/baseline-smoke.jsonl\""
+    COMMAND "${CMAKE_COMMAND}" -E touch "${pqc_sim_stamp}"
+    DEPENDS
+        "${pcpi_sim}"
+        "${project_sim}"
+        "${stock_sim}"
+        "${baseline_elf}"
+        "${baseline_hex}"
+        "${baseline_dis}"
+        "${misaligned_hex}"
+        "${illegal_hex}"
+    VERBATIM)
+
+add_custom_target(pqc-picorv32-sim DEPENDS "${pqc_sim_stamp}")
+
+if(PQC_POLY_PICORV32_SYNTHESIS)
+    function(pqc_json_array output)
+        set(result "[")
+        set(separator "")
+        foreach(value IN LISTS ARGN)
+            string(REPLACE "\\" "\\\\" value "${value}")
+            string(REPLACE "\"" "\\\"" value "${value}")
+            string(APPEND result "${separator}\"${value}\"")
+            set(separator ", ")
+        endforeach()
+        string(APPEND result "]")
+        set(${output} "${result}" PARENT_SCOPE)
+    endfunction()
+
+    function(pqc_tool_version output executable argument)
+        execute_process(
+            COMMAND "${executable}" "${argument}"
+            RESULT_VARIABLE result
+            OUTPUT_VARIABLE value
+            ERROR_VARIABLE error
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_STRIP_TRAILING_WHITESPACE)
+        if(NOT result EQUAL 0)
+            message(FATAL_ERROR "failed to query tool version: ${executable} ${argument}")
+        endif()
+        if(value STREQUAL "")
+            set(value "${error}")
+        endif()
+        string(REGEX REPLACE "[\r\n].*" "" value "${value}")
+        string(REPLACE "\\" "\\\\" value "${value}")
+        string(REPLACE "\"" "\\\"" value "${value}")
+        set(${output} "${value}" PARENT_SCOPE)
+    endfunction()
+
+    pqc_tool_version(pqc_gcc_version "${PQC_RISCV_GCC}" --version)
+    pqc_tool_version(pqc_binutils_version "${PQC_RISCV_LD}" --version)
+    pqc_tool_version(pqc_verilator_version "${PQC_VERILATOR}" --version)
+    pqc_tool_version(pqc_yosys_version "${PQC_YOSYS}" -V)
+    pqc_tool_version(pqc_nextpnr_version "${PQC_NEXTPNR}" --version)
+    pqc_tool_version(pqc_solver_version "${PQC_SOLVER}" --version)
+    pqc_tool_version(pqc_cmake_version "${CMAKE_COMMAND}" --version)
+    pqc_tool_version(pqc_ninja_version "${PQC_NINJA}" --version)
+    pqc_tool_version(pqc_python_version "${PQC_PYTHON}" --version)
+
+    execute_process(
+        COMMAND git rev-parse HEAD
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        OUTPUT_VARIABLE pqc_repository_sha
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY)
+    if(DEFINED ENV{PQC_POLY_CONTAINER_DIGEST} AND NOT "$ENV{PQC_POLY_CONTAINER_DIGEST}" STREQUAL "")
+        set(pqc_container_digest "\"$ENV{PQC_POLY_CONTAINER_DIGEST}\"")
+    else()
+        set(pqc_container_digest null)
+    endif()
+
+    set(pqc_manifest_link_flags ${pqc_link_flags}
+                                "-Wl,-Map,${pqc_target_dir}/baseline.map")
+    list(TRANSFORM pqc_manifest_link_flags REPLACE
+         "${pqc_firmware_dir}/link.ld" "targets/picorv32/firmware/link.ld")
+    list(TRANSFORM pqc_manifest_link_flags REPLACE
+         "${pqc_target_dir}/baseline.map" "baseline.map")
+    pqc_json_array(pqc_compiler_flags_json ${pqc_c_flags})
+    pqc_json_array(pqc_linker_flags_json ${pqc_manifest_link_flags})
+
+    set(pqc_manifest "${pqc_results}/baseline-manifest.json")
+    set(pqc_manifest_content "{\n")
+    string(APPEND pqc_manifest_content "  \"repository_sha\": \"${pqc_repository_sha}\",\n")
+    string(APPEND pqc_manifest_content "  \"picorv32_sha\": \"${PQC_POLY_PICORV32_SHA}\",\n")
+    string(APPEND pqc_manifest_content "  \"riscv_toolchain_release\": \"${PQC_RISCV_RELEASE}\",\n")
+    string(APPEND pqc_manifest_content "  \"oss_cad_suite_release\": \"${PQC_CAD_RELEASE}\",\n")
+    string(APPEND pqc_manifest_content "  \"gcc_version\": \"${pqc_gcc_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"binutils_version\": \"${pqc_binutils_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"verilator_version\": \"${pqc_verilator_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"yosys_version\": \"${pqc_yosys_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"nextpnr_version\": \"${pqc_nextpnr_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"solver_version\": \"${pqc_solver_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"cmake_version\": \"${pqc_cmake_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"ninja_version\": \"${pqc_ninja_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"python_version\": \"${pqc_python_version}\",\n")
+    string(APPEND pqc_manifest_content "  \"compiler_flags\": ${pqc_compiler_flags_json},\n")
+    string(APPEND pqc_manifest_content "  \"linker_flags\": ${pqc_linker_flags_json},\n")
+    string(APPEND pqc_manifest_content "  \"core_parameters\": [\"ENABLE_COUNTERS=1\", \"ENABLE_COUNTERS64=1\", \"ENABLE_REGS_16_31=1\", \"ENABLE_REGS_DUALPORT=1\", \"LATCHED_MEM_RDATA=0\", \"TWO_STAGE_SHIFT=1\", \"BARREL_SHIFTER=1\", \"TWO_CYCLE_COMPARE=0\", \"TWO_CYCLE_ALU=0\", \"COMPRESSED_ISA=1\", \"CATCH_MISALIGN=1\", \"CATCH_ILLINSN=1\", \"ENABLE_PCPI=1\", \"ENABLE_MUL=0\", \"ENABLE_FAST_MUL=0\", \"ENABLE_DIV=1\", \"ENABLE_IRQ=0\", \"ENABLE_IRQ_QREGS=0\", \"ENABLE_IRQ_TIMER=0\", \"ENABLE_TRACE=0\", \"REGS_INIT_ZERO=0\", \"PROGADDR_RESET=0x00000000\", \"PROGADDR_IRQ=0x00000010\", \"STACKADDR=0x00080000\"],\n")
+    string(APPEND pqc_manifest_content "  \"fpga_part\": \"LFE5U-45F-6BG381C\",\n")
+    string(APPEND pqc_manifest_content "  \"synthesis_seeds\": [1, 2, 3, 4, 5],\n")
+    string(APPEND pqc_manifest_content "  \"source_archives\": [{\"name\": \"picorv32\", \"sha256\": \"${PQC_POLY_PICORV32_ARCHIVE_SHA256}\"}, {\"name\": \"riscv32-elf-ubuntu-22.04-gcc.tar.xz\", \"sha256\": \"ae36abbec394b29643154c1b4a1322e829937d04e82f41b47f9c27d3bd68e543\"}, {\"name\": \"oss-cad-suite-linux-x64-20260729.tgz\", \"sha256\": \"89ea1152ea84bc600f18cc685f721d534d1f018e09831662787865a3d79ce4aa\"}],\n")
+    string(APPEND pqc_manifest_content "  \"container_digest\": ${pqc_container_digest}\n}\n")
+    file(GENERATE OUTPUT "${pqc_manifest}" CONTENT "${pqc_manifest_content}")
+
+    set(pqc_synthesis_result "${pqc_results}/baseline-synthesis.json")
+    add_custom_command(
+        OUTPUT "${pqc_synthesis_result}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_results}"
+        COMMAND
+            "${PQC_PYTHON}" "${pqc_synth_dir}/ecp5-50mhz.py" --yosys "${PQC_YOSYS}"
+            --nextpnr "${PQC_NEXTPNR}" --ecppack "${PQC_ECPPACK}" --picorv32
+            "${pqc_picorv32_source}" --pcpi "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv" --core
+            "${pqc_rtl_dir}/pqc_picorv32_core_top.sv" --script "${pqc_synth_dir}/core.ys"
+            --work "${pqc_target_dir}/synthesis" --output "${pqc_synthesis_result}"
+        DEPENDS
+            "${pqc_picorv32_source}"
+            "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
+            "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
+            "${pqc_synth_dir}/core.ys"
+            "${pqc_synth_dir}/ecp5-50mhz.py"
+        VERBATIM)
+    add_custom_target(
+        pqc-picorv32-synthesis
+        DEPENDS "${pqc_synthesis_result}" "${pqc_manifest}")
+
+    string(SUBSTRING "${pqc_repository_sha}" 0 8 pqc_repository_short)
+    string(SUBSTRING "${PQC_POLY_PICORV32_SHA}" 0 8 pqc_picorv32_short)
+    set(pqc_experiment_id "picorv32-step1-${pqc_repository_short}-${pqc_picorv32_short}")
+    set(pqc_final_results "${PROJECT_SOURCE_DIR}/results/raw/${pqc_experiment_id}")
+    add_custom_target(
+        pqc-picorv32-finalize
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_final_results}"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${pqc_manifest}"
+                "${pqc_final_results}/baseline-manifest.json"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${pqc_results}/baseline-smoke.jsonl"
+                "${pqc_final_results}/baseline-smoke.jsonl"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${pqc_stack_result}"
+                "${pqc_final_results}/baseline-stack.json"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${pqc_size_result}"
+                "${pqc_final_results}/baseline-code-size.json"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${pqc_synthesis_result}"
+                "${pqc_final_results}/baseline-synthesis.json"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${baseline_dis}"
+                "${pqc_final_results}/baseline.dis"
+        COMMAND "${CMAKE_COMMAND}" -E copy "${pqc_target_dir}/baseline.map"
+                "${pqc_final_results}/baseline.map"
+        VERBATIM)
+    add_dependencies(pqc-picorv32-finalize pqc-picorv32-sim pqc-picorv32-synthesis)
+endif()

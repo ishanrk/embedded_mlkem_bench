@@ -18,6 +18,12 @@ option(PQC_POLY_NATIVE "enable host-specific vector instructions" OFF)
 option(PQC_POLY_LTO "enable link-time optimization in release builds" ON)
 option(PQC_POLY_SANITIZE "enable address and undefined behavior sanitizers" OFF)
 option(PQC_POLY_WARNINGS_AS_ERRORS "treat compiler warnings as errors" ON)
+option(PQC_POLY_PICORV32 "enable the opt in picorv32 simulation target" OFF)
+option(PQC_POLY_PICORV32_SYNTHESIS "enable the opt in picorv32 synthesis target" OFF)
+
+if(PQC_POLY_PICORV32_SYNTHESIS)
+    set(PQC_POLY_PICORV32 ON)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -107,6 +113,7 @@ add_library(
         src/explore.cpp
         src/host_tuner.cpp
         src/selector.cpp
+        src/target_measurement.cpp
         src/tuning.cpp)
 pqc_poly_configure(pqc_poly_compiler)
 target_compile_definitions(
@@ -143,6 +150,17 @@ if(BUILD_TESTING)
         PRIVATE PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}")
     pqc_poly_add_test(host-tuner tests/host_tuner_test.cpp pqc_poly_compiler)
     pqc_poly_add_test(explore tests/explore_test.cpp pqc_poly_compiler)
+    pqc_poly_add_test(
+        target-measurement tests/target_measurement_test.cpp pqc_poly_compiler)
+    pqc_poly_add_test(
+        picorv32-manifest tests/picorv32_manifest_test.cpp pqc_poly_compiler)
+    target_compile_definitions(
+        pqc-poly-picorv32-manifest-test
+        PRIVATE PQC_POLY_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
     add_test(NAME cli-help COMMAND pqc-poly-bench --help)
+endif()
+
+if(PQC_POLY_PICORV32)
+    add_subdirectory(targets/picorv32)
 endif()

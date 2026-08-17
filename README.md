@@ -109,38 +109,78 @@ A successful run writes:
 include input/output buffers, alignment or stack-frame overhead, compiler spills,
 or the separate fixed-formula benchmark.
 
+`limits.ram` has the same narrow meaning: maximum explicit scratch generated
+inside the selected kernel. PicoRV32 measurements keep caller working storage,
+compiler frames, proved call-chain bounds, runtime stack high water, text,
+read-only data, initialized data, and BSS in separate fields. They are never
+folded into an unexplained total RAM number.
+
 ## Repository layout
 
 - `src/selector.cpp`: parse requests, enumerate plans, enforce bounds, and rank;
 - `src/codegen.cpp`: emit one standalone kernel from the selected plan;
 - `src/host_tuner.cpp`: compile, test, and measure generated kernels locally;
 - `src/tuning.cpp`: validate benchmark records and serialize results;
+- `src/target_measurement.cpp`: parse target cycles, stack, ELF, manifest, and synthesis data;
 - `src/explore.cpp`: CLI parsing and artifact orchestration;
 - `src/formula/`: fixed NTRU-509 formula experiments;
+- `targets/picorv32/`: opt-in firmware, RTL simulation, and ECP5 synthesis flow;
 - `tests/`: selector, generator, tuner, CLI, ring, and formula tests.
 
-## RISC-V status
+## PicoRV32 step 1
 
-There is no RISC-V instruction backend yet. Setting a target name such as
-`rv32im` applies the requested `word_bits`, `size_bits`, accumulator widths, and
-RAM limit to selection, but it does not cross-compile, run a simulator, emit
-custom instructions, or measure RISC-V cycles. The generated kernel is portable
-C++ intended for a later target backend.
+The opt-in target flow pins PicoRV32 at
+`a473fc8fca393771d83b0ffcf0b14db3393339d8` with an archive hash, builds bare
+metal RV32IMC smoke firmware, and provides a project PCPI implementation of the
+four standard multiply instructions. PicoRV32 remains unmodified and supplies
+division. The project multiplier has the same two-clock issue-to-ready latency as
+PicoRV32's stock fast multiplier. The Verilator harness models a deterministic
+one-cycle memory response and records benchmark marker handshakes rather than
+using host or ISS timing.
 
-A credible RISC-V backend still needs a pinned compiler triple and ABI, linker
-script, simulator or board runner, machine-readable counters, and a defined
-custom-instruction interface. Until those exist, host measurements remain only
-a development proxy.
+The target flow is excluded from normal host presets and performs no download
+unless explicitly enabled:
+
+```bash
+cmake --preset picorv32-sim
+cmake --build --preset picorv32-sim
+
+cmake --preset picorv32-synthesis
+cmake --build --preset picorv32-synthesis
+cmake --build build/picorv32-synthesis --target pqc-picorv32-finalize
+```
+
+The simulation preset requires `riscv32-unknown-elf-gcc`, `ld`, `objcopy`,
+`objdump`, and `size` from RISC-V GNU toolchain release `2026.07.15`, plus
+Verilator from OSS CAD Suite `2026-07-29`. Synthesis additionally requires
+Yosys, `nextpnr-ecp5`, `ecppack`, and Z3 from that CAD release. Missing tools
+cause configuration to fail with the exact executable and required release;
+the build never installs a toolchain.
+
+When those pinned tools are present the simulation target builds project and
+stock-fast-multiplier configurations, checks deterministic repeated cycles,
+runs trap firmware, calibrates marker overhead, scans a separate measured stack,
+and records final ELF section sizes. The synthesis target retains seeds 1 through
+5 for `LFE5U-45F-6BG381C` at 50 MHz and fails if any seed misses timing.
+The explicit finalize target copies only a fully completed compact experiment to
+`results/raw/picorv32-step1-<repository>-<picorv32>/`.
+
+The completed local Step 1 run measured 3249 calibrated cycles for both the
+project and stock multipliers. It used 32 bytes of measured stack high water and
+1288 allocated flash bytes. All five synthesis seeds used 3583 LUT4, 970 flip
+flops, 4 DSP blocks, and no block RAM; routed frequencies ranged from 66.39 to
+70.68 MHz. These are substrate measurements for the fixed smoke workload, not
+ML-KEM results. ML-KEM schedules and `mlk.fqmul` belong to later steps and are
+intentionally absent.
 
 ## Verification limits
 
 A measured candidate is selectable only when plan consistency, scratch limits,
 differential tests, and ASan/UBSan all pass. This is useful test coverage, not a
-formal proof. The project does not currently run CBMC, prove constant-time
-execution, include compiler-generated spill space in the RAM bound, or execute
-on the requested target.
+formal proof. The project does not currently run CBMC or prove constant-time
+execution. Host measurements remain development proxies; only completed external
+RTL simulation may supply PicoRV32 cycle claims.
 
-The next meaningful extensions are a real RV32 runner and additional generic
-algorithms whose exact scratch usage is modeled by the selector. They should be
-added only when they drive emitted code and tests, rather than as descriptive
-metadata.
+After every Step 1 gate passes with the pinned tools, Step 2 can add complete
+software ML-KEM schedules and run the full software comparison. The custom
+`mlk.fqmul` instruction remains deferred until that comparison exists.
