@@ -88,6 +88,21 @@ void test_callchain()
     require(pqc_poly::compute_callchain_stack_bound(frames, disassembly, "root") == 96,
             "maximum callchain bound changed");
 
+    const std::array cloned_frames{
+        pqc_poly::stack_frame{"root", 8, false},
+        pqc_poly::stack_frame{"work.constprop", 24, false},
+        pqc_poly::stack_frame{"work.constprop", 32, false},
+    };
+    constexpr std::string_view cloned_disassembly = R"(
+00000000 <root>:
+   0:	000000ef 	jal	ra,10 <work.constprop.1>
+00000010 <work.constprop.1>:
+  10:	00008067 	ret
+)";
+    require(
+        pqc_poly::compute_callchain_stack_bound(cloned_frames, cloned_disassembly, "root") == 40,
+        "compiler clone frame changed");
+
     constexpr std::string_view indirect = R"(
 00000000 <root>:
    0:	000080e7 	jalr	ra
@@ -191,6 +206,33 @@ void test_cycles()
         "inconsistent calibrated cycles were accepted");
 }
 
+void test_mlkem_cycles()
+{
+    constexpr std::string_view input =
+        R"({"schema":"pqc-poly-bench/mlkem-measurement-v1","plan_id":"p","level":"512","operation":"forward_ntt","multiplier":"project","input":0,"repeat":0,"begin_cycle":10,"end_cycle":30,"marker_overhead_cycles":2,"calibrated_cycles":18,"instruction_count":7}
+{"schema":"pqc-poly-bench/mlkem-measurement-v1","plan_id":"p","level":"512","operation":"keygen","multiplier":"stock","input":29,"repeat":2,"begin_cycle":50,"end_cycle":80,"marker_overhead_cycles":3,"calibrated_cycles":27,"instruction_count":11}
+)";
+    const std::vector<pqc_poly::mlkem_cycle_measurement> records =
+        pqc_poly::parse_mlkem_cycle_measurements(input);
+    require(records.size() == 2 && records[0].calibrated_cycles == 18 && records[1].input == 29 &&
+                records[1].repeat == 2,
+            "mlkem measurement parse changed");
+    require_error(
+        []
+        {
+            static_cast<void>(pqc_poly::parse_mlkem_cycle_measurements(
+                R"({"schema":"pqc-poly-bench/mlkem-measurement-v1","plan_id":"p","level":"512","operation":"forward_ntt","multiplier":"project","input":4294967296,"repeat":0,"begin_cycle":10,"end_cycle":30,"marker_overhead_cycles":2,"calibrated_cycles":18,"instruction_count":7})"));
+        },
+        "mlkem input overflow was accepted");
+    require_error(
+        []
+        {
+            static_cast<void>(pqc_poly::parse_mlkem_cycle_measurements(
+                R"({"schema":"pqc-poly-bench/mlkem-measurement-v1","plan_id":"p","level":"512","operation":"forward_ntt","multiplier":"project","input":0,"repeat":0,"begin_cycle":10,"end_cycle":30,"marker_overhead_cycles":2,"calibrated_cycles":17,"instruction_count":7})"));
+        },
+        "inconsistent mlkem cycle result was accepted");
+}
+
 void test_synthesis()
 {
     constexpr std::string_view input = R"({
@@ -243,5 +285,6 @@ int main()
     test_callchain();
     test_elf_size();
     test_cycles();
+    test_mlkem_cycles();
     test_synthesis();
 }

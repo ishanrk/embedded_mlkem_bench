@@ -10,6 +10,10 @@
 #define PQC_POLY_TEST_CXX "c++"
 #endif
 
+#ifndef PQC_POLY_TEST_SANITIZE
+#define PQC_POLY_TEST_SANITIZE 0
+#endif
+
 namespace
 {
 
@@ -40,6 +44,70 @@ void compile_and_run(const pqc_poly::mlkem_plan &plan, std::string_view name)
     out << pqc_poly::generate_mlkem_backend(request, candidate);
     out << R"pqc(
 #include <cstring>
+
+static int16_t ref_montgomery_reduce(int32_t a)
+{
+    const uint16_t inverted = (uint16_t)((uint32_t)(uint16_t)a * UINT32_C(62209));
+    const int32_t t = inverted <= INT16_MAX ? (int32_t)inverted : (int32_t)inverted - 65536;
+    return (int16_t)((a - t * 3329) >> 16);
+}
+
+static int16_t ref_fqmul(int16_t a, int16_t b)
+{
+    return ref_montgomery_reduce((int32_t)a * (int32_t)b);
+}
+
+static int16_t ref_barrett_reduce(int16_t a)
+{
+    const int32_t t = (INT32_C(20159) * a + (INT32_C(1) << 25)) >> 26;
+    return (int16_t)(a - t * 3329);
+}
+
+static void reference_ntt(int16_t r[256])
+{
+    unsigned zeta_index = 1;
+    for (unsigned length = 128; length >= 2; length >>= 1U)
+    {
+        for (unsigned start = 0; start < 256; start += 2U * length)
+        {
+            const int16_t zeta = pqc_zetas[zeta_index++];
+            for (unsigned j = start; j < start + length; ++j)
+            {
+                const int16_t t = ref_fqmul(r[j + length], zeta);
+                const int16_t left = r[j];
+                r[j] = (int16_t)(left + t);
+                r[j + length] = (int16_t)(left - t);
+            }
+        }
+    }
+}
+
+static void reference_intt(int16_t r[256])
+{
+    unsigned zeta_index = 127;
+    for (unsigned j = 0; j < 256; ++j)
+    {
+        r[j] = ref_fqmul(r[j], 1441);
+    }
+    for (unsigned length = 2; length <= 128; length <<= 1U)
+    {
+        const int reduce = TEST_REDUCE_EACH || length == 4U || length == 16U ||
+                           length == 64U || length == 128U;
+        for (unsigned start = 0; start < 256; start += 2U * length)
+        {
+            const int16_t zeta = pqc_zetas[zeta_index--];
+            for (unsigned j = start; j < start + length; ++j)
+            {
+                const int16_t left = r[j];
+                const int16_t right = r[j + length];
+                const int16_t sum = (int16_t)(left + right);
+                r[j] = reduce != 0 ? ref_barrett_reduce(sum) : sum;
+                r[j + length] = ref_fqmul((int16_t)(right - left), zeta);
+            }
+        }
+    }
+}
+
 int main()
 {
     int16_t input[256];
@@ -52,32 +120,26 @@ int main()
     std::memcpy(actual, input, sizeof(actual));
     std::memcpy(expected, input, sizeof(expected));
     pqc_mlkem_ntt(actual);
-    pqc_ntt_layer(expected, 128, 1);
-    pqc_ntt_layer(expected, 64, 2);
-    pqc_ntt_layer(expected, 32, 4);
-    pqc_ntt_layer(expected, 16, 8);
-    pqc_ntt_layer(expected, 8, 16);
-    pqc_ntt_layer(expected, 4, 32);
-    pqc_ntt_layer(expected, 2, 64);
+    reference_ntt(expected);
     if (std::memcmp(actual, expected, sizeof(actual)) != 0)
     {
         return 1;
     }
     pqc_mlkem_intt(actual);
-    for (unsigned i = 0; i < 256; ++i)
-    {
-        expected[i] = pqc_fqmul(expected[i], 1441);
-    }
-    pqc_intt_layer(expected, 2, 127, 1);
-    pqc_intt_layer(expected, 4, 63, 1);
-    pqc_intt_layer(expected, 8, 31, 1);
-    pqc_intt_layer(expected, 16, 15, 1);
-    pqc_intt_layer(expected, 32, 7, 1);
-    pqc_intt_layer(expected, 64, 3, 1);
-    pqc_intt_layer(expected, 128, 1, 1);
+    reference_intt(expected);
     if (std::memcmp(actual, expected, sizeof(actual)) != 0)
     {
         return 2;
+    }
+
+    for (unsigned i = 0; i < 256; ++i)
+    {
+        const int residue = (actual[i] % 3329 + 3329) % 3329;
+        const int scaled = ((int32_t)input[i] * 2285 % 3329 + 3329) % 3329;
+        if (residue != scaled)
+        {
+            return 4;
+        }
     }
 
     int16_t a[TEST_K * 256];
@@ -90,6 +152,22 @@ int main()
         b[i] = (int16_t)((i * 31U) % 3329U - 1664);
     }
     pqc_mlkem_mulcache(cache, b);
+    if (TEST_DIRECT == 0)
+    {
+        for (unsigned lane = 0; lane < TEST_K; ++lane)
+        {
+            for (unsigned i = 0; i < 128; ++i)
+            {
+                const unsigned p = lane * 256U + 2U * i;
+                const int16_t gamma = (i & 1U) == 0U ? pqc_zetas[64U + i / 2U]
+                                                     : (int16_t)-pqc_zetas[64U + i / 2U];
+                if (cache[lane * 128U + i] != ref_fqmul(b[p + 1U], gamma))
+                {
+                    return 5;
+                }
+            }
+        }
+    }
     pqc_mlkem_basemul(product, a, b, cache);
     const int64_t rinv = 169;
     for (unsigned i = 0; i < 128; ++i)
@@ -114,14 +192,29 @@ int main()
             return 3;
         }
     }
+
+    std::memcpy(actual, input, sizeof(actual));
+    pqc_mlkem_tomont(actual);
+    for (unsigned i = 0; i < 256; ++i)
+    {
+        if (actual[i] != ref_fqmul(input[i], 1353))
+        {
+            return 6;
+        }
+    }
     return 0;
 }
 )pqc";
     out.close();
-    const std::string command = std::string(PQC_POLY_TEST_CXX) +
-                                " -std=c++20 -O2 -Wall -Wextra -Werror -DTEST_K=" +
-                                std::to_string(pqc_poly::mlkem_k(plan.level)) + " \"" +
-                                source.string() + "\" -o \"" + executable.string() + "\"";
+    const std::string command =
+        std::string(PQC_POLY_TEST_CXX) + " -std=c++20 -O2 -Wall -Wextra -Werror -DTEST_K=" +
+        std::to_string(pqc_poly::mlkem_k(plan.level)) + " -DTEST_REDUCE_EACH=" +
+        (plan.inverse_reduction == pqc_poly::intt_sum_reduction::every_layer ? "1" : "0") +
+        " -DTEST_DIRECT=" +
+        (plan.basemul == pqc_poly::basemul_schedule::direct_eager32 ? "1" : "0") +
+        (PQC_POLY_TEST_SANITIZE != 0 ? " -fsanitize=address,undefined -fno-omit-frame-pointer"
+                                     : "") +
+        " \"" + source.string() + "\" -o \"" + executable.string() + "\"";
     require(std::system(command.c_str()) == 0, "generated backend did not compile");
     require(std::system(executable.c_str()) == 0, "generated backend mismatch");
 }
@@ -130,19 +223,11 @@ int main()
 
 int main()
 {
-    compile_and_run(
-        {pqc_poly::mlkem_level::mlkem512, pqc_poly::ntt_traversal::stage_major,
-         pqc_poly::intt_traversal::stage_major, pqc_poly::intt_sum_reduction::every_layer,
-         pqc_poly::basemul_schedule::cached_late32, pqc_poly::mlkem_instruction::none},
-        "stage");
-    compile_and_run(
-        {pqc_poly::mlkem_level::mlkem1024, pqc_poly::ntt_traversal::fuse_two_layers,
-         pqc_poly::intt_traversal::fuse_two_layers, pqc_poly::intt_sum_reduction::after_layer_pair,
-         pqc_poly::basemul_schedule::direct_eager32, pqc_poly::mlkem_instruction::none},
-        "fused");
-    compile_and_run(
-        {pqc_poly::mlkem_level::mlkem768, pqc_poly::ntt_traversal::stage_major,
-         pqc_poly::intt_traversal::fuse_two_layers, pqc_poly::intt_sum_reduction::every_layer,
-         pqc_poly::basemul_schedule::cached_eager32, pqc_poly::mlkem_instruction::none},
-        "eager");
+    for (const pqc_poly::mlkem_plan &plan : pqc_poly::enumerate_mlkem_plans())
+    {
+        if (plan.instruction == pqc_poly::mlkem_instruction::none)
+        {
+            compile_and_run(plan, pqc_poly::mlkem_plan_id(plan));
+        }
+    }
 }

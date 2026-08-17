@@ -5,6 +5,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#if defined(PQC_MLKEM_PORTABLE)
+#include "src/poly.h"
+#include "src/poly_k.h"
+#endif
+
 #ifndef PQC_MLKEM_K
 #error PQC_MLKEM_K is required
 #endif
@@ -29,8 +34,40 @@ void pqc_mlkem_ntt(int16_t r[256]);
 void pqc_mlkem_intt(int16_t r[256]);
 void pqc_mlkem_tomont(int16_t r[256]);
 void pqc_mlkem_mulcache(int16_t *cache, const int16_t *b);
-void pqc_mlkem_basemul(int16_t r[256], const int16_t *a, const int16_t *b,
-                       const int16_t *cache);
+void pqc_mlkem_basemul(int16_t r[256], const int16_t *a, const int16_t *b, const int16_t *cache);
+
+#if defined(PQC_MLKEM_PORTABLE)
+void pqc_mlkem_ntt(int16_t r[256])
+{
+    mlk_poly_ntt((mlk_poly *)(void *)r);
+}
+
+void pqc_mlkem_intt(int16_t r[256])
+{
+    mlk_poly_invntt_tomont((mlk_poly *)(void *)r);
+}
+
+void pqc_mlkem_tomont(int16_t r[256])
+{
+    mlk_poly_tomont((mlk_poly *)(void *)r);
+}
+
+void pqc_mlkem_mulcache(int16_t *cache, const int16_t *b)
+{
+    for (unsigned lane = 0; lane < PQC_MLKEM_K; ++lane)
+    {
+        mlk_poly_mulcache_compute((mlk_poly_mulcache *)(void *)(cache + lane * 128U),
+                                  (const mlk_poly *)(const void *)(b + lane * 256U));
+    }
+}
+
+void pqc_mlkem_basemul(int16_t r[256], const int16_t *a, const int16_t *b, const int16_t *cache)
+{
+    mlk_polyvec_basemul_acc_montgomery_cached(
+        (mlk_poly *)(void *)r, (const mlk_polyvec *)(const void *)a,
+        (const mlk_polyvec *)(const void *)b, (const mlk_polyvec_mulcache *)(const void *)cache);
+}
+#endif
 
 struct mlkem_bench_state
 {
@@ -51,7 +88,11 @@ struct mlkem_bench_state
     int16_t product[256];
 };
 
+#if defined(PQC_MLKEM_PORTABLE)
+static _Alignas(32) struct mlkem_bench_state state;
+#else
 static struct mlkem_bench_state state;
+#endif
 static volatile uint32_t checksum;
 
 static uint32_t read_instret(void)
@@ -83,7 +124,15 @@ static void fill_poly(int16_t *r, size_t count, uint32_t seed)
 {
     for (size_t i = 0; i < count; ++i)
     {
-        r[i] = (int16_t)((int32_t)(next_random(&seed) % 6659U) - 3329);
+        r[i] = (int16_t)((int32_t)(next_random(&seed) % 6657U) - 3328);
+    }
+}
+
+static void fill_base_left(int16_t *r, size_t count, uint32_t seed)
+{
+    for (size_t i = 0; i < count; ++i)
+    {
+        r[i] = (int16_t)(next_random(&seed) % 4096U);
     }
 }
 
@@ -130,16 +179,16 @@ static void record_instret(uint32_t begin, uint32_t end)
     pqc_status(end);
 }
 
-#define PQC_MEASURE(statement)         \
-    do                                 \
-    {                                  \
+#define PQC_MEASURE(statement)           \
+    do                                   \
+    {                                    \
         uint32_t begin = read_instret(); \
-        uint32_t end;                  \
-        pqc_bench_begin();             \
-        statement;                     \
-        pqc_bench_end();               \
-        end = read_instret();           \
-        record_instret(begin, end);     \
+        uint32_t end;                    \
+        pqc_bench_begin();               \
+        statement;                       \
+        pqc_bench_end();                 \
+        end = read_instret();            \
+        record_instret(begin, end);      \
     } while (0)
 
 static int same_bytes(const uint8_t *a, const uint8_t *b, size_t count)
@@ -165,8 +214,7 @@ static void run_kernels(void)
             {
                 copy_bytes(state.expected, (const uint8_t *)state.poly, sizeof(state.poly));
             }
-            else if (!same_bytes(state.expected, (const uint8_t *)state.poly,
-                                 sizeof(state.poly)))
+            else if (!same_bytes(state.expected, (const uint8_t *)state.poly, sizeof(state.poly)))
             {
                 pqc_trap(UINT32_C(0xbad00001));
             }
@@ -184,8 +232,7 @@ static void run_kernels(void)
             {
                 copy_bytes(state.expected, (const uint8_t *)state.poly, sizeof(state.poly));
             }
-            else if (!same_bytes(state.expected, (const uint8_t *)state.poly,
-                                 sizeof(state.poly)))
+            else if (!same_bytes(state.expected, (const uint8_t *)state.poly, sizeof(state.poly)))
             {
                 pqc_trap(UINT32_C(0xbad00002));
             }
@@ -202,8 +249,7 @@ static void run_kernels(void)
             {
                 copy_bytes(state.expected, (const uint8_t *)state.cache, sizeof(state.cache));
             }
-            else if (!same_bytes(state.expected, (const uint8_t *)state.cache,
-                                 sizeof(state.cache)))
+            else if (!same_bytes(state.expected, (const uint8_t *)state.cache, sizeof(state.cache)))
             {
                 pqc_trap(UINT32_C(0xbad00003));
             }
@@ -212,7 +258,7 @@ static void run_kernels(void)
     }
     for (unsigned input = 0; input < PQC_MLKEM_INPUTS; ++input)
     {
-        fill_poly(state.a, PQC_MLKEM_K * 256U, UINT32_C(0x40000000) + input);
+        fill_base_left(state.a, PQC_MLKEM_K * 256U, UINT32_C(0x40000000) + input);
         fill_poly(state.b, PQC_MLKEM_K * 256U, UINT32_C(0x50000000) + input);
         pqc_mlkem_mulcache(state.cache, state.b);
         for (unsigned repeat = 0; repeat < PQC_MLKEM_REPEATS; ++repeat)
@@ -220,8 +266,7 @@ static void run_kernels(void)
             PQC_MEASURE(pqc_mlkem_basemul(state.product, state.a, state.b, state.cache));
             if (repeat == 0U)
             {
-                copy_bytes(state.expected, (const uint8_t *)state.product,
-                           sizeof(state.product));
+                copy_bytes(state.expected, (const uint8_t *)state.product, sizeof(state.product));
             }
             else if (!same_bytes(state.expected, (const uint8_t *)state.product,
                                  sizeof(state.product)))
@@ -242,8 +287,7 @@ static void run_kernels(void)
             {
                 copy_bytes(state.expected, (const uint8_t *)state.poly, sizeof(state.poly));
             }
-            else if (!same_bytes(state.expected, (const uint8_t *)state.poly,
-                                 sizeof(state.poly)))
+            else if (!same_bytes(state.expected, (const uint8_t *)state.poly, sizeof(state.poly)))
             {
                 pqc_trap(UINT32_C(0xbad00005));
             }
@@ -286,8 +330,8 @@ static void run_keygen(void)
             {
                 pqc_trap(UINT32_C(0xbad00100));
             }
-            const uint32_t value = hash_bytes(state.pk, sizeof(state.pk)) ^
-                                   hash_bytes(state.sk, sizeof(state.sk));
+            const uint32_t value =
+                hash_bytes(state.pk, sizeof(state.pk)) ^ hash_bytes(state.sk, sizeof(state.sk));
             if (repeat == 0U)
             {
                 copy_bytes(state.expected, state.pk, sizeof(state.pk));
@@ -320,8 +364,8 @@ static void run_encapsulation(void)
             {
                 pqc_trap(UINT32_C(0xbad00111));
             }
-            const uint32_t value = hash_bytes(state.ct, sizeof(state.ct)) ^
-                                   hash_bytes(state.ss, sizeof(state.ss));
+            const uint32_t value =
+                hash_bytes(state.ct, sizeof(state.ct)) ^ hash_bytes(state.ss, sizeof(state.ss));
             if (repeat == 0U)
             {
                 copy_bytes(state.expected, state.ct, sizeof(state.ct));

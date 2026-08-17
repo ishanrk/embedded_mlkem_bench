@@ -560,6 +560,31 @@ private:
             result = std::max(result.value_or(0), frame.bytes);
         }
     }
+    if (result)
+    {
+        return result;
+    }
+
+    const std::size_t suffix = name.rfind('.');
+    if (suffix == std::string_view::npos || suffix + 1 == name.size() ||
+        !std::all_of(name.begin() + static_cast<std::ptrdiff_t>(suffix + 1), name.end(),
+                     [](char value)
+                     { return std::isdigit(static_cast<unsigned char>(value)) != 0; }))
+    {
+        return std::nullopt;
+    }
+    const std::string_view base = name.substr(0, suffix);
+    if (!base.ends_with(".constprop") && !base.ends_with(".isra") && !base.ends_with(".part"))
+    {
+        return std::nullopt;
+    }
+    for (const stack_frame &frame : frames)
+    {
+        if (frame.function == base)
+        {
+            result = std::max(result.value_or(0), frame.bytes);
+        }
+    }
     return result;
 }
 
@@ -900,9 +925,9 @@ code_size_measurement parse_code_size_measurement(std::string_view text)
         .allocated_flash_bytes = uint_field(root, "allocated_flash_bytes"),
     };
     if (result.allocated_flash_bytes !=
-        checked_add(checked_add(result.code_text_bytes, result.code_rodata_bytes,
-                                "allocated flash"),
-                    result.data_bytes, "allocated flash"))
+        checked_add(
+            checked_add(result.code_text_bytes, result.code_rodata_bytes, "allocated flash"),
+            result.data_bytes, "allocated flash"))
     {
         fail("inconsistent allocated flash measurement");
     }
@@ -1005,20 +1030,18 @@ std::vector<mlkem_cycle_measurement> parse_mlkem_cycle_measurements(std::string_
                                     record.operation == "encapsulation" ||
                                     record.operation == "decapsulation";
         const bool kernel = record.operation == "forward_ntt" ||
-                            record.operation == "inverse_ntt" ||
-                            record.operation == "mulcache" ||
+                            record.operation == "inverse_ntt" || record.operation == "mulcache" ||
                             record.operation == "poly_tomont" ||
                             record.operation == "base_dot_k2" ||
-                            record.operation == "base_dot_k3" ||
-                            record.operation == "base_dot_k4";
+                            record.operation == "base_dot_k3" || record.operation == "base_dot_k4";
         if ((record.level != "512" && record.level != "768" && record.level != "1024") ||
             (!kernel && !full_operation) ||
             (record.multiplier != "project" && record.multiplier != "stock") ||
             record.repeat >= 3U || record.input >= (full_operation ? 30U : 16U) ||
             record.end_cycle < record.begin_cycle ||
             record.end_cycle - record.begin_cycle < record.marker_overhead_cycles ||
-            record.calibrated_cycles != record.end_cycle - record.begin_cycle -
-                                                record.marker_overhead_cycles)
+            record.calibrated_cycles !=
+                record.end_cycle - record.begin_cycle - record.marker_overhead_cycles)
         {
             fail("invalid mlkem measurement record");
         }

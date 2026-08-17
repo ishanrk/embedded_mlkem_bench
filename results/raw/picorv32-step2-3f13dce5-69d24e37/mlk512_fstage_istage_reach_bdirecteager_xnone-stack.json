@@ -1,0 +1,9 @@
+{
+  "explicit_scratch_bytes": 0,
+  "caller_working_bytes": 9888,
+  "compiler_frame_bytes": 16,
+  "compiler_callchain_bound_bytes": 11360,
+  "runtime_stack_high_water_bytes": 11284,
+  "raw_stack_high_water_bytes": 11284,
+  "raw_wrapper_high_water_bytes": 0
+}

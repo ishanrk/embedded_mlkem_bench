@@ -228,6 +228,8 @@ std::vector<mlkem_plan> enumerate_mlkem_plans()
 mlkem_candidate analyze_mlkem_plan(const mlkem_request &request, const mlkem_plan &plan)
 {
     const unsigned k = mlkem_k(plan.level);
+    constexpr std::uint64_t montgomery_bound = (4096U * 32768U + 32768U * 3329U + 65535U) / 65536U;
+    const bool late = plan.basemul == basemul_schedule::cached_late32;
     mlkem_candidate out{
         .plan = plan,
         .id = mlkem_plan_id(plan),
@@ -235,7 +237,8 @@ mlkem_candidate analyze_mlkem_plan(const mlkem_request &request, const mlkem_pla
         .inverse_records = inverse_records(),
         .forward_bound = 8U * 3329U,
         .inverse_lazy_bound = 4U * 3329U,
-        .accumulator_bound = static_cast<std::uint64_t>(k) * 2U * 4096U * 32768U,
+        .accumulator_bound =
+            static_cast<std::uint64_t>(k) * 2U * (late ? 4096U * 32768U : montgomery_bound),
         .mulcache_coefficients = plan.basemul == basemul_schedule::direct_eager32 ? 0U : k * 128U,
         .scratch_bytes = plan.basemul == basemul_schedule::direct_eager32 ? 0U : k * 256U,
         .caller_workspace_bytes = static_cast<std::uint32_t>((2U * k + 1U) * 512U),

@@ -40,8 +40,12 @@ void write(const std::filesystem::path &path, std::string_view value)
 struct operation_summary
 {
     std::string name{};
+    std::uint64_t minimum_cycles{0};
     std::uint64_t cycles{0};
+    std::uint64_t maximum_cycles{0};
+    std::uint64_t minimum_instructions{0};
     std::uint64_t instructions{0};
+    std::uint64_t maximum_instructions{0};
 };
 
 struct measured_plan
@@ -78,17 +82,17 @@ struct measured_plan
 {
     const std::string base = "base_dot_k" + std::to_string(mlkem_k(candidate.plan.level));
     const std::array<std::string_view, 8> operations{
-        "forward_ntt", "inverse_ntt", "mulcache", base, "poly_tomont", "keygen",
-        "encapsulation", "decapsulation"};
+        "forward_ntt", "inverse_ntt", "mulcache",      base,
+        "poly_tomont", "keygen",      "encapsulation", "decapsulation"};
     std::vector<operation_summary> result;
     std::size_t cursor = 0;
     result.reserve(operations.size());
     for (const std::string_view operation : operations)
     {
-        const unsigned inputs = operation == "keygen" || operation == "encapsulation" ||
-                                        operation == "decapsulation"
-                                    ? 30U
-                                    : 16U;
+        const unsigned inputs =
+            operation == "keygen" || operation == "encapsulation" || operation == "decapsulation"
+                ? 30U
+                : 16U;
         std::vector<std::uint64_t> cycles;
         std::vector<std::uint64_t> instructions;
         cycles.reserve(inputs);
@@ -111,9 +115,8 @@ struct measured_plan
                 {
                     throw mlkem_error("measurement order or identity changed");
                 }
-                if (repeat != 0U &&
-                    (record.calibrated_cycles != repeated_cycles ||
-                     record.instruction_count != repeated_instructions))
+                if (repeat != 0U && (record.calibrated_cycles != repeated_cycles ||
+                                     record.instruction_count != repeated_instructions))
                 {
                     throw mlkem_error("measurement repeat changed");
                 }
@@ -123,8 +126,12 @@ struct measured_plan
             cycles.push_back(repeated_cycles);
             instructions.push_back(repeated_instructions);
         }
-        result.push_back({std::string(operation), median(std::move(cycles)),
-                          median(std::move(instructions))});
+        const auto cycle_limits = std::minmax_element(cycles.begin(), cycles.end());
+        const auto instruction_limits =
+            std::minmax_element(instructions.begin(), instructions.end());
+        result.push_back({std::string(operation), *cycle_limits.first, median(cycles),
+                          *cycle_limits.second, *instruction_limits.first, median(instructions),
+                          *instruction_limits.second});
     }
     if (cursor != records.size())
     {
@@ -133,17 +140,33 @@ struct measured_plan
     return result;
 }
 
-[[nodiscard]] const operation_summary &operation(
-    std::span<const operation_summary> values, std::string_view name)
+[[nodiscard]] const operation_summary &operation(std::span<const operation_summary> values,
+                                                 std::string_view name)
 {
-    const auto found = std::find_if(values.begin(), values.end(),
-                                    [name](const operation_summary &value)
-                                    { return value.name == name; });
+    const auto found =
+        std::find_if(values.begin(), values.end(),
+                     [name](const operation_summary &value) { return value.name == name; });
     if (found == values.end())
     {
         throw mlkem_error("measurement operation is missing");
     }
     return *found;
+}
+
+void append_operations(std::ostringstream &out, std::span<const operation_summary> values)
+{
+    for (std::size_t i = 0; i < values.size(); ++i)
+    {
+        const operation_summary &value = values[i];
+        out << "      {\"name\": \"" << value.name
+            << "\", \"minimum_cycles\": " << value.minimum_cycles
+            << ", \"median_cycles\": " << value.cycles
+            << ", \"maximum_cycles\": " << value.maximum_cycles
+            << ", \"minimum_instructions\": " << value.minimum_instructions
+            << ", \"median_instructions\": " << value.instructions
+            << ", \"maximum_instructions\": " << value.maximum_instructions << "}"
+            << (i + 1U == values.size() ? "\n" : ",\n");
+    }
 }
 
 [[nodiscard]] std::string winner_json(const mlkem_candidate &candidate,
@@ -161,21 +184,11 @@ struct measured_plan
     out << "{\n  \"schema\": \"pqc-poly-bench/mlkem-winner-v1\",\n  \"level\": \""
         << mlkem_level_name(candidate.plan.level) << "\",\n  \"plan_id\": \"" << candidate.id
         << "\",\n  \"project\": {\n    \"operations\": [\n";
-    for (std::size_t i = 0; i < measurement.project.size(); ++i)
-    {
-        const operation_summary &value = measurement.project[i];
-        out << "      {\"name\": \"" << value.name << "\", \"median_cycles\": "
-            << value.cycles << ", \"median_instructions\": " << value.instructions << "}"
-            << (i + 1U == measurement.project.size() ? "\n" : ",\n");
-    }
+    append_operations(out, measurement.project);
     out << "    ],\n    \"complete_total_median_cycles\": " << project_total
-        << "\n  },\n  \"stock\": {\n    \"keygen_median_cycles\": "
-        << operation(measurement.stock, "keygen").cycles
-        << ",\n    \"encapsulation_median_cycles\": "
-        << operation(measurement.stock, "encapsulation").cycles
-        << ",\n    \"decapsulation_median_cycles\": "
-        << operation(measurement.stock, "decapsulation").cycles
-        << ",\n    \"complete_total_median_cycles\": " << stock_total
+        << "\n  },\n  \"stock\": {\n    \"operations\": [\n";
+    append_operations(out, measurement.stock);
+    out << "    ],\n    \"complete_total_median_cycles\": " << stock_total
         << "\n  },\n  \"project_vs_stock_percent\": " << std::fixed << std::setprecision(6)
         << difference << ",\n  \"memory\": {\n    \"explicit_scratch_bytes\": "
         << measurement.stack.explicit_scratch_bytes
@@ -210,14 +223,13 @@ void finalize(const mlkem_request &request, const std::filesystem::path &directo
             continue;
         }
         measured_plan measured;
-        const std::vector<mlkem_cycle_measurement> project = parse_mlkem_cycle_measurements(
-            read(directory / (candidate.id + "-project.jsonl")));
-        const std::vector<mlkem_cycle_measurement> stock = parse_mlkem_cycle_measurements(
-            read(directory / (candidate.id + "-stock.jsonl")));
+        const std::vector<mlkem_cycle_measurement> project =
+            parse_mlkem_cycle_measurements(read(directory / (candidate.id + "-project.jsonl")));
+        const std::vector<mlkem_cycle_measurement> stock =
+            parse_mlkem_cycle_measurements(read(directory / (candidate.id + "-stock.jsonl")));
         measured.project = summarize(project, candidate, "project");
         measured.stock = summarize(stock, candidate, "stock");
-        measured.stack =
-            parse_stack_measurement(read(directory / (candidate.id + "-stack.json")));
+        measured.stack = parse_stack_measurement(read(directory / (candidate.id + "-stack.json")));
         measured.size =
             parse_code_size_measurement(read(directory / (candidate.id + "-size.json")));
         if (!measured.stack.compiler_callchain_bound_bytes ||
@@ -238,6 +250,31 @@ void finalize(const mlkem_request &request, const std::filesystem::path &directo
         measurements.push_back(std::move(measured));
     }
 
+    for (const mlkem_level level :
+         {mlkem_level::mlkem512, mlkem_level::mlkem768, mlkem_level::mlkem1024})
+    {
+        mlkem_candidate portable;
+        portable.plan.level = level;
+        portable.id = "mlk" + std::string(mlkem_level_name(level)) + "_portable";
+        portable.scratch_bytes = mlkem_k(level) * 256U;
+        const std::vector<mlkem_cycle_measurement> project =
+            parse_mlkem_cycle_measurements(read(directory / (portable.id + "-project.jsonl")));
+        const std::vector<mlkem_cycle_measurement> stock =
+            parse_mlkem_cycle_measurements(read(directory / (portable.id + "-stock.jsonl")));
+        static_cast<void>(summarize(project, portable, "project"));
+        static_cast<void>(summarize(stock, portable, "stock"));
+        const stack_measurement stack =
+            parse_stack_measurement(read(directory / (portable.id + "-stack.json")));
+        static_cast<void>(
+            parse_code_size_measurement(read(directory / (portable.id + "-size.json"))));
+        if (!stack.compiler_callchain_bound_bytes ||
+            stack.explicit_scratch_bytes != portable.scratch_bytes ||
+            stack.runtime_stack_high_water_bytes == 0U)
+        {
+            throw mlkem_error("incomplete portable memory measurement");
+        }
+    }
+
     std::vector<std::pair<std::filesystem::path, std::string>> outputs;
     for (const mlkem_level level :
          {mlkem_level::mlkem512, mlkem_level::mlkem768, mlkem_level::mlkem1024})
@@ -249,8 +286,9 @@ void finalize(const mlkem_request &request, const std::filesystem::path &directo
         }
         const mlkem_measurement &winner = select_measured_mlkem_plan(level, candidates, selection);
         const auto found = std::find_if(measurements.begin(), measurements.end(),
-                                        [&winner](const measured_plan &measurement)
-                                        { return measurement.selection.plan_id == winner.plan_id; });
+                                        [&winner](const measured_plan &measurement) {
+                                            return measurement.selection.plan_id == winner.plan_id;
+                                        });
         const auto candidate = std::find_if(candidates.begin(), candidates.end(),
                                             [&winner](const mlkem_candidate &value)
                                             { return value.id == winner.plan_id; });
@@ -258,8 +296,8 @@ void finalize(const mlkem_request &request, const std::filesystem::path &directo
         {
             throw mlkem_error("selected measurement is missing");
         }
-        const std::uint64_t project_total = winner.keygen_cycles + winner.encapsulation_cycles +
-                                            winner.decapsulation_cycles;
+        const std::uint64_t project_total =
+            winner.keygen_cycles + winner.encapsulation_cycles + winner.decapsulation_cycles;
         const std::uint64_t stock_total = operation(found->stock, "keygen").cycles +
                                           operation(found->stock, "encapsulation").cycles +
                                           operation(found->stock, "decapsulation").cycles;
@@ -268,9 +306,9 @@ void finalize(const mlkem_request &request, const std::filesystem::path &directo
         {
             throw mlkem_error("project multiplier exceeds stock by more than two percent");
         }
-        outputs.emplace_back(directory / ("mlkem" + std::string(mlkem_level_name(level)) +
-                                           "-software-winner.json"),
-                             winner_json(*candidate, *found));
+        outputs.emplace_back(
+            directory / ("mlkem" + std::string(mlkem_level_name(level)) + "-software-winner.json"),
+            winner_json(*candidate, *found));
     }
     for (const auto &[path, value] : outputs)
     {
