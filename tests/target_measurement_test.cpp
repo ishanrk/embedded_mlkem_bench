@@ -76,6 +76,7 @@ void test_callchain()
 00000000 <root>:
    0:	000000ef 	jal	ra,10 <left>
    4:	000000ef 	jal	ra,20 <right>
+   8:	a001        	j	8 <root+0x8>
 00000010 <left>:
   10:	000000ef 	jal	ra,30 <leaf>
 00000020 <right>:

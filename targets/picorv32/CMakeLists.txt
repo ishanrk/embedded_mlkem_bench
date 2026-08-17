@@ -280,6 +280,271 @@ add_custom_command(
 
 add_custom_target(pqc-picorv32-sim DEPENDS "${pqc_sim_stamp}")
 
+if(PQC_POLY_PICORV32_MLKEM)
+    pqc_poly_fetch_mlkem_native()
+
+    set(pqc_mlkem_root "${PQC_POLY_MLKEM_NATIVE_SOURCE_DIR}/mlkem")
+    set(pqc_mlkem_generated "${pqc_target_dir}/mlkem-generated")
+    set(pqc_mlkem_results "${pqc_target_dir}/mlkem-results")
+    set(
+        pqc_mlkem_generated_files
+        "${pqc_mlkem_generated}/mlkem512-candidates.json"
+        "${pqc_mlkem_generated}/mlkem768-candidates.json"
+        "${pqc_mlkem_generated}/mlkem1024-candidates.json")
+
+    foreach(pqc_level IN ITEMS 512 768 1024)
+        foreach(pqc_forward IN ITEMS stage fuse2)
+            foreach(pqc_inverse IN ITEMS stage fuse2)
+                foreach(pqc_reduction IN ITEMS each pair)
+                    foreach(pqc_basemul IN ITEMS cachelate cacheeager directeager)
+                        set(
+                            pqc_plan_id
+                            "mlk${pqc_level}_f${pqc_forward}_i${pqc_inverse}_r${pqc_reduction}_b${pqc_basemul}_xnone")
+                        list(
+                            APPEND
+                            pqc_mlkem_generated_files
+                            "${pqc_mlkem_generated}/backends/${pqc_plan_id}.c")
+                    endforeach()
+                endforeach()
+            endforeach()
+        endforeach()
+    endforeach()
+
+    add_custom_command(
+        OUTPUT ${pqc_mlkem_generated_files}
+        COMMAND
+            "$<TARGET_FILE:pqc-poly-mlkem>" "${PROJECT_SOURCE_DIR}/examples/mlkem.json" -o
+            "${pqc_mlkem_generated}"
+        DEPENDS pqc-poly-mlkem "${PROJECT_SOURCE_DIR}/examples/mlkem.json"
+        VERBATIM)
+    add_custom_target(pqc-picorv32-mlkem-generate DEPENDS ${pqc_mlkem_generated_files})
+
+    set(pqc_mlkem_flags ${pqc_c_flags} -DMLK_CONFIG_NO_RANDOMIZED_API
+                        -DMLK_CONFIG_FILE=\"mlkem_config.h\")
+    foreach(pqc_level IN ITEMS 512 768 1024)
+        if(pqc_level EQUAL 512)
+            set(pqc_k 2)
+        elseif(pqc_level EQUAL 768)
+            set(pqc_k 3)
+        else()
+            set(pqc_k 4)
+        endif()
+
+        set(pqc_upstream_object "${pqc_target_dir}/mlkem-native-${pqc_level}.o")
+        add_custom_command(
+            OUTPUT "${pqc_upstream_object}"
+            BYPRODUCTS "${pqc_target_dir}/mlkem-native-${pqc_level}.su"
+            COMMAND
+                "${PQC_RISCV_GCC}" ${pqc_mlkem_flags}
+                "-DMLK_CONFIG_PARAMETER_SET=${pqc_level}" -I "${pqc_firmware_dir}" -I
+                "${CMAKE_CURRENT_SOURCE_DIR}/mlkem" -I "${pqc_mlkem_root}" -c
+                "${pqc_mlkem_root}/mlkem_native.c" -o "${pqc_upstream_object}"
+            DEPENDS
+                "${pqc_mlkem_root}/mlkem_native.c"
+                "${CMAKE_CURRENT_SOURCE_DIR}/mlkem/mlkem_config.h"
+                "${CMAKE_CURRENT_SOURCE_DIR}/mlkem/arith_backend.h"
+            VERBATIM)
+
+        foreach(pqc_cache IN ITEMS cached direct)
+            if(pqc_cache STREQUAL cached)
+                math(EXPR pqc_scratch "${pqc_k} * 256")
+            else()
+                set(pqc_scratch 0)
+            endif()
+            set(pqc_bench_object "${pqc_target_dir}/mlkem-bench-${pqc_level}-${pqc_cache}.o")
+            add_custom_command(
+                OUTPUT "${pqc_bench_object}"
+                BYPRODUCTS "${pqc_target_dir}/mlkem-bench-${pqc_level}-${pqc_cache}.su"
+                COMMAND
+                    "${PQC_RISCV_GCC}" ${pqc_mlkem_flags}
+                    "-DMLK_CONFIG_PARAMETER_SET=${pqc_level}" "-DPQC_MLKEM_K=${pqc_k}"
+                    "-DPQC_MLKEM_SCRATCH_BYTES=${pqc_scratch}" -I "${pqc_firmware_dir}"
+                    -I "${CMAKE_CURRENT_SOURCE_DIR}/mlkem" -I "${pqc_mlkem_root}" -c
+                    "${pqc_firmware_dir}/mlkem_bench.c" -o "${pqc_bench_object}"
+                DEPENDS
+                    "${pqc_firmware_dir}/mlkem_bench.c"
+                    "${pqc_firmware_dir}/bench_mmio.h"
+                    "${CMAKE_CURRENT_SOURCE_DIR}/mlkem/mlkem_config.h"
+                    "${pqc_mlkem_root}/mlkem_native.h"
+                VERBATIM)
+            set("pqc_bench_${pqc_level}_${pqc_cache}" "${pqc_bench_object}")
+        endforeach()
+        set("pqc_upstream_${pqc_level}" "${pqc_upstream_object}")
+    endforeach()
+
+    set(pqc_mlkem_all_binaries)
+    set(pqc_mlkem_all_measurements)
+    foreach(pqc_level IN ITEMS 512 768 1024)
+        set(pqc_level_project)
+        set(pqc_level_stock)
+        foreach(pqc_forward IN ITEMS stage fuse2)
+            foreach(pqc_inverse IN ITEMS stage fuse2)
+                foreach(pqc_reduction IN ITEMS each pair)
+                    foreach(pqc_basemul IN ITEMS cachelate cacheeager directeager)
+                        set(
+                            pqc_plan_id
+                            "mlk${pqc_level}_f${pqc_forward}_i${pqc_inverse}_r${pqc_reduction}_b${pqc_basemul}_xnone")
+                        if(pqc_basemul STREQUAL directeager)
+                            set(pqc_cache direct)
+                        else()
+                            set(pqc_cache cached)
+                        endif()
+                        set(pqc_source "${pqc_mlkem_generated}/backends/${pqc_plan_id}.c")
+                        set(pqc_object "${pqc_target_dir}/${pqc_plan_id}.o")
+                        set(pqc_elf "${pqc_target_dir}/${pqc_plan_id}.elf")
+                        set(pqc_hex "${pqc_target_dir}/${pqc_plan_id}.hex")
+                        set(pqc_dis "${pqc_target_dir}/${pqc_plan_id}.dis")
+                        set(pqc_size "${pqc_target_dir}/${pqc_plan_id}.size")
+                        set(pqc_stack_usage "${pqc_target_dir}/${pqc_plan_id}.stack-usage.su")
+                        add_custom_command(
+                            OUTPUT "${pqc_object}"
+                            BYPRODUCTS "${pqc_target_dir}/${pqc_plan_id}.su"
+                            COMMAND
+                                "${PQC_RISCV_GCC}" ${pqc_c_flags} -c "${pqc_source}" -o
+                                "${pqc_object}"
+                            DEPENDS "${pqc_source}"
+                            VERBATIM)
+                        add_custom_command(
+                            OUTPUT "${pqc_elf}" "${pqc_hex}" "${pqc_dis}" "${pqc_size}"
+                                   "${pqc_stack_usage}"
+                            COMMAND
+                                "${PQC_RISCV_GCC}" "${pqc_target_dir}/crt0.o"
+                                "${pqc_target_dir}/runtime.o"
+                                "${pqc_bench_${pqc_level}_${pqc_cache}}" "${pqc_object}"
+                                "${pqc_upstream_${pqc_level}}" ${pqc_link_flags}
+                                "-Wl,-Map,${pqc_target_dir}/${pqc_plan_id}.map" -o "${pqc_elf}"
+                            COMMAND
+                                "${PQC_RISCV_OBJCOPY}" -O verilog --verilog-data-width=4
+                                "${pqc_elf}" "${pqc_hex}"
+                            COMMAND
+                                /bin/sh -c
+                                "\"${PQC_RISCV_OBJDUMP}\" -d -S \"${pqc_elf}\" > \"${pqc_dis}\""
+                            COMMAND
+                                /bin/sh -c
+                                "\"${PQC_RISCV_SIZE}\" -A \"${pqc_elf}\" > \"${pqc_size}\""
+                            COMMAND
+                                /bin/sh -c
+                                "cat \"${pqc_target_dir}/runtime.su\" \"${pqc_target_dir}/mlkem-native-${pqc_level}.su\" \"${pqc_target_dir}/mlkem-bench-${pqc_level}-${pqc_cache}.su\" \"${pqc_target_dir}/${pqc_plan_id}.su\" > \"${pqc_stack_usage}\""
+                            DEPENDS
+                                "${pqc_target_dir}/crt0.o"
+                                "${pqc_target_dir}/runtime.o"
+                                "${pqc_bench_${pqc_level}_${pqc_cache}}"
+                                "${pqc_object}"
+                                "${pqc_upstream_${pqc_level}}"
+                                "${pqc_firmware_dir}/link.ld"
+                            VERBATIM)
+
+                        set(pqc_project_result "${pqc_mlkem_results}/${pqc_plan_id}-project.jsonl")
+                        set(pqc_stock_result "${pqc_mlkem_results}/${pqc_plan_id}-stock.jsonl")
+                        set(pqc_stack_result "${pqc_mlkem_results}/${pqc_plan_id}-stack.json")
+                        set(pqc_size_result "${pqc_mlkem_results}/${pqc_plan_id}-size.json")
+                        add_custom_command(
+                            OUTPUT "${pqc_project_result}" "${pqc_stock_result}"
+                                   "${pqc_stack_result}" "${pqc_size_result}"
+                            COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_mlkem_results}"
+                            COMMAND
+                                "${project_sim}" "+firmware=${pqc_hex}" --output
+                                "${pqc_project_result}" --plan-id "${pqc_plan_id}" --level
+                                "${pqc_level}" --repeat-count 3 --stack-output
+                                "${pqc_stack_result}" --stack-usage "${pqc_stack_usage}"
+                                --stack-root measured_complete --disassembly "${pqc_dis}"
+                                --size-input "${pqc_size}" --size-output "${pqc_size_result}"
+                            COMMAND
+                                "${stock_sim}" "+firmware=${pqc_hex}" --output
+                                "${pqc_stock_result}" --plan-id "${pqc_plan_id}" --level
+                                "${pqc_level}" --repeat-count 3
+                            DEPENDS "${project_sim}" "${stock_sim}" "${pqc_elf}" "${pqc_hex}"
+                                    "${pqc_dis}" "${pqc_size}" "${pqc_stack_usage}"
+                            VERBATIM)
+                        list(APPEND pqc_mlkem_all_binaries "${pqc_elf}")
+                        list(APPEND pqc_mlkem_all_measurements "${pqc_project_result}"
+                             "${pqc_stock_result}" "${pqc_stack_result}" "${pqc_size_result}")
+                        list(APPEND pqc_level_project "${pqc_project_result}")
+                        list(APPEND pqc_level_stock "${pqc_stock_result}")
+                    endforeach()
+                endforeach()
+            endforeach()
+        endforeach()
+        set(pqc_level_project_output
+            "${pqc_mlkem_results}/mlkem${pqc_level}-software-measurements.jsonl")
+        set(pqc_level_stock_output
+            "${pqc_mlkem_results}/mlkem${pqc_level}-stock-measurements.jsonl")
+        list(JOIN pqc_level_project " " pqc_level_project_inputs)
+        list(JOIN pqc_level_stock " " pqc_level_stock_inputs)
+        add_custom_command(
+            OUTPUT "${pqc_level_project_output}" "${pqc_level_stock_output}"
+            COMMAND
+                /bin/sh -c
+                "cat ${pqc_level_project_inputs} > \"${pqc_level_project_output}\""
+            COMMAND
+                /bin/sh -c
+                "cat ${pqc_level_stock_inputs} > \"${pqc_level_stock_output}\""
+            DEPENDS ${pqc_level_project} ${pqc_level_stock}
+            VERBATIM)
+        list(APPEND pqc_mlkem_all_measurements "${pqc_level_project_output}"
+             "${pqc_level_stock_output}")
+    endforeach()
+
+    set(
+        pqc_mlkem_complete_files
+        "${pqc_mlkem_results}/mlkem512-candidates.json"
+        "${pqc_mlkem_results}/mlkem768-candidates.json"
+        "${pqc_mlkem_results}/mlkem1024-candidates.json"
+        "${pqc_mlkem_results}/mlkem512-software-winner.json"
+        "${pqc_mlkem_results}/mlkem768-software-winner.json"
+        "${pqc_mlkem_results}/mlkem1024-software-winner.json")
+    add_custom_command(
+        OUTPUT ${pqc_mlkem_complete_files}
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy
+            "${pqc_mlkem_generated}/mlkem512-candidates.json"
+            "${pqc_mlkem_results}/mlkem512-candidates.json"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy
+            "${pqc_mlkem_generated}/mlkem768-candidates.json"
+            "${pqc_mlkem_results}/mlkem768-candidates.json"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy
+            "${pqc_mlkem_generated}/mlkem1024-candidates.json"
+            "${pqc_mlkem_results}/mlkem1024-candidates.json"
+        COMMAND
+            "$<TARGET_FILE:pqc-poly-mlkem>" --finalize
+            "${PROJECT_SOURCE_DIR}/examples/mlkem.json" "${pqc_mlkem_results}"
+        DEPENDS
+            pqc-poly-mlkem
+            ${pqc_mlkem_generated_files}
+            ${pqc_mlkem_all_measurements}
+            "${PROJECT_SOURCE_DIR}/examples/mlkem.json"
+        VERBATIM)
+
+    execute_process(
+        COMMAND git rev-parse HEAD
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        RESULT_VARIABLE pqc_mlkem_git_result
+        OUTPUT_VARIABLE pqc_mlkem_repository_sha
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT pqc_mlkem_git_result EQUAL 0 OR
+       NOT pqc_mlkem_repository_sha MATCHES "^[0-9a-f]{40}$")
+        message(FATAL_ERROR "cannot identify repository commit for mlkem results")
+    endif()
+    string(SUBSTRING "${pqc_mlkem_repository_sha}" 0 8 pqc_mlkem_repository_short)
+    string(SUBSTRING "${PQC_POLY_MLKEM_NATIVE_SHA}" 0 8 pqc_mlkem_native_short)
+    set(
+        pqc_mlkem_final_results
+        "${PROJECT_SOURCE_DIR}/results/raw/picorv32-step2-${pqc_mlkem_repository_short}-${pqc_mlkem_native_short}")
+
+    add_custom_target(pqc-picorv32-mlkem-build DEPENDS ${pqc_mlkem_all_binaries})
+    add_custom_target(pqc-picorv32-mlkem DEPENDS ${pqc_mlkem_complete_files})
+    add_custom_target(
+        pqc-picorv32-mlkem-finalize
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_mlkem_final_results}"
+        COMMAND
+            "${CMAKE_COMMAND}" -E copy_directory "${pqc_mlkem_results}"
+            "${pqc_mlkem_final_results}"
+        DEPENDS ${pqc_mlkem_complete_files}
+        VERBATIM)
+endif()
+
 if(PQC_POLY_PICORV32_SYNTHESIS)
     function(pqc_json_array output)
         set(result "[")

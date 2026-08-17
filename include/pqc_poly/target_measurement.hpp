@@ -59,6 +59,24 @@ struct cycle_measurement
     friend bool operator==(const cycle_measurement &, const cycle_measurement &) = default;
 };
 
+struct mlkem_cycle_measurement
+{
+    std::string plan_id{};
+    std::string level{};
+    std::string operation{};
+    std::string multiplier{};
+    std::uint32_t input{0};
+    std::uint32_t repeat{0};
+    std::uint64_t begin_cycle{0};
+    std::uint64_t end_cycle{0};
+    std::uint64_t marker_overhead_cycles{0};
+    std::uint64_t calibrated_cycles{0};
+    std::uint64_t instruction_count{0};
+
+    friend bool operator==(const mlkem_cycle_measurement &,
+                           const mlkem_cycle_measurement &) = default;
+};
+
 struct code_size_measurement
 {
     std::uint64_t code_text_bytes{0};
@@ -126,7 +144,11 @@ public:
 [[nodiscard]] std::optional<std::uint64_t> compute_callchain_stack_bound(
     std::span<const stack_frame> frames, std::string_view disassembly, std::string_view root);
 [[nodiscard]] code_size_measurement parse_elf_size(std::string_view text);
+[[nodiscard]] code_size_measurement parse_code_size_measurement(std::string_view text);
+[[nodiscard]] stack_measurement parse_stack_measurement(std::string_view text);
 [[nodiscard]] cycle_measurement parse_simulation_measurement(std::string_view text);
+[[nodiscard]] std::vector<mlkem_cycle_measurement> parse_mlkem_cycle_measurements(
+    std::string_view text);
 [[nodiscard]] synthesis_measurement parse_synthesis_measurement(std::string_view text);
 
 }
