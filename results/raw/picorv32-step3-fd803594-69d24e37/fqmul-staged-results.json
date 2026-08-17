@@ -1,0 +1,53 @@
+{
+  "schema": "pqc-poly-bench/fqmul-staged-results-v1",
+  "selections": [
+    {
+      "level": "512",
+      "result": {
+        "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xfqmul",
+        "operations": {
+          "keygen": 3518261,
+          "encapsulation": 3695719,
+          "decapsulation": 4582345
+        },
+        "complete_total_median_cycles": 11796325,
+        "runtime_stack_high_water_bytes": 11284,
+        "explicit_scratch_bytes": 512,
+        "caller_working_bytes": 9888,
+        "allocated_flash_bytes": 23692
+      }
+    },
+    {
+      "level": "768",
+      "result": {
+        "plan_id": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xfqmul",
+        "operations": {
+          "keygen": 5634905,
+          "encapsulation": 6119690,
+          "decapsulation": 7361397
+        },
+        "complete_total_median_cycles": 19115992,
+        "runtime_stack_high_water_bytes": 16196,
+        "explicit_scratch_bytes": 768,
+        "caller_working_bytes": 13792,
+        "allocated_flash_bytes": 22958
+      }
+    },
+    {
+      "level": "1024",
+      "result": {
+        "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xfqmul",
+        "operations": {
+          "keygen": 8918543,
+          "encapsulation": 9455899,
+          "decapsulation": 11090406
+        },
+        "complete_total_median_cycles": 29464848,
+        "runtime_stack_high_water_bytes": 22564,
+        "explicit_scratch_bytes": 1024,
+        "caller_working_bytes": 17856,
+        "allocated_flash_bytes": 23602
+      }
+    }
+  ]
+}

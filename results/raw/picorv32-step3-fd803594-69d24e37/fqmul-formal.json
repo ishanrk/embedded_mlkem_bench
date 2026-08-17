@@ -1,0 +1,48 @@
+{
+  "schema": "pqc-poly-bench/fqmul-formal-v1",
+  "sby": {
+    "pcpi": "pass",
+    "standard_m_noninterference": "pass",
+    "rvfi_bounded": "pass",
+    "rvfi_nonvacuity_cover": "pass"
+  },
+  "properties": [
+    "exact matching decode",
+    "no response for nonmatching words",
+    "ready exactly four cycles after acceptance",
+    "no earlier ready",
+    "wait held during work",
+    "write asserted with result",
+    "result equals exact mathematical equation",
+    "ignored upper source halves cannot affect result",
+    "reset cancels work",
+    "no post reset stale response",
+    "back to back requests cannot mix operands",
+    "standard m results unchanged",
+    "custom and m decode mutually exclusive",
+    "custom and divider claims disjoint",
+    "no memory side effect",
+    "custom rvfi retirement"
+  ],
+  "cbmc_version": "6.10.0",
+  "cbmc_harnesses": [
+    "conversion",
+    "fallback",
+    "upper",
+    "wrapper",
+    "callsite",
+    "butterfly",
+    "butterfly-value",
+    "base"
+  ],
+  "cbmc_checks": [
+    "bounds",
+    "pointers",
+    "signed overflow",
+    "unsigned overflow",
+    "conversions",
+    "shift legality",
+    "division by zero",
+    "unwinding assertions"
+  ]
+}

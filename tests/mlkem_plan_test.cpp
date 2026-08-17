@@ -89,4 +89,25 @@ int main()
     catch (const pqc_poly::mlkem_error &)
     {
     }
+
+    measurements.clear();
+    for (const pqc_poly::mlkem_plan &plan : plans)
+    {
+        if (plan.level == pqc_poly::mlkem_level::mlkem512 &&
+            plan.instruction == pqc_poly::mlkem_instruction::fqmul)
+        {
+            const std::uint64_t cycles = static_cast<std::uint64_t>(measurements.size() + 1U);
+            measurements.push_back({.plan_id = pqc_poly::mlkem_plan_id(plan),
+                                    .keygen_cycles = cycles,
+                                    .encapsulation_cycles = cycles,
+                                    .decapsulation_cycles = cycles,
+                                    .runtime_stack_bytes = 100,
+                                    .allocated_flash_bytes = 1000,
+                                    .verified = true});
+        }
+    }
+    require(pqc_poly::select_measured_mlkem_plan(pqc_poly::mlkem_level::mlkem512, candidates,
+                                                 measurements, pqc_poly::mlkem_instruction::fqmul)
+                    .plan_id == measurements.front().plan_id,
+            "custom measured winner order changed");
 }

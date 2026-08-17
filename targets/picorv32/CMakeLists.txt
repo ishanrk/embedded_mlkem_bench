@@ -21,6 +21,14 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
         PQC_SOLVER|z3|OSS_CAD_Suite_${PQC_CAD_RELEASE})
 endif()
 
+if(PQC_POLY_PICORV32_FQMUL_VERIFY)
+    list(
+        APPEND
+        pqc_required_tools
+        PQC_SBY|sby|OSS_CAD_Suite_${PQC_CAD_RELEASE}
+        PQC_BOOLECTOR|boolector|OSS_CAD_Suite_${PQC_CAD_RELEASE})
+endif()
+
 set(pqc_missing_tools)
 foreach(pqc_tool IN LISTS pqc_required_tools)
     string(REPLACE "|" ";" pqc_parts "${pqc_tool}")
@@ -59,6 +67,28 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
                     "Verilator Yosys nextpnr ecppack and solver must come from OSS CAD Suite release ${PQC_CAD_RELEASE}")
         endif()
     endforeach()
+endif()
+
+if(PQC_POLY_PICORV32_FQMUL_VERIFY)
+    get_filename_component(pqc_cad_bin "${PQC_VERILATOR}" DIRECTORY)
+    foreach(pqc_tool IN ITEMS PQC_SBY PQC_BOOLECTOR)
+        get_filename_component(pqc_tool_bin "${${pqc_tool}}" DIRECTORY)
+        if(NOT pqc_tool_bin STREQUAL pqc_cad_bin)
+            message(FATAL_ERROR "formal tools must come from OSS CAD Suite ${PQC_CAD_RELEASE}")
+        endif()
+    endforeach()
+    find_program(PQC_CBMC NAMES cbmc)
+    if(NOT PQC_CBMC)
+        message(FATAL_ERROR "missing CBMC 6.10.0")
+    endif()
+    execute_process(
+        COMMAND "${PQC_CBMC}" --version
+        OUTPUT_VARIABLE pqc_cbmc_version
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY)
+    if(NOT pqc_cbmc_version MATCHES "^6\\.10\\.0")
+        message(FATAL_ERROR "CBMC must be version 6.10.0")
+    endif()
 endif()
 
 include("${PROJECT_SOURCE_DIR}/cmake/FetchPinned.cmake")
@@ -206,7 +236,7 @@ pqc_add_verilated(
     pqc_pcpi_mlkem
     Vpqc_pcpi_mlkem
     "${pqc_sim_cflags} -DPQC_PCPI_UNIT=1"
-    ""
+    -GENABLE_FQMUL=1
     "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv")
 pqc_add_verilated(
     project
@@ -214,6 +244,16 @@ pqc_add_verilated(
     Vpqc_picorv32_sim_top
     "${pqc_sim_cflags}"
     ""
+    "${pqc_picorv32_source}"
+    "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
+    "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
+    "${pqc_rtl_dir}/pqc_picorv32_sim_top.sv")
+pqc_add_verilated(
+    fqmul
+    pqc_picorv32_sim_top
+    Vpqc_picorv32_sim_top
+    "${pqc_sim_cflags} -DPQC_FQMUL=1"
+    -GENABLE_FQMUL=1
     "${pqc_picorv32_source}"
     "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
     "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
@@ -297,13 +337,15 @@ if(PQC_POLY_PICORV32_MLKEM)
             foreach(pqc_inverse IN ITEMS stage fuse2)
                 foreach(pqc_reduction IN ITEMS each pair)
                     foreach(pqc_basemul IN ITEMS cachelate cacheeager directeager)
-                        set(
-                            pqc_plan_id
-                            "mlk${pqc_level}_f${pqc_forward}_i${pqc_inverse}_r${pqc_reduction}_b${pqc_basemul}_xnone")
-                        list(
-                            APPEND
-                            pqc_mlkem_generated_files
-                            "${pqc_mlkem_generated}/backends/${pqc_plan_id}.c")
+                        foreach(pqc_instruction IN ITEMS none fqmul)
+                            set(
+                                pqc_plan_id
+                                "mlk${pqc_level}_f${pqc_forward}_i${pqc_inverse}_r${pqc_reduction}_b${pqc_basemul}_x${pqc_instruction}")
+                            list(
+                                APPEND
+                                pqc_mlkem_generated_files
+                                "${pqc_mlkem_generated}/backends/${pqc_plan_id}.c")
+                        endforeach()
                     endforeach()
                 endforeach()
             endforeach()
@@ -319,8 +361,11 @@ if(PQC_POLY_PICORV32_MLKEM)
         VERBATIM)
     add_custom_target(pqc-picorv32-mlkem-generate DEPENDS ${pqc_mlkem_generated_files})
 
-    set(pqc_mlkem_flags ${pqc_c_flags} -DMLK_CONFIG_NO_RANDOMIZED_API
-                        -DMLK_CONFIG_FILE=\"mlkem_config.h\")
+    set(
+        pqc_mlkem_flags
+        ${pqc_c_flags}
+        -DMLK_CONFIG_NO_RANDOMIZED_API
+        -DMLK_CONFIG_FILE=\"mlkem_config.h\")
     foreach(pqc_level IN ITEMS 512 768 1024)
         if(pqc_level EQUAL 512)
             set(pqc_k 2)
@@ -411,6 +456,8 @@ if(PQC_POLY_PICORV32_MLKEM)
 
     set(pqc_mlkem_all_binaries)
     set(pqc_mlkem_all_measurements)
+    set(pqc_fqmul_all_binaries)
+    set(pqc_fqmul_all_measurements)
     foreach(pqc_level IN ITEMS 512 768 1024)
         set(pqc_level_project)
         set(pqc_level_stock)
@@ -523,6 +570,105 @@ if(PQC_POLY_PICORV32_MLKEM)
     endforeach()
 
     foreach(pqc_level IN ITEMS 512 768 1024)
+        set(pqc_level_fqmul)
+        foreach(pqc_forward IN ITEMS stage fuse2)
+            foreach(pqc_inverse IN ITEMS stage fuse2)
+                foreach(pqc_reduction IN ITEMS each pair)
+                    foreach(pqc_basemul IN ITEMS cachelate cacheeager directeager)
+                        set(
+                            pqc_plan_id
+                            "mlk${pqc_level}_f${pqc_forward}_i${pqc_inverse}_r${pqc_reduction}_b${pqc_basemul}_xfqmul")
+                        if(pqc_basemul STREQUAL directeager)
+                            set(pqc_cache direct)
+                        else()
+                            set(pqc_cache cached)
+                        endif()
+                        set(pqc_source "${pqc_mlkem_generated}/backends/${pqc_plan_id}.c")
+                        set(pqc_object "${pqc_target_dir}/${pqc_plan_id}.o")
+                        set(pqc_elf "${pqc_target_dir}/${pqc_plan_id}.elf")
+                        set(pqc_hex "${pqc_target_dir}/${pqc_plan_id}.hex")
+                        set(pqc_dis "${pqc_target_dir}/${pqc_plan_id}.dis")
+                        set(pqc_size "${pqc_target_dir}/${pqc_plan_id}.size")
+                        set(pqc_stack_usage "${pqc_target_dir}/${pqc_plan_id}.stack-usage.su")
+                        add_custom_command(
+                            OUTPUT "${pqc_object}"
+                            BYPRODUCTS "${pqc_target_dir}/${pqc_plan_id}.su"
+                            COMMAND
+                                "${PQC_RISCV_GCC}" ${pqc_c_flags}
+                                -DPQC_POLY_HAVE_MLK_FQMUL -I
+                                "${CMAKE_CURRENT_SOURCE_DIR}/mlkem" -c "${pqc_source}" -o
+                                "${pqc_object}"
+                            DEPENDS "${pqc_source}" "${CMAKE_CURRENT_SOURCE_DIR}/mlkem/fqmul.h"
+                            VERBATIM)
+                        add_custom_command(
+                            OUTPUT "${pqc_elf}" "${pqc_hex}" "${pqc_dis}" "${pqc_size}"
+                                   "${pqc_stack_usage}"
+                            COMMAND
+                                "${PQC_RISCV_GCC}" "${pqc_target_dir}/crt0.o"
+                                "${pqc_target_dir}/runtime.o"
+                                "${pqc_bench_${pqc_level}_${pqc_cache}}" "${pqc_object}"
+                                "${pqc_upstream_${pqc_level}}" ${pqc_link_flags}
+                                "-Wl,-Map,${pqc_target_dir}/${pqc_plan_id}.map" -o "${pqc_elf}"
+                            COMMAND
+                                "${PQC_RISCV_OBJCOPY}" -O verilog --verilog-data-width=4
+                                "${pqc_elf}" "${pqc_hex}"
+                            COMMAND
+                                /bin/sh -c
+                                "\"${PQC_RISCV_OBJDUMP}\" -d -S \"${pqc_elf}\" > \"${pqc_dis}\""
+                            COMMAND
+                                /bin/sh -c
+                                "\"${PQC_RISCV_SIZE}\" -A \"${pqc_elf}\" > \"${pqc_size}\""
+                            COMMAND
+                                /bin/sh -c
+                                "cat \"${pqc_target_dir}/runtime.su\" \"${pqc_target_dir}/mlkem-native-${pqc_level}.su\" \"${pqc_target_dir}/mlkem-bench-${pqc_level}-${pqc_cache}.su\" \"${pqc_target_dir}/${pqc_plan_id}.su\" > \"${pqc_stack_usage}\""
+                            DEPENDS
+                                "${pqc_target_dir}/crt0.o"
+                                "${pqc_target_dir}/runtime.o"
+                                "${pqc_bench_${pqc_level}_${pqc_cache}}"
+                                "${pqc_object}"
+                                "${pqc_upstream_${pqc_level}}"
+                                "${pqc_firmware_dir}/link.ld"
+                            VERBATIM)
+
+                        set(pqc_fqmul_result "${pqc_mlkem_results}/${pqc_plan_id}-fqmul.jsonl")
+                        set(pqc_stack_result "${pqc_mlkem_results}/${pqc_plan_id}-stack.json")
+                        set(pqc_size_result "${pqc_mlkem_results}/${pqc_plan_id}-size.json")
+                        add_custom_command(
+                            OUTPUT "${pqc_fqmul_result}" "${pqc_stack_result}"
+                                   "${pqc_size_result}"
+                            COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_mlkem_results}"
+                            COMMAND
+                                "${fqmul_sim}" "+firmware=${pqc_hex}" --output
+                                "${pqc_fqmul_result}" --plan-id "${pqc_plan_id}" --level
+                                "${pqc_level}" --repeat-count 3 --stack-output
+                                "${pqc_stack_result}" --stack-usage "${pqc_stack_usage}"
+                                --stack-root measured_complete --disassembly "${pqc_dis}"
+                                --size-input "${pqc_size}" --size-output "${pqc_size_result}"
+                            DEPENDS "${fqmul_sim}" "${pqc_elf}" "${pqc_hex}" "${pqc_dis}"
+                                    "${pqc_size}" "${pqc_stack_usage}"
+                            VERBATIM)
+                        list(APPEND pqc_fqmul_all_binaries "${pqc_elf}")
+                        list(APPEND pqc_fqmul_all_measurements "${pqc_fqmul_result}"
+                             "${pqc_stack_result}" "${pqc_size_result}")
+                        list(APPEND pqc_level_fqmul "${pqc_fqmul_result}")
+                    endforeach()
+                endforeach()
+            endforeach()
+        endforeach()
+        set(pqc_level_fqmul_output
+            "${pqc_mlkem_results}/mlkem${pqc_level}-fqmul-measurements.jsonl")
+        list(JOIN pqc_level_fqmul " " pqc_level_fqmul_inputs)
+        add_custom_command(
+            OUTPUT "${pqc_level_fqmul_output}"
+            COMMAND
+                /bin/sh -c
+                "cat ${pqc_level_fqmul_inputs} > \"${pqc_level_fqmul_output}\""
+            DEPENDS ${pqc_level_fqmul}
+            VERBATIM)
+        list(APPEND pqc_fqmul_all_measurements "${pqc_level_fqmul_output}")
+    endforeach()
+
+    foreach(pqc_level IN ITEMS 512 768 1024)
         set(pqc_plan_id "mlk${pqc_level}_portable")
         set(pqc_elf "${pqc_target_dir}/${pqc_plan_id}.elf")
         set(pqc_hex "${pqc_target_dir}/${pqc_plan_id}.hex")
@@ -632,6 +778,8 @@ if(PQC_POLY_PICORV32_MLKEM)
         "${PROJECT_SOURCE_DIR}/results/raw/picorv32-step2-${pqc_mlkem_repository_short}-${pqc_mlkem_native_short}")
 
     add_custom_target(pqc-picorv32-mlkem-build DEPENDS ${pqc_mlkem_all_binaries})
+    add_custom_target(pqc-picorv32-fqmul-build DEPENDS ${pqc_fqmul_all_binaries})
+    add_custom_target(pqc-picorv32-fqmul DEPENDS ${pqc_fqmul_all_measurements})
     add_custom_target(pqc-picorv32-mlkem DEPENDS ${pqc_mlkem_complete_files})
     add_custom_target(
         pqc-picorv32-mlkem-finalize
@@ -641,6 +789,97 @@ if(PQC_POLY_PICORV32_MLKEM)
             "${pqc_mlkem_final_results}"
         DEPENDS ${pqc_mlkem_complete_files}
         VERBATIM)
+endif()
+
+if(PQC_POLY_PICORV32_FQMUL_VERIFY)
+    set(pqc_fqmul_formal_dir "${pqc_target_dir}/fqmul-formal")
+    file(MAKE_DIRECTORY "${pqc_fqmul_formal_dir}")
+    configure_file("${pqc_picorv32_source}" "${pqc_fqmul_formal_dir}/picorv32.v" COPYONLY)
+    configure_file(
+        "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
+        "${pqc_fqmul_formal_dir}/pqc_pcpi_mlkem.sv"
+        COPYONLY)
+    configure_file(
+        "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
+        "${pqc_fqmul_formal_dir}/pqc_picorv32_core_top.sv"
+        COPYONLY)
+    foreach(pqc_formal_file IN ITEMS fqmul.sby fqmul_properties.sv rvfi_fqmul_monitor.sv)
+        configure_file(
+            "${CMAKE_CURRENT_SOURCE_DIR}/formal/${pqc_formal_file}"
+            "${pqc_fqmul_formal_dir}/${pqc_formal_file}"
+            COPYONLY)
+    endforeach()
+    set(
+        pqc_fqmul_formal_status
+        "${pqc_fqmul_formal_dir}/fqmul_pcpi/status"
+        "${pqc_fqmul_formal_dir}/fqmul_m/status"
+        "${pqc_fqmul_formal_dir}/fqmul_rvfi/status"
+        "${pqc_fqmul_formal_dir}/fqmul_rvfi_cover/status")
+    add_custom_command(
+        OUTPUT ${pqc_fqmul_formal_status}
+        COMMAND "${PQC_SBY}" -f fqmul.sby pcpi
+        COMMAND "${PQC_SBY}" -f fqmul.sby m
+        COMMAND "${PQC_SBY}" -f fqmul.sby rvfi
+        COMMAND "${PQC_SBY}" -f fqmul.sby rvfi_cover
+        DEPENDS
+            "${pqc_picorv32_source}"
+            "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
+            "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
+            "${CMAKE_CURRENT_SOURCE_DIR}/formal/fqmul.sby"
+            "${CMAKE_CURRENT_SOURCE_DIR}/formal/fqmul_properties.sv"
+            "${CMAKE_CURRENT_SOURCE_DIR}/formal/rvfi_fqmul_monitor.sv"
+        WORKING_DIRECTORY "${pqc_fqmul_formal_dir}"
+        VERBATIM)
+
+    set(
+        pqc_cbmc_flags
+        --bounds-check
+        --pointer-check
+        --signed-overflow-check
+        --unsigned-overflow-check
+        --conversion-check
+        --undefined-shift-check
+        --div-by-zero-check
+        --unwinding-assertions
+        --boolector
+        --json-ui)
+    list(JOIN pqc_cbmc_flags " " pqc_cbmc_flags_text)
+    set(pqc_fqmul_cbmc_outputs)
+    set(
+        pqc_fqmul_cbmc_harnesses
+        conversion|pqc_fqmul_conversion_harness|none
+        fallback|pqc_fqmul_fallback_harness|none
+        upper|pqc_fqmul_upper_harness|none
+        wrapper|pqc_fqmul_wrapper_harness|none
+        callsite|pqc_fqmul_callsite_harness|none
+        butterfly|pqc_fqmul_butterfly_harness|--unwind_129
+        butterfly-value|pqc_fqmul_butterfly_value_harness|none
+        base|pqc_fqmul_base_harness|--unwind_5)
+    foreach(pqc_harness IN LISTS pqc_fqmul_cbmc_harnesses)
+        string(REPLACE "|" ";" pqc_parts "${pqc_harness}")
+        list(GET pqc_parts 0 pqc_name)
+        list(GET pqc_parts 1 pqc_function)
+        list(GET pqc_parts 2 pqc_unwind)
+        if(pqc_unwind STREQUAL "none")
+            set(pqc_unwind)
+        else()
+            string(REPLACE "_" " " pqc_unwind "${pqc_unwind}")
+        endif()
+        set(pqc_output "${pqc_fqmul_formal_dir}/cbmc-${pqc_name}.json")
+        add_custom_command(
+            OUTPUT "${pqc_output}"
+            COMMAND
+                "${CMAKE_COMMAND}" -E env "PATH=${pqc_cad_bin}:$ENV{PATH}" /bin/sh -c
+                "\"${PQC_CBMC}\" \"${PROJECT_SOURCE_DIR}/tests/fqmul_cbmc.c\" --function ${pqc_function} ${pqc_cbmc_flags_text} ${pqc_unwind} > \"${pqc_output}\""
+            DEPENDS
+                "${PROJECT_SOURCE_DIR}/tests/fqmul_cbmc.c"
+                "${CMAKE_CURRENT_SOURCE_DIR}/mlkem/fqmul.h"
+            VERBATIM)
+        list(APPEND pqc_fqmul_cbmc_outputs "${pqc_output}")
+    endforeach()
+    add_custom_target(
+        pqc-picorv32-fqmul-verify
+        DEPENDS ${pqc_fqmul_formal_status} ${pqc_fqmul_cbmc_outputs})
 endif()
 
 if(PQC_POLY_PICORV32_SYNTHESIS)
@@ -737,6 +976,24 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
     string(APPEND pqc_manifest_content "  \"container_digest\": ${pqc_container_digest}\n}\n")
     file(GENERATE OUTPUT "${pqc_manifest}" CONTENT "${pqc_manifest_content}")
 
+    set(pqc_step1_sha e9b50a67dca6faafc8b8b2d1edcc79beff5eb99b)
+    set(pqc_step1_dir "${pqc_target_dir}/step1-rtl")
+    file(MAKE_DIRECTORY "${pqc_step1_dir}")
+    foreach(pqc_step1_file IN ITEMS pqc_pcpi_mlkem.sv pqc_picorv32_core_top.sv)
+        execute_process(
+            COMMAND
+                git show
+                "${pqc_step1_sha}:targets/picorv32/rtl/${pqc_step1_file}"
+            WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+            OUTPUT_VARIABLE pqc_step1_source
+            COMMAND_ERROR_IS_FATAL ANY)
+        file(
+            CONFIGURE
+            OUTPUT "${pqc_step1_dir}/${pqc_step1_file}"
+            CONTENT "${pqc_step1_source}"
+            @ONLY)
+    endforeach()
+
     set(pqc_synthesis_result "${pqc_results}/baseline-synthesis.json")
     add_custom_command(
         OUTPUT "${pqc_synthesis_result}"
@@ -744,19 +1001,43 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
         COMMAND
             "${PQC_PYTHON}" "${pqc_synth_dir}/ecp5-50mhz.py" --yosys "${PQC_YOSYS}"
             --nextpnr "${PQC_NEXTPNR}" --ecppack "${PQC_ECPPACK}" --picorv32
-            "${pqc_picorv32_source}" --pcpi "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv" --core
-            "${pqc_rtl_dir}/pqc_picorv32_core_top.sv" --script "${pqc_synth_dir}/core.ys"
+            "${pqc_picorv32_source}" --pcpi "${pqc_step1_dir}/pqc_pcpi_mlkem.sv" --core
+            "${pqc_step1_dir}/pqc_picorv32_core_top.sv" --script "${pqc_synth_dir}/core.ys"
             --work "${pqc_target_dir}/synthesis" --output "${pqc_synthesis_result}"
         DEPENDS
             "${pqc_picorv32_source}"
-            "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
-            "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
+            "${pqc_step1_dir}/pqc_pcpi_mlkem.sv"
+            "${pqc_step1_dir}/pqc_picorv32_core_top.sv"
             "${pqc_synth_dir}/core.ys"
             "${pqc_synth_dir}/ecp5-50mhz.py"
         VERBATIM)
     add_custom_target(
         pqc-picorv32-synthesis
         DEPENDS "${pqc_synthesis_result}" "${pqc_manifest}")
+
+    if(PQC_POLY_PICORV32_MLKEM)
+        set(pqc_fqmul_synthesis_result "${pqc_results}/fqmul-synthesis.json")
+        add_custom_command(
+            OUTPUT "${pqc_fqmul_synthesis_result}"
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_results}"
+            COMMAND
+                "${PQC_PYTHON}" "${pqc_synth_dir}/ecp5-50mhz.py" --yosys "${PQC_YOSYS}"
+                --nextpnr "${PQC_NEXTPNR}" --ecppack "${PQC_ECPPACK}" --picorv32
+                "${pqc_picorv32_source}" --pcpi "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv" --core
+                "${pqc_rtl_dir}/pqc_picorv32_core_top.sv" --script "${pqc_synth_dir}/core.ys"
+                --work "${pqc_target_dir}/synthesis-fqmul" --output
+                "${pqc_fqmul_synthesis_result}" --enable-fqmul
+            DEPENDS
+                "${pqc_picorv32_source}"
+                "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
+                "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
+                "${pqc_synth_dir}/core.ys"
+                "${pqc_synth_dir}/ecp5-50mhz.py"
+            VERBATIM)
+        add_custom_target(
+            pqc-picorv32-fqmul-synthesis
+            DEPENDS "${pqc_synthesis_result}" "${pqc_fqmul_synthesis_result}")
+    endif()
 
     string(SUBSTRING "${pqc_repository_sha}" 0 8 pqc_repository_short)
     string(SUBSTRING "${PQC_POLY_PICORV32_SHA}" 0 8 pqc_picorv32_short)
@@ -781,4 +1062,55 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
                 "${pqc_final_results}/baseline.map"
         VERBATIM)
     add_dependencies(pqc-picorv32-finalize pqc-picorv32-sim pqc-picorv32-synthesis)
+endif()
+
+if(PQC_POLY_PICORV32_MLKEM AND PQC_POLY_PICORV32_SYNTHESIS AND
+   PQC_POLY_PICORV32_FQMUL_VERIFY)
+    set(
+        PQC_POLY_STEP2_RESULTS_DIR
+        "${PROJECT_SOURCE_DIR}/results/raw/picorv32-step2-3f13dce5-69d24e37"
+        CACHE PATH "reviewed step 2 result directory")
+    if(NOT IS_DIRECTORY "${PQC_POLY_STEP2_RESULTS_DIR}")
+        message(FATAL_ERROR "reviewed Step 2 results are missing")
+    endif()
+    file(GLOB pqc_step2_records CONFIGURE_DEPENDS "${PQC_POLY_STEP2_RESULTS_DIR}/*")
+    set(
+        pqc_fqmul_final_results
+        "${PROJECT_SOURCE_DIR}/results/raw/picorv32-step3-${pqc_repository_short}-${pqc_mlkem_native_short}")
+    set(
+        pqc_fqmul_result_files
+        "${pqc_fqmul_final_results}/fqmul-formal.json"
+        "${pqc_fqmul_final_results}/fqmul-disassembly.json"
+        "${pqc_fqmul_final_results}/fqmul-candidates.json"
+        "${pqc_fqmul_final_results}/fqmul-measurements.jsonl"
+        "${pqc_fqmul_final_results}/fqmul-joint-winners.json"
+        "${pqc_fqmul_final_results}/fqmul-staged-results.json"
+        "${pqc_fqmul_final_results}/fqmul-synthesis.json"
+        "${pqc_fqmul_final_results}/fqmul-final-comparison.json")
+    set(pqc_software_winner_disassemblies)
+    foreach(pqc_level IN ITEMS 512 768 1024)
+        list(
+            APPEND
+            pqc_software_winner_disassemblies
+            "${pqc_target_dir}/mlk${pqc_level}_ffuse2_ifuse2_rpair_bcachelate_xnone.dis")
+    endforeach()
+    add_custom_command(
+        OUTPUT ${pqc_fqmul_result_files}
+        COMMAND
+            "$<TARGET_FILE:pqc-poly-mlkem>" --finalize-fqmul
+            "${PROJECT_SOURCE_DIR}/examples/mlkem.json" "${PQC_POLY_STEP2_RESULTS_DIR}"
+            "${pqc_mlkem_results}" "${pqc_results}" "${pqc_target_dir}"
+            "${pqc_fqmul_formal_dir}" "${pqc_fqmul_final_results}"
+        DEPENDS
+            pqc-poly-mlkem
+            ${pqc_fqmul_all_measurements}
+            ${pqc_fqmul_formal_status}
+            ${pqc_fqmul_cbmc_outputs}
+            ${pqc_software_winner_disassemblies}
+            ${pqc_step2_records}
+            "${pqc_synthesis_result}"
+            "${pqc_fqmul_synthesis_result}"
+            "${PROJECT_SOURCE_DIR}/examples/mlkem.json"
+        VERBATIM)
+    add_custom_target(pqc-picorv32-fqmul-finalize DEPENDS ${pqc_fqmul_result_files})
 endif()

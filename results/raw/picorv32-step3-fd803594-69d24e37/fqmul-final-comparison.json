@@ -1,0 +1,204 @@
+{
+  "schema": "pqc-poly-bench/fqmul-final-comparison-v1",
+  "repository_base_sha": "fd8035940c25912bccb9c6d7c73611a5290fcee4",
+  "step1_baseline_sha": "e9b50a67dca6faafc8b8b2d1edcc79beff5eb99b",
+  "picorv32_sha": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
+  "mlkem_native_sha": "69d24e37b8a04c6050ec55bc84a4228d7051bb4b",
+  "kernel_inputs": 16,
+  "complete_operation_inputs": 30,
+  "repeats": 3,
+  "levels": [
+    {
+      "level": "512",
+      "portable": {
+        "plan_id": "mlk512_portable",
+        "operations": {
+          "keygen": 3766309,
+          "encapsulation": 4077697,
+          "decapsulation": 5160554
+        },
+        "complete_total_median_cycles": 13004560,
+        "runtime_stack_high_water_bytes": 11300,
+        "explicit_scratch_bytes": 512,
+        "caller_working_bytes": 9888,
+        "allocated_flash_bytes": 23638
+      },
+      "software": {
+        "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone",
+        "operations": {
+          "keygen": 3711104,
+          "encapsulation": 3947876,
+          "decapsulation": 4977755
+        },
+        "complete_total_median_cycles": 12636735,
+        "runtime_stack_high_water_bytes": 11284,
+        "explicit_scratch_bytes": 512,
+        "caller_working_bytes": 9888,
+        "allocated_flash_bytes": 25196
+      },
+      "staged": {
+        "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xfqmul",
+        "operations": {
+          "keygen": 3518261,
+          "encapsulation": 3695719,
+          "decapsulation": 4582345
+        },
+        "complete_total_median_cycles": 11796325,
+        "runtime_stack_high_water_bytes": 11284,
+        "explicit_scratch_bytes": 512,
+        "caller_working_bytes": 9888,
+        "allocated_flash_bytes": 23692
+      },
+      "joint": {
+        "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+        "operations": {
+          "keygen": 3497610,
+          "encapsulation": 3664791,
+          "decapsulation": 4541105
+        },
+        "complete_total_median_cycles": 11703506,
+        "runtime_stack_high_water_bytes": 11284,
+        "explicit_scratch_bytes": 512,
+        "caller_working_bytes": 9888,
+        "allocated_flash_bytes": 23596
+      },
+      "joint_vs_software_percent": {
+        "keygen": -5.752843,
+        "encapsulation": -7.170565,
+        "decapsulation": -8.772027
+      },
+      "joint_vs_staged_percent": -0.786847
+    },
+    {
+      "level": "768",
+      "portable": {
+        "plan_id": "mlk768_portable",
+        "operations": {
+          "keygen": 5992621,
+          "encapsulation": 6586321,
+          "decapsulation": 8079618
+        },
+        "complete_total_median_cycles": 20658560,
+        "runtime_stack_high_water_bytes": 16212,
+        "explicit_scratch_bytes": 768,
+        "caller_working_bytes": 13792,
+        "allocated_flash_bytes": 22760
+      },
+      "software": {
+        "plan_id": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone",
+        "operations": {
+          "keygen": 5897792,
+          "encapsulation": 6419627,
+          "decapsulation": 7825937
+        },
+        "complete_total_median_cycles": 20143356,
+        "runtime_stack_high_water_bytes": 16196,
+        "explicit_scratch_bytes": 768,
+        "caller_working_bytes": 13792,
+        "allocated_flash_bytes": 24482
+      },
+      "staged": {
+        "plan_id": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xfqmul",
+        "operations": {
+          "keygen": 5634905,
+          "encapsulation": 6119690,
+          "decapsulation": 7361397
+        },
+        "complete_total_median_cycles": 19115992,
+        "runtime_stack_high_water_bytes": 16196,
+        "explicit_scratch_bytes": 768,
+        "caller_working_bytes": 13792,
+        "allocated_flash_bytes": 22958
+      },
+      "joint": {
+        "plan_id": "mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul",
+        "operations": {
+          "keygen": 5618665,
+          "encapsulation": 6091140,
+          "decapsulation": 7313747
+        },
+        "complete_total_median_cycles": 19023552,
+        "runtime_stack_high_water_bytes": 16196,
+        "explicit_scratch_bytes": 0,
+        "caller_working_bytes": 13792,
+        "allocated_flash_bytes": 22758
+      },
+      "joint_vs_software_percent": {
+        "keygen": -4.732737,
+        "encapsulation": -5.116917,
+        "decapsulation": -6.544775
+      },
+      "joint_vs_staged_percent": -0.483574
+    },
+    {
+      "level": "1024",
+      "portable": {
+        "plan_id": "mlk1024_portable",
+        "operations": {
+          "keygen": 9402982,
+          "encapsulation": 10065013,
+          "decapsulation": 12011597
+        },
+        "complete_total_median_cycles": 31479592,
+        "runtime_stack_high_water_bytes": 22564,
+        "explicit_scratch_bytes": 1024,
+        "caller_working_bytes": 17856,
+        "allocated_flash_bytes": 23426
+      },
+      "software": {
+        "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone",
+        "operations": {
+          "keygen": 9299335,
+          "encapsulation": 9899724,
+          "decapsulation": 11765022
+        },
+        "complete_total_median_cycles": 30964081,
+        "runtime_stack_high_water_bytes": 22564,
+        "explicit_scratch_bytes": 1024,
+        "caller_working_bytes": 17856,
+        "allocated_flash_bytes": 25126
+      },
+      "staged": {
+        "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xfqmul",
+        "operations": {
+          "keygen": 8918543,
+          "encapsulation": 9455899,
+          "decapsulation": 11090406
+        },
+        "complete_total_median_cycles": 29464848,
+        "runtime_stack_high_water_bytes": 22564,
+        "explicit_scratch_bytes": 1024,
+        "caller_working_bytes": 17856,
+        "allocated_flash_bytes": 23602
+      },
+      "joint": {
+        "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+        "operations": {
+          "keygen": 8879368,
+          "encapsulation": 9406970,
+          "decapsulation": 11031713
+        },
+        "complete_total_median_cycles": 29318051,
+        "runtime_stack_high_water_bytes": 22564,
+        "explicit_scratch_bytes": 1024,
+        "caller_working_bytes": 17856,
+        "allocated_flash_bytes": 23474
+      },
+      "joint_vs_software_percent": {
+        "keygen": -4.516097,
+        "encapsulation": -4.977452,
+        "decapsulation": -6.232959
+      },
+      "joint_vs_staged_percent": -0.498211
+    }
+  ],
+  "nine_point_geometric_mean_speedup": 1.063700672,
+  "largest_complete_operation_regression_percent": -4.516097,
+  "joint_vs_staged_geometric_mean_speedup": 1.005931394,
+  "no_regression_gate_passed": true,
+  "material_improvement_gate_passed": false,
+  "joint_three_percent_gate_passed": false,
+  "joint_alternate_continuation_passed": true,
+  "joint_selection_gate_passed": true,
+  "all_performance_gates_passed": false
+}

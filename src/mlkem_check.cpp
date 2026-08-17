@@ -64,6 +64,13 @@ struct interval
     return true;
 }
 
+[[nodiscard]] bool field_multiply_interval(interval left, interval right, interval &out)
+{
+    interval product{};
+    return multiply_interval(left, right, product) && montgomery_interval(product, out) &&
+           bound(out) < 3329;
+}
+
 [[nodiscard]] bool forward_intervals(wide_int &largest)
 {
     constexpr wide_int q = 3329;
@@ -535,8 +542,16 @@ std::vector<std::string> check_mlkem_plan(const mlkem_request &request,
     }
     if (candidate.plan.instruction == mlkem_instruction::fqmul)
     {
-        rejection.emplace_back("instruction_unavailable");
-        add_once(out, "instruction_unavailable");
+        interval result{};
+        constexpr interval zeta{-1664, 1664};
+        constexpr interval ntt_coefficient{-8 * 3329, 8 * 3329};
+        constexpr interval base_coefficient{-4096, 4096};
+        if (!field_multiply_interval(ntt_coefficient, zeta, result) ||
+            !field_multiply_interval(ntt_coefficient, {1353, 1353}, result) ||
+            !field_multiply_interval(base_coefficient, base_coefficient, result))
+        {
+            add_once(out, "fqmul_output_range");
+        }
     }
     if (candidate.rejections != rejection || candidate.legal != rejection.empty())
     {

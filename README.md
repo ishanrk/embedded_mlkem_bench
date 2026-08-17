@@ -175,18 +175,19 @@ intentionally absent.
 
 ## ML-KEM schedule search
 
-`pqc-poly-mlkem` is the isolated Step 2 schedule compiler. It enumerates 144
-stable plans across ML-KEM-512, ML-KEM-768, and ML-KEM-1024. The 72 software
-plans emit portable C backends for the standard bit-reversed NTT order; the 72
-`fqmul` plans remain visible and are rejected as `instruction_unavailable`.
+`pqc-poly-mlkem` is the isolated ML-KEM schedule compiler. It enumerates 144
+stable plans across ML-KEM-512, ML-KEM-768, and ML-KEM-1024: 72 software plans
+and 72 plans using the Step 3 `mlk.fqmul` instruction. The committed Step 2
+experiment measured only the software plans; Step 3 enables the existing
+`fqmul` plans without adding a search dimension.
 
 ```bash
 ./build/release/pqc-poly-mlkem examples/mlkem.json -o mlkem-out
 ```
 
 The command writes one candidate file per level and one C backend per legal
-software plan. An independent arithmetic and memory consistency checker gates
-emission. Candidate bounds keep explicit scratch and caller workspace separate.
+plan. An independent arithmetic and memory consistency checker gates emission.
+Candidate bounds keep explicit scratch and caller workspace separate.
 The pinned `mlkem-native` source is fetched only when
 `PQC_POLY_FETCH_MLKEM_NATIVE=ON`; normal host builds remain offline.
 
@@ -212,15 +213,42 @@ multiplier. The explicit finalize target then copies the complete raw experiment
 to `results/raw/picorv32-step2-<repository>-<mlkem-native>/`. Partial results are
 never selected or copied.
 
+## PicoRV32 step 3
+
+Step 3 adds `mlk.fqmul`, a four-cycle signed-low-half Montgomery multiplication
+implemented in the existing project PCPI multiplier. The final campaign ran all
+72 custom plans with 16 kernel inputs, 30 complete-operation inputs, and three
+identical repeats. The jointly selected plans are:
+
+| level | plan | complete cycles | versus software |
+|---|---|---:|---:|
+| 512 | `mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul` | 11,703,506 | 7.39% faster |
+| 768 | `mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul` | 19,023,552 | 5.56% faster |
+| 1024 | `mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul` | 29,318,051 | 5.32% faster |
+
+The nine-point operation speedup has geometric mean 1.063700672. Joint schedule
+selection improves on staged `fqmul` by geometric mean 1.005931394, below the
+3% threshold, but selects a different faster schedule at every level. The 10%
+material-improvement threshold fails.
+
+Five-seed ECP5 synthesis keeps 4 DSP blocks and no block RAM and every seed
+exceeds 50 MHz. It nevertheless fails the declared hardware gates: median LUT4
+rises from 3583 to 3788, median flip-flops from 970 to 1053, and median routed
+frequency falls from 68.70 to 60.51 MHz. Therefore Step 3 does not recommend
+`fqmul`. The canonical records are under
+`results/raw/picorv32-step3-fd803594-69d24e37/`.
+
 ## Verification limits
 
 A measured candidate is selectable only when plan consistency, scratch limits,
-differential tests, and ASan/UBSan all pass. This is useful test coverage, not a
-formal proof. The project does not currently run CBMC or prove constant-time
-execution. Host measurements remain development proxies; only completed external
-RTL simulation may supply PicoRV32 cycle claims.
+differential tests, and ASan/UBSan all pass. Step 3 additionally checks the
+portable `fqmul` fallback with CBMC 6.10.0, proves the PCPI arithmetic and
+handshake properties with SymbiYosys, and performs a bounded RVFI retirement
+check. These results do not prove complete ML-KEM, constant-time C execution, or
+physical side-channel resistance. Reported PicoRV32 cycles come only from the
+completed RTL simulations, not host timing.
 
 The completed Step 2 records are retained under
 `results/raw/picorv32-step2-3f13dce5-69d24e37/`. All three parameter sets select
-the `ffuse2_ifuse2_rpair_bcachelate_xnone` schedule. The custom `mlk.fqmul`
-instruction remains deferred.
+the `ffuse2_ifuse2_rpair_bcachelate_xnone` schedule. The Step 4 `red32`
+comparison and a publication-quality comparison with prior work remain undone.

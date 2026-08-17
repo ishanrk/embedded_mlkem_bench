@@ -14,6 +14,10 @@
 #define PQC_POLY_TEST_SANITIZE 0
 #endif
 
+#ifndef PQC_POLY_TEST_SOURCE_DIR
+#define PQC_POLY_TEST_SOURCE_DIR "."
+#endif
+
 namespace
 {
 
@@ -211,7 +215,8 @@ int main()
         std::to_string(pqc_poly::mlkem_k(plan.level)) + " -DTEST_REDUCE_EACH=" +
         (plan.inverse_reduction == pqc_poly::intt_sum_reduction::every_layer ? "1" : "0") +
         " -DTEST_DIRECT=" +
-        (plan.basemul == pqc_poly::basemul_schedule::direct_eager32 ? "1" : "0") +
+        (plan.basemul == pqc_poly::basemul_schedule::direct_eager32 ? "1" : "0") + " -I\"" +
+        std::string(PQC_POLY_TEST_SOURCE_DIR) + "/targets/picorv32/mlkem\"" +
         (PQC_POLY_TEST_SANITIZE != 0 ? " -fsanitize=address,undefined -fno-omit-frame-pointer"
                                      : "") +
         " \"" + source.string() + "\" -o \"" + executable.string() + "\"";
@@ -225,9 +230,6 @@ int main()
 {
     for (const pqc_poly::mlkem_plan &plan : pqc_poly::enumerate_mlkem_plans())
     {
-        if (plan.instruction == pqc_poly::mlkem_instruction::none)
-        {
-            compile_and_run(plan, pqc_poly::mlkem_plan_id(plan));
-        }
+        compile_and_run(plan, pqc_poly::mlkem_plan_id(plan));
     }
 }
