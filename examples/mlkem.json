@@ -1,17 +1,3 @@
 {
-  "op": "negacyclic_mul",
-  "n": 256,
-  "q": 3329,
-  "input": "centered",
-  "output": "canonical",
-  "alias": "no",
-  "target": {
-    "name": "rv32im",
-    "word_bits": 32,
-    "size_bits": 32,
-    "acc_bits": [32, 64]
-  },
-  "limits": {
-    "ram": 4096
-  }
+  "scratch_limit": 4096
 }

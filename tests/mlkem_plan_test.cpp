@@ -26,6 +26,25 @@ void require(bool condition, std::string_view message)
 
 int main()
 {
+    const pqc_poly::mlkem_request parsed =
+        pqc_poly::parse_mlkem_request("{\n  \"scratch_limit\": 4096\n}\n");
+    require(parsed.scratch_limit == 4096, "scratch limit parse changed");
+    require(parsed.caller_workspace_limit == UINT64_MAX, "caller workspace default changed");
+
+    for (const std::string_view invalid :
+         {"{}", "{\"scratch_limit\": -1}",
+          "{\"scratch_limit\": 4096, \"extra\": 1}", "{\"extra\": 4096}"})
+    {
+        try
+        {
+            static_cast<void>(pqc_poly::parse_mlkem_request(invalid));
+            fail("invalid mlkem spec accepted");
+        }
+        catch (const pqc_poly::mlkem_error &)
+        {
+        }
+    }
+
     const std::vector<pqc_poly::mlkem_plan> plans = pqc_poly::enumerate_mlkem_plans();
     std::set<std::string> ids;
     unsigned level_count[3]{};

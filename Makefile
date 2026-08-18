@@ -1,6 +1,6 @@
-.PHONY: all build test native benchmark tune-example sanitize clean
+.PHONY: all build test sanitize clean
 
-all: native
+all: test
 
 build:
 	cmake --preset release
@@ -9,17 +9,6 @@ build:
 test: build
 	ctest --preset release
 
-native:
-	cmake --preset release-native
-	cmake --build --preset release-native --parallel
-	ctest --preset release-native
-
-benchmark: native
-	./build/release-native/pqc-poly-formula-bench 1000
-
-tune-example: build
-	./build/release/pqc-poly-bench --tune-host examples/host-negacyclic.json -o out
-
 sanitize:
 	cmake --preset sanitize
 	cmake --build --preset sanitize --parallel
@@ -27,4 +16,3 @@ sanitize:
 
 clean:
 	cmake -E remove_directory build
-	cmake -E remove_directory out
