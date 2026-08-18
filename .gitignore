@@ -1,4 +1,6 @@
 .local/
+__pycache__/
+*.pyc
 /build
 /out
 /compile_commands.json
