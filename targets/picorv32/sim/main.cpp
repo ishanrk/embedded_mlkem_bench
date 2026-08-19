@@ -435,6 +435,8 @@ void validate_instructions(const options &settings)
         return;
     }
     const bool expect_fqmul = settings.plan_id.ends_with("_xfqmul");
+    const bool expect_red32 = settings.plan_id.ends_with("_xred32");
+    require(!(expect_fqmul && expect_red32), "plan cannot use fqmul and red32 together");
     const std::array<std::string_view, 6> approved{"pqc_mlkem_ntt",          "pqc_mlkem_intt",
                                                    "pqc_mlkem_mulcache_one", "pqc_mlkem_mulcache",
                                                    "pqc_mlkem_basemul",      "pqc_mlkem_tomont"};
@@ -442,6 +444,7 @@ void validate_instructions(const options &settings)
     std::string line;
     std::string function;
     std::size_t fqmul_count = 0;
+    std::size_t red32_count = 0;
     while (std::getline(input, line))
     {
         const std::size_t left = line.find('<');
@@ -480,7 +483,8 @@ void validate_instructions(const options &settings)
         {
             fail("invalid raw instruction word");
         }
-        if ((word & UINT32_C(0xfe00707f)) == UINT32_C(0x0000000b))
+        const std::uint32_t decoded = word & UINT32_C(0xfe00707f);
+        if (decoded == UINT32_C(0x0000000b))
         {
             ++fqmul_count;
             const bool allowed = std::any_of(
@@ -489,7 +493,17 @@ void validate_instructions(const options &settings)
                 { return function == name || function.starts_with(std::string(name) + '.'); });
             require(allowed, "fqmul word is outside an approved function");
         }
-        const std::uint32_t decoded = word & UINT32_C(0xfe00707f);
+        if (decoded == UINT32_C(0x0000100b))
+        {
+            ++red32_count;
+            require(((word >> 20U) & UINT32_C(0x1f)) == 0U,
+                    "red32 instruction did not use canonical rs2 x0");
+            const bool allowed = std::any_of(
+                approved.begin(), approved.end(),
+                [&function](std::string_view name)
+                { return function == name || function.starts_with(std::string(name) + '.'); });
+            require(allowed, "red32 word is outside an approved function");
+        }
         const bool divide = decoded == UINT32_C(0x02004033) || decoded == UINT32_C(0x02005033) ||
                             decoded == UINT32_C(0x02006033) || decoded == UINT32_C(0x02007033);
         require(!divide, "division instruction found in mlkem firmware");
@@ -500,6 +514,8 @@ void validate_instructions(const options &settings)
     }
     require(expect_fqmul ? fqmul_count != 0U : fqmul_count == 0U,
             "custom instruction presence does not match plan");
+    require(expect_red32 ? red32_count != 0U : red32_count == 0U,
+            "red32 instruction presence does not match plan");
 }
 
 void write_stack(const options &settings, const std::vector<std::uint32_t> &status)
@@ -719,6 +735,8 @@ void write_mlkem(const options &settings, std::span<const std::uint64_t> begins,
                << ",\"multiplier\":\"stock\"}\n";
 #elif defined(PQC_FQMUL)
                << ",\"multiplier\":\"fqmul\"}\n";
+#elif defined(PQC_RED32)
+               << ",\"multiplier\":\"red32\"}\n";
 #else
                << ",\"multiplier\":\"project\"}\n";
 #endif

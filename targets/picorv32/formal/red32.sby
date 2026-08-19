@@ -1,0 +1,38 @@
+[tasks]
+pcpi
+noninterference
+rvfi
+rvfi_cover
+
+[options]
+pcpi: mode prove
+pcpi: depth 8
+noninterference: mode prove
+noninterference: depth 10
+rvfi: mode bmc
+rvfi: depth 24
+rvfi_cover: mode cover
+rvfi_cover: depth 24
+
+[engines]
+pcpi: abc pdr
+noninterference: abc pdr
+rvfi: abc bmc3
+rvfi_cover: smtbmc boolector
+
+[script]
+pcpi: read -formal -sv pqc_pcpi_mlkem.sv red32_properties.sv
+pcpi: prep -top red32_properties
+noninterference: read -formal -sv pqc_pcpi_mlkem.sv red32_properties.sv
+noninterference: prep -top red32_noninterference
+rvfi: read -formal -D RISCV_FORMAL -sv picorv32.v pqc_pcpi_mlkem.sv pqc_picorv32_core_top.sv rvfi_red32_monitor.sv
+rvfi: prep -top rvfi_red32_formal
+rvfi_cover: read -formal -D RISCV_FORMAL -sv picorv32.v pqc_pcpi_mlkem.sv pqc_picorv32_core_top.sv rvfi_red32_monitor.sv
+rvfi_cover: prep -top rvfi_red32_formal
+
+[files]
+picorv32.v
+pqc_pcpi_mlkem.sv
+pqc_picorv32_core_top.sv
+red32_properties.sv
+rvfi_red32_monitor.sv

@@ -1,5 +1,6 @@
 module pqc_pcpi_mlkem #(
-    parameter ENABLE_FQMUL = 1'b0
+    parameter ENABLE_FQMUL = 1'b0,
+    parameter ENABLE_RED32 = 1'b0
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -35,6 +36,7 @@ logic served;
 logic custom_request;
 logic m_claim;
 logic fqmul_claim;
+logic red32_claim;
 logic claim;
 logic same_request;
 logic [31:0] last_insn;
@@ -67,7 +69,9 @@ begin
               pcpi_insn[31:25] == 7'b0000001 && pcpi_insn[14] == 1'b0;
     fqmul_claim = ENABLE_FQMUL && pcpi_valid &&
                   (pcpi_insn & 32'hfe00_707f) == 32'h0000_000b;
-    claim = m_claim || fqmul_claim;
+    red32_claim = ENABLE_RED32 && pcpi_valid &&
+                  (pcpi_insn & 32'hfe00_707f) == 32'h0000_100b;
+    claim = m_claim || fqmul_claim || red32_claim;
     same_request = pcpi_insn == last_insn && pcpi_rs1 == last_rs1 && pcpi_rs2 == last_rs2;
 
     multiply_left = 33'sd0;
@@ -161,11 +165,19 @@ begin
                 end
                 if (claim && (!served || !same_request))
                 begin
-                    custom_request <= fqmul_claim;
+                    custom_request <= fqmul_claim || red32_claim;
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
-                    state <= PRODUCT;
+                    if (red32_claim)
+                    begin
+                        product_value <= $signed(pcpi_rs1);
+                        state <= INVERSE;
+                    end
+                    else
+                    begin
+                        state <= PRODUCT;
+                    end
                 end
             end
             PRODUCT:
@@ -196,11 +208,19 @@ begin
                 served <= 1'b1;
                 if (claim && !same_request)
                 begin
-                    custom_request <= fqmul_claim;
+                    custom_request <= fqmul_claim || red32_claim;
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
-                    state <= PRODUCT;
+                    if (red32_claim)
+                    begin
+                        product_value <= $signed(pcpi_rs1);
+                        state <= INVERSE;
+                    end
+                    else
+                    begin
+                        state <= PRODUCT;
+                    end
                 end
                 else
                 begin

@@ -1114,3 +1114,5 @@ if(PQC_POLY_PICORV32_MLKEM AND PQC_POLY_PICORV32_SYNTHESIS AND
         VERBATIM)
     add_custom_target(pqc-picorv32-fqmul-finalize DEPENDS ${pqc_fqmul_result_files})
 endif()
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/red32.cmake")

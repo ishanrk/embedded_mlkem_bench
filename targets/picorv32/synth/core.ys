@@ -5,5 +5,8 @@ yosys chparam -set STOCK_MUL $::env(STOCK_MUL) pqc_picorv32_core_top
 if {$::env(ENABLE_FQMUL)} {
     yosys chparam -set ENABLE_FQMUL 1 pqc_picorv32_core_top
 }
+if {$::env(ENABLE_RED32)} {
+    yosys chparam -set ENABLE_RED32 1 pqc_picorv32_core_top
+}
 yosys hierarchy -check -top pqc_picorv32_core_top
 yosys synth_ecp5 -top pqc_picorv32_core_top -json $::env(SYNTH_JSON)
