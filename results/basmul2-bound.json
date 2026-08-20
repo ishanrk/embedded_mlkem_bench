@@ -1,0 +1,46 @@
+{
+  "schema": "pqc-poly-bench/basmul2-bound-v1",
+  "model": "zero_cost_base_dot_and_mulcache_using_peak_observed_kernel_cycles",
+  "levels": {
+    "512": {
+      "k": 2,
+      "base_dot_calls": 9,
+      "mulcache_calls": 4,
+      "peak_base_dot_cycles": 36368,
+      "peak_mulcache_cycles": 21601,
+      "software_cycles": 12636735,
+      "portable_cycles": 13004560,
+      "zero_cost_cycles": 12223019,
+      "max_gain_vs_software_percent": 3.273915295367039,
+      "max_gain_vs_portable_percent": 6.009745812238169,
+      "passes_10_percent": false
+    },
+    "768": {
+      "k": 3,
+      "base_dot_calls": 12,
+      "mulcache_calls": 4,
+      "peak_base_dot_cycles": 47497,
+      "peak_mulcache_cycles": 32040,
+      "software_cycles": 20143356,
+      "portable_cycles": 20658560,
+      "zero_cost_cycles": 19445232,
+      "max_gain_vs_software_percent": 3.465777996476853,
+      "max_gain_vs_portable_percent": 5.873245763499489,
+      "passes_10_percent": false
+    },
+    "1024": {
+      "k": 4,
+      "base_dot_calls": 15,
+      "mulcache_calls": 4,
+      "peak_base_dot_cycles": 56180,
+      "peak_mulcache_cycles": 43226,
+      "software_cycles": 30964081,
+      "portable_cycles": 31479592,
+      "zero_cost_cycles": 29948477,
+      "max_gain_vs_software_percent": 3.2799423305991224,
+      "max_gain_vs_portable_percent": 4.863833686281576,
+      "passes_10_percent": false
+    }
+  },
+  "decision": "reject"
+}
