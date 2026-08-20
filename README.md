@@ -1,151 +1,118 @@
-# ML-KEM software and RISC-V co-design on PicoRV32
+# ML-KEM software and custom RISC-V instructions on PicoRV32
 
-This repository measures how much ML-KEM benefits from software schedule changes and small custom RISC-V arithmetic instructions on a resource-constrained RV32 core.
+This repository measures ML-KEM software schedules and two small custom RISC-V instructions on PicoRV32. The ML-KEM implementation comes from a pinned `mlkem-native` revision. Each candidate is compiled as bare-metal RV32IMC code and run on PicoRV32 RTL with Verilator. The same RTL is synthesized for an ECP5 FPGA.
 
-The target is [PicoRV32](https://github.com/YosysHQ/picorv32). ML-KEM comes from a pinned [mlkem-native](https://github.com/pq-code-package/mlkem-native) revision and follows [FIPS 203](https://csrc.nist.gov/pubs/fips/203/final). The experiment generates several equivalent arithmetic schedules, checks them, compiles them to bare-metal RV32IMC firmware, runs the firmware on PicoRV32 RTL with Verilator, then synthesizes the same core for an ECP5 FPGA.
+The goal is to measure a concrete tradeoff: how many ML-KEM cycles can a small arithmetic instruction save, and what does that instruction cost in FPGA area and timing?
 
-The question is simple: if one small instruction saves ML-KEM cycles, how much area and timing does that instruction cost?
+## Results
 
-![Experiment path](docs/figures/experiment-flow.svg)
+The software search tests 24 schedules for each ML-KEM parameter set. The same schedule choices are tested again with FQMUL and RED32.
 
-## Current result
+Complete cycles below are the sum of the median key-generation, encapsulation, and decapsulation cycle counts for the best schedule in each group.
 
-The software search found the same best no-extension schedule for ML-KEM-512, ML-KEM-768, and ML-KEM-1024. Two custom instructions were then tested against that software baseline.
+| parameter set | searched software | FQMUL | RED32 | FQMUL change | RED32 change |
+|---|---:|---:|---:|---:|---:|
+| ML-KEM-512 | 12,636,735 | **11,703,506** | 11,847,177 | **-7.39%** | -6.25% |
+| ML-KEM-768 | 20,143,356 | **19,023,552** | 19,187,466 | **-5.56%** | -4.75% |
+| ML-KEM-1024 | 30,964,081 | **29,318,051** | 29,614,042 | **-5.32%** | -4.36% |
 
-`FQMUL` fuses a signed 16-bit multiply with ML-KEM Montgomery reduction. `RED32` performs the 32-bit reduction only, so generated code uses a normal `MUL` before `RED32`.
+![Cycle savings from FQMUL and RED32](docs/figures/cycle-savings.svg)
 
-| parameter set | searched software | FQMUL | RED32 |
-|---|---:|---:|---:|
-| ML-KEM-512 | 12,636,735 cycles | **11,703,506** | 11,847,177 |
-| ML-KEM-768 | 20,143,356 cycles | **19,023,552** | 19,187,466 |
-| ML-KEM-1024 | 30,964,081 cycles | **29,318,051** | 29,614,042 |
+At the fixed 50 MHz test clock, both instructions reduce end-to-end ML-KEM cycles. FQMUL is faster in all three parameter sets.
 
-At the fixed 50 MHz experiment clock, FQMUL saves 7.39%, 5.56%, and 5.32% across the three parameter sets. RED32 saves 6.25%, 4.75%, and 4.36%.
+The FPGA results show the cost of those cycle reductions.
 
-The hardware cost is large enough to matter.
+| design | LUT4 | flip-flops | DSP | BRAM | median routed Fmax |
+|---|---:|---:|---:|---:|---:|
+| baseline | 3,583 | 970 | 4 | 0 | 68.70 MHz |
+| FQMUL | 3,788 (+5.72%) | 1,053 (+8.56%) | 4 | 0 | 60.51 MHz (-11.92%) |
+| RED32 | 3,816 (+6.50%) | 1,053 (+8.56%) | 4 | 0 | 60.20 MHz (-12.37%) |
 
-| design | LUT4 | flip-flops | DSP | median routed Fmax |
-|---|---:|---:|---:|---:|
-| baseline | 3,583 | 970 | 4 | 68.70 MHz |
-| FQMUL | 3,788 (+5.72%) | 1,053 (+8.56%) | 4 | 60.51 MHz (-11.92%) |
-| RED32 | 3,816 (+6.50%) | 1,053 (+8.56%) | 4 | 60.20 MHz (-12.37%) |
+All five routed seeds for FQMUL and RED32 meet the 50 MHz target. The lower Fmax still matters. These results show fewer cycles at a fixed clock. They do not show that either design would beat the baseline if every design were clocked at its own maximum routed frequency.
 
-All five synthesis seeds for both custom instructions still meet 50 MHz. FQMUL is the better of the two current implementations: it uses fewer LUTs, reaches a slightly higher Fmax, and produces fewer ML-KEM cycles.
+The current custom-instruction RTL is the first implementation. It shares one generic 33-bit signed multiplier across ordinary RISC-V multiply, FQMUL, and RED32. The results above should be read as a measured starting point for a later microarchitecture pass.
 
-The present RTL is a first hardware implementation rather than a completed microarchitecture search. FQMUL and RED32 share a generic 33 by 33 signed multiplier with state-dependent muxing. The next useful experiment is to optimize that datapath and measure the new Pareto points before drawing a final conclusion about the instruction idea.
+The numbers used in this section are stored in [`results/current-comparison.json`](results/current-comparison.json). The figure is generated directly from that file by [`scripts/plot_results.py`](scripts/plot_results.py).
 
-![Measured result](docs/figures/measured-results.svg)
+## What is being searched
 
-## The experiment
+ML-KEM uses NTTs and base multiplication for polynomial arithmetic. Equivalent implementations can schedule those operations in different ways. This repository searches four choices:
 
-ML-KEM spends much of its arithmetic time in NTTs and base multiplication. There are several legal ways to order those operations and to decide when values are reduced. The generated schedules all implement the same ML-KEM arithmetic. They differ in execution order, temporary storage, and where modular reduction occurs.
-
-The schedule space uses these choices:
-
-| field | values |
+| part | choices |
 |---|---|
-| parameter set | 512, 768, 1024 |
-| forward NTT | one layer at a time, or fuse two layers |
-| inverse NTT | one layer at a time, or fuse two layers |
-| inverse reduction | reduce every layer, or after each layer pair |
-| base multiplication | cached late, cached eager, direct eager |
-| arithmetic instruction | standard multiply, FQMUL, or RED32 |
+| forward NTT | one layer at a time, fuse two layers |
+| inverse NTT | one layer at a time, fuse two layers |
+| inverse reduction | after every layer, after each layer pair |
+| base multiplication | cached late reduction, cached eager reduction, direct eager reduction |
 
-For example,
+That gives 24 schedules per parameter set and 72 schedules over ML-KEM-512, ML-KEM-768, and ML-KEM-1024. The best software-only schedule is `ffuse2_ifuse2_rpair_bcachelate` for all three parameter sets.
 
-```text
-mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul
-```
+Schedule generation and checking live in [`src/`](src/). Generated code is compiled with `-O3` for RV32IMC and linked into the bare-metal benchmark firmware in [`targets/picorv32/firmware/`](targets/picorv32/firmware/).
 
-means ML-KEM-768, two-layer forward NTT fusion, two-layer inverse NTT fusion, pairwise inverse reduction, direct eager base multiplication, and the FQMUL instruction.
+## Custom instructions
 
-The original software/FQMUL search contains 144 plans: 72 software plans and 72 FQMUL plans. RED32 adds another 72-plan comparison over the same software dimensions.
+Both instructions use the RISC-V `custom-0` major opcode. The RISC-V opcode map recommends `custom-0` through `custom-3` for custom extensions. PicoRV32 exposes unsupported non-branching instructions through its Pico Co-Processor Interface, or PCPI. The custom arithmetic unit in this repository connects through that interface.
 
-## The two custom instructions
-
-Both instructions use the RISC-V `custom-0` opcode space. The RISC-V opcode map reserves `custom-0` through `custom-3` for custom extensions. These encodings are local to this experiment.
-
-ML-KEM uses modulus `q = 3329` and Montgomery radix `R = 2^16`. The reduction implemented here is equivalent to:
-
-```text
-u = ((t & 0xffff) * 62209) & 0xffff
-u = sign_extend_16(u)
-r = (sign_extend_32(t) - u * 3329) / 65536
-```
-
-The numerator is exactly divisible by 65536 for the inputs used by the operation.
+ML-KEM uses `q = 3329` and a Montgomery radix of `2^16`. Both instructions use the same Montgomery reduction step.
 
 ### FQMUL
 
-FQMUL takes the signed low 16 bits of two registers. It multiplies them and performs the reduction in one PCPI request.
+FQMUL takes the signed low 16 bits of `rs1` and `rs2`. It multiplies them and reduces the product modulo `q` in one PCPI request.
 
 ```text
-t = sign16(rs1) * sign16(rs2)
-rd = montgomery_reduce(t)
+a = sign16(rs1)
+b = sign16(rs2)
+t = a * b
+u = sign16((low16(t) * 62209) mod 2^16)
+rd = (t - u * 3329) / 2^16
 ```
 
-The current implementation returns after four arithmetic cycles. Its instruction match is `0x0000000b` under mask `0xfe00707f`.
+Encoding: `custom-0`, `funct3 = 0`, `funct7 = 0`. The current RTL responds after four arithmetic cycles.
+
+Source: [`targets/picorv32/mlkem/fqmul.h`](targets/picorv32/mlkem/fqmul.h) contains the C model and inline instruction. [`targets/picorv32/rtl/pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv) contains the hardware implementation. The completed formal and CBMC record is [`fqmul-formal.json`](results/raw/picorv32-step3-fd803594-69d24e37/fqmul-formal.json).
+
+The reduction follows the same Montgomery form used by the Kyber reference implementation. Alkim et al. studied closely related finite-field RISC-V instructions for Kyber and NewHope in [ISA Extensions for Finite Field Arithmetic](https://doi.org/10.13154/TCHES.V2020.I3.219-242).
 
 ### RED32
 
-RED32 takes one signed 32-bit value and reduces it. `rs2` is fixed to `x0`.
+RED32 accepts an already-computed signed 32-bit product in `rs1` and performs only the Montgomery reduction.
 
 ```text
-t = rs1
-rd = montgomery_reduce(t)
+t = sign32(rs1)
+u = sign16((low16(t) * 62209) mod 2^16)
+rd = (t - u * 3329) / 2^16
 ```
 
-Generated ML-KEM code therefore computes a standard `MUL` first and then issues RED32. Its instruction match is `0x0000100b` under the same mask.
+Encoding: `custom-0`, `funct3 = 1`, `funct7 = 0`. `rs2` is encoded as `x0`. The current RTL responds after three arithmetic cycles.
 
-## Baselines
+An ML-KEM multiplication using RED32 therefore executes a standard RISC-V `MUL` first and RED32 second. This tests whether keeping multiplication outside the custom operation gives a better hardware tradeoff than FQMUL.
 
-Three baselines appear in the result files and they serve different purposes.
+Source: [`targets/picorv32/mlkem/red32.h`](targets/picorv32/mlkem/red32.h) contains the C model and inline instruction. The hardware shares [`pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv) with FQMUL. [`red32_pcpi.cpp`](targets/picorv32/sim/red32_pcpi.cpp) is the direct Verilator test for the instruction.
 
-| name | meaning |
-|---|---|
-| portable | the pinned mlkem-native portable arithmetic path |
-| searched software | the fastest generated `xnone` schedule using standard RISC-V multiply |
-| stock multiplier | PicoRV32's own fast multiplier, used as a substrate cross-check |
+## Testing
 
-The searched software schedule wins over the portable arithmetic path by 2.83% on ML-KEM-512, 2.49% on ML-KEM-768, and 1.64% on ML-KEM-1024.
+The project tests the generated software and the custom hardware at several levels.
 
-The project PCPI implementation of the standard multiply instructions was also checked against PicoRV32's stock multiplier before the ML-KEM experiments. This keeps the custom-instruction comparison tied to a known CPU substrate.
+| test | what is checked | current result |
+|---|---|---|
+| host unit tests | plan enumeration, legality checks, code generation, result parsing | pass |
+| ASan and UBSan build | generated host code and test suite under sanitizers | pass |
+| FQMUL formal and CBMC | PCPI arithmetic, handshake, standard multiply behavior, bounded RVFI retirement, C models | pass |
+| RED32 direct RTL test | arithmetic result, 3-cycle latency, reset, back-to-back requests, decode isolation | pass |
+| full RED32 ML-KEM sweep | 72 generated schedules running on PicoRV32 RTL | pass |
+| ECP5 synthesis | LUT4, flip-flops, DSP, BRAM, routed Fmax over five seeds | complete |
+| RED32 formal | PCPI proof, bounded RVFI proof, RVFI cover | pass |
+| RED32 noninterference PDR | unbounded comparison with RED32 disabled | not completed |
 
-## Measurement protocol
+The direct RED32 RTL test covers 13 boundary inputs, all 65,536 possible low 16-bit values, and 100,000 deterministic random 32-bit inputs. It also checks that ordinary `MUL` still behaves correctly and that FQMUL is not decoded as RED32.
 
-Every candidate is compiled into bare-metal RV32IMC firmware and executed on Verilated PicoRV32 RTL. Host timing is never used as the ML-KEM performance number.
+The full RED32 sweep runs 24 schedules for each parameter set. Every schedule records 510 measurements: five kernels over 16 inputs with three repeats, then key generation, encapsulation, and decapsulation over 30 inputs with three repeats. This gives 12,240 measurement records per parameter set. Repeated runs must agree. Decapsulation also checks that the two shared secrets match.
 
-Each plan runs 16 deterministic inputs for each arithmetic kernel and 30 deterministic inputs for key generation, encapsulation, and decapsulation. Every input is repeated three times. A repeated measurement must produce identical cycle and retired-instruction counts.
+The RED32 PCPI proof passed. The 24-cycle RVFI bounded check and RVFI cover passed. The separate unbounded noninterference proof did not converge in practical time and was stopped. It did not produce a PASS or FAIL result. The status is saved in [`results/red32-verification.json`](results/red32-verification.json).
 
-The firmware measures five kernels:
+The test suite does not prove physical side-channel resistance. The cycle results come from RTL simulation. FPGA frequency and area come from synthesis and routing rather than a physical board run.
 
-```text
-forward NTT
-inverse NTT
-mulcache
-base multiplication
-tomont
-```
-
-It also measures complete ML-KEM key generation, encapsulation, and decapsulation. Decapsulation checks that both shared secrets match.
-
-The simulator records calibrated cycles, retired instructions, runtime stack high water, explicit scratch space, caller working storage, and allocated flash. It also reads the disassembly and checks that custom opcodes occur only in the approved arithmetic functions.
-
-FPGA measurements use the LFE5U-45F-6BG381C ECP5 target. Yosys performs synthesis and nextpnr-ecp5 runs five placement seeds at a 50 MHz target. The result records LUT4 count, flip-flops, DSP blocks, BRAM use, and routed maximum frequency.
-
-## Verification
-
-The generated schedules are checked independently before code generation. The checker reconstructs butterfly coverage, twiddle order, fusion groups, coefficient bounds, accumulator bounds, scratch use, caller workspace, and the declared legal or rejected state.
-
-Host tests cover schedule generation, generated C, result parsing, and target metadata. AddressSanitizer and UndefinedBehaviorSanitizer builds are available.
-
-FQMUL has a CBMC model check, SymbiYosys PCPI arithmetic and handshake checks, and a bounded RVFI retirement check.
-
-RED32 has a direct Verilator PCPI test over boundary values, every low 16-bit value, and 100,000 deterministic random 32-bit inputs. The same test checks three-cycle latency, reset cancellation, back-to-back requests, and ordinary multiply behavior. Its PCPI proof passed. A 24-cycle RVFI BMC passed and the RVFI cover task passed. The separate unbounded noninterference PDR task has not completed in practical time, so this repository does not claim that proof.
-
-These checks do not establish physical side-channel resistance, complete ML-KEM functional correctness at the RTL level, or production suitability. The current experiments also do not include execution on a physical FPGA board.
-
-## Build
+## Reproduce the results
 
 A normal host build needs CMake and a C++20 compiler.
 
@@ -155,7 +122,7 @@ cmake --build --preset release --parallel
 ctest --preset release
 ```
 
-The sanitizer build is separate:
+Run the sanitizer build separately:
 
 ```bash
 cmake --preset sanitize
@@ -163,87 +130,105 @@ cmake --build --preset sanitize --parallel
 ASAN_OPTIONS=detect_leaks=0 ctest --preset sanitize
 ```
 
-The target flows use pinned RISC-V and OSS CAD Suite releases. The CMake configuration checks the required tools before running.
+The completed target experiments used these tool releases:
 
-A full RED32 measurement and synthesis build can be configured with:
+| tool | release |
+|---|---|
+| RISC-V GNU toolchain | 2026.07.15 |
+| OSS CAD Suite | 2026-07-29 |
+| CBMC | 6.10.0, verification only |
+
+Put the RISC-V toolchain and OSS CAD Suite executables on `PATH`. The target build fetches the pinned PicoRV32 and `mlkem-native` sources itself.
+
+Configure one build directory for simulation and synthesis:
 
 ```bash
-cmake -S . -B build/picorv32-red32 -G Ninja \
+cmake -S . -B build/picorv32-study -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DPQC_POLY_LTO=OFF \
   -DPQC_POLY_PICORV32_MLKEM=ON \
   -DPQC_POLY_PICORV32_SYNTHESIS=ON
 ```
 
-Run the instruction-level RTL test first:
+Run the searched software baseline:
 
 ```bash
-cmake --build build/picorv32-red32 \
+cmake --build build/picorv32-study \
+  --target pqc-picorv32-mlkem \
+  --parallel 8
+```
+
+Run FQMUL and RED32:
+
+```bash
+cmake --build build/picorv32-study \
+  --target pqc-picorv32-fqmul \
+  --parallel 8
+
+cmake --build build/picorv32-study \
   --target pqc-picorv32-red32-pcpi \
   --parallel 8
-```
 
-Build the generated RV32 firmware:
-
-```bash
-cmake --build build/picorv32-red32 \
-  --target pqc-picorv32-red32-build \
-  --parallel 8
-```
-
-Run all 72 RED32 schedules on the PicoRV32 RTL model:
-
-```bash
-cmake --build build/picorv32-red32 \
+cmake --build build/picorv32-study \
   --target pqc-picorv32-red32 \
   --parallel 8
 ```
 
-Run the five-seed baseline and RED32 ECP5 synthesis:
+Run the hardware comparison:
 
 ```bash
-cmake --build build/picorv32-red32 \
+cmake --build build/picorv32-study \
+  --target pqc-picorv32-fqmul-synthesis \
+  --parallel 8
+
+cmake --build build/picorv32-study \
   --target pqc-picorv32-red32-synthesis \
   --parallel 8
 ```
 
-Formal verification is a separate target and is not required by the commands above.
+Create the same comparison JSON from the generated measurements:
 
-## Result provenance
+```bash
+python3 scripts/report_results.py build/picorv32-study \
+  --output results/current-comparison.json
+```
 
-Completed Step 1 through Step 3 records are committed under `results/raw/`. The directory names include the relevant repository and dependency revisions.
+Regenerate the README graph with Matplotlib:
 
-The main pinned revisions used by the completed comparison are:
+```bash
+python3 scripts/plot_results.py
+```
 
-| component | revision |
+Formal verification is separate from the performance and synthesis runs. Enable it with `-DPQC_POLY_PICORV32_FQMUL_VERIFY=ON`. The aggregate RED32 verification target includes the noninterference PDR task described above, so it may run for a long time.
+
+### Output locations
+
+| output | path |
 |---|---|
-| PicoRV32 | `a473fc8fca393771d83b0ffcf0b14db3393339d8` |
-| mlkem-native | `69d24e37b8a04c6050ec55bc84a4228d7051bb4b` |
-| Step 3 repository base | `fd8035940c25912bccb9c6d7c73611a5290fcee4` |
-| current RED32 branch result | `25dff836be6cee7b68b0f951de325ef6970a2d5e` |
+| searched software and FQMUL measurements | `build/picorv32-study/targets/picorv32/mlkem-results/` |
+| RED32 measurements | `build/picorv32-study/targets/picorv32/red32-results/` |
+| synthesis JSON | `build/picorv32-study/targets/picorv32/results/` |
+| committed Step 3 records | `results/raw/picorv32-step3-fd803594-69d24e37/` |
+| compact current comparison | `results/current-comparison.json` |
 
-The canonical Step 3 summary is `results/raw/picorv32-step3-fd803594-69d24e37/fqmul-final-comparison.json`.
+The full sweeps produce large JSONL files. They are generated from the pinned code and toolchain rather than duplicated in the README.
 
-The RED32 cycle and synthesis numbers in this README were produced from the current `step4-red32-local` branch at `25dff83`. The build products are generated locally rather than committed as a second large raw-result snapshot.
-
-## Repository map
+## Source map
 
 | path | purpose |
 |---|---|
-| `src/mlkem_plan.cpp` | schedule enumeration, bounds, and winner selection |
-| `src/mlkem_check.cpp` | independent schedule checker |
-| `src/mlkem_codegen.cpp` | C generation for software and FQMUL schedules |
-| `src/mlkem_red32*.cpp` | current RED32 experiment path |
-| `targets/picorv32/firmware/` | bare-metal benchmark firmware |
-| `targets/picorv32/rtl/` | PCPI arithmetic and PicoRV32 wrappers |
-| `targets/picorv32/sim/` | Verilator harness and measurement writer |
-| `targets/picorv32/formal/` | SymbiYosys and RVFI properties |
-| `targets/picorv32/synth/` | ECP5 synthesis and place-and-route flow |
-| `results/raw/` | committed experiment records |
-| `tests/` | host correctness and regression tests |
-
-The RED32 path currently duplicates parts of the plan and checker code. That is implementation debt rather than a research requirement. A cleanup should fold RED32 into the existing plan machinery before more instruction variants are added.
+| [`src/`](src/) | schedule generation, checking, and report logic |
+| [`targets/picorv32/mlkem/`](targets/picorv32/mlkem/) | ML-KEM arithmetic wrappers for the custom instructions |
+| [`targets/picorv32/rtl/`](targets/picorv32/rtl/) | PicoRV32 PCPI integration and custom arithmetic RTL |
+| [`targets/picorv32/sim/`](targets/picorv32/sim/) | Verilator harness and direct instruction tests |
+| [`targets/picorv32/synth/`](targets/picorv32/synth/) | ECP5 synthesis and place-and-route flow |
+| [`targets/picorv32/formal/`](targets/picorv32/formal/) | SymbiYosys and RVFI properties |
+| [`results/`](results/) | committed experiment summaries and earlier raw records |
 
 ## References
 
-The cryptographic algorithm is defined by [NIST FIPS 203](https://csrc.nist.gov/pubs/fips/203/final). The implementation base is [pq-code-package/mlkem-native](https://github.com/pq-code-package/mlkem-native). The CPU target is [YosysHQ/PicoRV32](https://github.com/YosysHQ/picorv32). The experimental instruction encodings use the custom opcode space shown in the [RISC-V unprivileged opcode map](https://docs.riscv.org/reference/isa/v20260120/unpriv/rv-32-64g.html).
+ML-KEM is specified in [NIST FIPS 203](https://doi.org/10.6028/NIST.FIPS.203). The implementation under test is the pinned [`mlkem-native`](https://github.com/pq-code-package/mlkem-native) codebase.
+
+PicoRV32 and its PCPI interface are documented in the [PicoRV32 repository](https://github.com/YosysHQ/picorv32). The RISC-V opcode map documents the [`custom-0` through `custom-3` opcode spaces](https://docs.riscv.org/reference/isa/v20260120/unpriv/rv-32-64g.html).
+
+The Montgomery-reduction structure can also be seen in the [Kyber reference `reduce.c`](https://github.com/pq-crystals/kyber/blob/main/ref/reduce.c). For prior work on small RISC-V finite-field instructions for Kyber and NewHope, see E. Alkim, H. Evkan, N. Lahr, R. Niederhagen, and R. Petri, [ISA Extensions for Finite Field Arithmetic: Accelerating Kyber and NewHope on RISC-V](https://doi.org/10.13154/TCHES.V2020.I3.219-242), TCHES 2020(3).
