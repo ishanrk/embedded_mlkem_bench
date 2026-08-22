@@ -198,7 +198,8 @@ begin
     rvfi_rs1_rdata = core_rvfi_rs1_rdata;
     rvfi_rs2_rdata = core_rvfi_rs2_rdata;
     if (rvfi_valid && ((rvfi_insn & 32'hfe00_707f) == 32'h0000_000b ||
-                       (rvfi_insn & 32'hfe00_707f) == 32'h0000_100b))
+                       (rvfi_insn & 32'hfe00_707f) == 32'h0000_100b ||
+                       (rvfi_insn & 32'hc000_707f) == 32'h0000_200b))
     begin
         rvfi_rs1_rdata = project_formal_state[175:144];
         rvfi_rs2_rdata = project_formal_state[143:112];
