@@ -88,9 +88,10 @@ def parse_args():
     parser.add_argument("--output", required=True)
     parser.add_argument("--enable-fqmul", action="store_true")
     parser.add_argument("--enable-red32", action="store_true")
+    parser.add_argument("--enable-fsri", action="store_true")
     args = parser.parse_args()
-    if args.enable_fqmul and args.enable_red32:
-        parser.error("fqmul and red32 are separate synthesis experiments")
+    if sum((args.enable_fqmul, args.enable_red32, args.enable_fsri)) > 1:
+        parser.error("custom instructions are separate synthesis experiments")
     return args
 
 
@@ -113,6 +114,7 @@ def main():
             "STOCK_MUL": "0",
             "ENABLE_FQMUL": "1" if args.enable_fqmul else "0",
             "ENABLE_RED32": "1" if args.enable_red32 else "0",
+            "ENABLE_FSRI": "1" if args.enable_fsri else "0",
             "SYNTH_JSON": str(netlist_path.resolve()),
         }
     )
@@ -175,6 +177,7 @@ def main():
         "period_ns": 20,
         "fqmul_enabled": args.enable_fqmul,
         "red32_enabled": args.enable_red32,
+        "fsri_enabled": args.enable_fsri,
         "yosys_version": version([args.yosys, "-V"]),
         "nextpnr_version": version([args.nextpnr, "--version"]),
         "ecppack_version": version([args.ecppack, "--version"]),

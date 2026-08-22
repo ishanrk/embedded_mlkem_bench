@@ -1,6 +1,7 @@
 module pqc_pcpi_mlkem #(
     parameter ENABLE_FQMUL = 1'b0,
-    parameter ENABLE_RED32 = 1'b0
+    parameter ENABLE_RED32 = 1'b0,
+    parameter ENABLE_FSRI = 1'b0
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -37,6 +38,7 @@ logic custom_request;
 logic m_claim;
 logic fqmul_claim;
 logic red32_claim;
+logic fsri_claim;
 logic claim;
 logic same_request;
 logic [31:0] last_insn;
@@ -52,6 +54,9 @@ logic signed [31:0] modulus_value;
 logic signed [32:0] numerator;
 logic signed [31:0] fqmul_result;
 logic [31:0] m_result;
+logic [4:0] fsri_shift;
+logic [63:0] fsri_value;
+logic [31:0] fsri_result;
 
 `ifdef FORMAL
 assign formal_state = {state, served, custom_request, last_insn, last_rs1, last_rs2,
@@ -71,7 +76,9 @@ begin
                   (pcpi_insn & 32'hfe00_707f) == 32'h0000_000b;
     red32_claim = ENABLE_RED32 && pcpi_valid &&
                   (pcpi_insn & 32'hfe00_707f) == 32'h0000_100b;
-    claim = m_claim || fqmul_claim || red32_claim;
+    fsri_claim = ENABLE_FSRI && pcpi_valid &&
+                 (pcpi_insn & 32'hc000_707f) == 32'h0000_200b;
+    claim = m_claim || fqmul_claim || red32_claim || fsri_claim;
     same_request = pcpi_insn == last_insn && pcpi_rs1 == last_rs1 && pcpi_rs2 == last_rs2;
 
     multiply_left = 33'sd0;
@@ -122,6 +129,10 @@ begin
                 $signed({modulus_value[31], modulus_value});
     fqmul_result = $signed({{15{numerator[32]}}, numerator[32:16]});
 
+    fsri_shift = pcpi_insn[29:25];
+    fsri_value = {pcpi_rs2, pcpi_rs1} >> fsri_shift;
+    fsri_result = fsri_value[31:0];
+
     pcpi_ready = state == RESPONSE && pcpi_valid && same_request;
     pcpi_wr = pcpi_ready;
     pcpi_rd = custom_request ? fqmul_result : response_value;
@@ -169,7 +180,12 @@ begin
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
-                    if (red32_claim)
+                    if (fsri_claim)
+                    begin
+                        response_value <= fsri_result;
+                        state <= RESPONSE;
+                    end
+                    else if (red32_claim)
                     begin
                         product_value <= $signed(pcpi_rs1);
                         state <= INVERSE;
@@ -212,7 +228,12 @@ begin
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
-                    if (red32_claim)
+                    if (fsri_claim)
+                    begin
+                        response_value <= fsri_result;
+                        state <= RESPONSE;
+                    end
+                    else if (red32_claim)
                     begin
                         product_value <= $signed(pcpi_rs1);
                         state <= INVERSE;

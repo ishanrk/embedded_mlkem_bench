@@ -1,7 +1,8 @@
 module pqc_picorv32_core_top #(
     parameter STOCK_MUL = 1'b0,
     parameter ENABLE_FQMUL = 1'b0,
-    parameter ENABLE_RED32 = 1'b0
+    parameter ENABLE_RED32 = 1'b0,
+    parameter ENABLE_FSRI = 1'b0
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -68,7 +69,8 @@ logic [31:0] core_rvfi_rs2_rdata;
 
 pqc_pcpi_mlkem #(
     .ENABLE_FQMUL(ENABLE_FQMUL),
-    .ENABLE_RED32(ENABLE_RED32)
+    .ENABLE_RED32(ENABLE_RED32),
+    .ENABLE_FSRI(ENABLE_FSRI)
 ) project_pcpi (
     .clk(clk),
     .resetn(resetn),
