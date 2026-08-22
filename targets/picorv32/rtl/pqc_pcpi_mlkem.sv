@@ -39,7 +39,7 @@ logic m_claim;
 logic fqmul_claim;
 logic red32_claim;
 logic fsri_claim;
-logic claim;
+logic slow_claim;
 logic same_request;
 logic [31:0] last_insn;
 logic [31:0] last_rs1;
@@ -78,7 +78,7 @@ begin
                   (pcpi_insn & 32'hfe00_707f) == 32'h0000_100b;
     fsri_claim = ENABLE_FSRI && pcpi_valid &&
                  (pcpi_insn & 32'hc000_707f) == 32'h0000_200b;
-    claim = m_claim || fqmul_claim || red32_claim || fsri_claim;
+    slow_claim = m_claim || fqmul_claim || red32_claim;
     same_request = pcpi_insn == last_insn && pcpi_rs1 == last_rs1 && pcpi_rs2 == last_rs2;
 
     multiply_left = 33'sd0;
@@ -133,16 +133,32 @@ begin
     fsri_value = {pcpi_rs2, pcpi_rs1} >> fsri_shift;
     fsri_result = fsri_value[31:0];
 
-    pcpi_ready = state == RESPONSE && pcpi_valid && same_request;
+    pcpi_ready = fsri_claim || (state == RESPONSE && pcpi_valid && same_request);
     pcpi_wr = pcpi_ready;
-    pcpi_rd = custom_request ? fqmul_result : response_value;
-    if (state == IDLE)
+    if (fsri_claim)
     begin
-        pcpi_wait = claim && (!served || !same_request);
+        pcpi_rd = fsri_result;
+    end
+    else if (custom_request)
+    begin
+        pcpi_rd = fqmul_result;
+    end
+    else
+    begin
+        pcpi_rd = response_value;
+    end
+
+    if (fsri_claim)
+    begin
+        pcpi_wait = 1'b0;
+    end
+    else if (state == IDLE)
+    begin
+        pcpi_wait = slow_claim && (!served || !same_request);
     end
     else if (state == RESPONSE)
     begin
-        pcpi_wait = claim && !same_request;
+        pcpi_wait = slow_claim && !same_request;
     end
     else
     begin
@@ -174,18 +190,13 @@ begin
                 begin
                     served <= 1'b0;
                 end
-                if (claim && (!served || !same_request))
+                if (slow_claim && (!served || !same_request))
                 begin
                     custom_request <= fqmul_claim || red32_claim;
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
-                    if (fsri_claim)
-                    begin
-                        response_value <= fsri_result;
-                        state <= RESPONSE;
-                    end
-                    else if (red32_claim)
+                    if (red32_claim)
                     begin
                         product_value <= $signed(pcpi_rs1);
                         state <= INVERSE;
@@ -222,18 +233,13 @@ begin
             RESPONSE:
             begin
                 served <= 1'b1;
-                if (claim && !same_request)
+                if (slow_claim && !same_request)
                 begin
                     custom_request <= fqmul_claim || red32_claim;
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
-                    if (fsri_claim)
-                    begin
-                        response_value <= fsri_result;
-                        state <= RESPONSE;
-                    end
-                    else if (red32_claim)
+                    if (red32_claim)
                     begin
                         product_value <= $signed(pcpi_rs1);
                         state <= INVERSE;
