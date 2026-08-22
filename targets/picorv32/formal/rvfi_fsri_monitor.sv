@@ -35,7 +35,8 @@ logic [31:0] rvfi_mem_rdata;
 logic [31:0] rvfi_mem_wdata;
 logic [63:0] expected;
 
-wire fsri = rvfi_valid && (rvfi_insn & 32'hc000_707f) == 32'h0000_200b;
+wire fsri = cycle >= 6'd2 && rvfi_valid &&
+            (rvfi_insn & 32'hc000_707f) == 32'h0000_200b;
 
 assign mem_ready = mem_valid;
 assign mem_rdata = mem_addr == 32'b0 ? custom_insn : 32'h0000_006f;
