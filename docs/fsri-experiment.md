@@ -20,29 +20,51 @@ project-local encoding and only the immediate range needed by RV32 Keccak.
 
 ## implementation
 
-The PCPI result is combinational and has no FSRI state or result registers. On
-the pinned dual-port PicoRV32, the core still observes that response after the
-PCPI request becomes valid, so the expected total instruction cost is three
-processor cycles. The previous registered response cost one additional cycle.
+The area-oriented design reuses the PCPI multiplier already required for the
+standard RISC-V M instructions. For `0 < s < 32`, let `f = 2^(32-s)`. Then
 
-The software integration replaces only `MLK_KECCAK_ROL` in the pinned
+```text
+rs1 >> s        = high32(rs1 * f)
+rs2 << (32 - s) = low32(rs2 * f)
+```
+
+The result is the bitwise OR of those two nonoverlapping halves. `s=0` returns
+`rs1` through the same fixed-latency state sequence.
+
+A small decoder registers `f` before the multiplier is used. The first multiply
+produces the low part of `rs1 >> s`; the second produces the high part from
+`rs2`. The direct PCPI response occurs after exactly three rising edges for all
+shift amounts. On the pinned dual-port PicoRV32 this corresponds to an expected
+six processor cycles per FSRI. There is still only one multiply expression in
+the PCPI block, so synthesis must not add DSPs.
+
+The measured combinational implementation at commit
+`1b1d01aaaffe48a0bfff3cdc096cca526f8a40ca` remains in
+`results/fsri-combinational.json` as the speed and hardware reference. It used a
+second combinational barrel network and measured 31.15%, 32.46%, and 33.11%
+fewer cycles than searched software, but cost 12.14% more LUT4s and lost 2.88%
+median Fmax.
+
+The software integration still replaces only `MLK_KECCAK_ROL` in the pinned
 `mlkem-native` Keccak source. Polynomial arithmetic, ML-KEM APIs, test vectors,
-and the M-extension path are unchanged.
+and the standard M path are unchanged.
 
 ## model
 
 The pinned Keccak code executes 29 64-bit rotations per round and 24 rounds,
-for 696 rotations per permutation. The minimum complete ML-KEM workloads in the
-model execute 85, 140, and 221 permutations for ML-KEM-512, ML-KEM-768, and
-ML-KEM-1024.
+for 696 rotations per permutation. The minimum complete ML-KEM workloads execute
+85, 140, and 221 permutations for ML-KEM-512, ML-KEM-768, and ML-KEM-1024.
 
-At three cycles per FSRI, the static model predicts reductions of 5.62%, 5.80%,
-and 5.96%. These are workload bounds, not measured results. Verilator
-measurements are authoritative.
+Relative to the measured three-cycle combinational FSRI, the six-cycle
+multiplier-reuse implementation adds three cycles per dynamic FSRI. The minimum
+workload model therefore predicts 28.34%, 29.56%, and 30.13% fewer cycles than
+searched software, retaining about 91% of the combinational gain. Verilator
+measurements are authoritative because rejection-sampling retries can increase
+the dynamic instruction count.
 
 ## acceptance
 
-The experiment is a feasible merge candidate only when all of these hold:
+The implementation is a feasible merge candidate only when all of these hold:
 
 - every complete operation is faster than searched software
 - no complete operation regresses by more than 2%
@@ -51,9 +73,9 @@ The experiment is a feasible merge candidate only when all of these hold:
 - every seed meets 50 MHz
 - DSP and BRAM counts do not increase
 
-The report separately records whether FSRI beats FQMUL and RED32 at every ML-KEM
-level. Those instructions are cycle references but their measured hardware
-implementations already fail the project budget.
+The report separately compares cycles and hardware against the combinational
+FSRI, FQMUL, and RED32. Beating the combinational FSRI in cycles is not required;
+meeting the hardware budget is the purpose of this implementation.
 
 ## prior work
 

@@ -266,7 +266,8 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
         COMMAND
             "${PQC_PYTHON}" "${PROJECT_SOURCE_DIR}/scripts/fsri_report.py"
             "${pqc_target_dir}" --reference
-            "${PROJECT_SOURCE_DIR}/results/current-comparison.json" --model
+            "${PROJECT_SOURCE_DIR}/results/current-comparison.json" --combinational
+            "${PROJECT_SOURCE_DIR}/results/fsri-combinational.json" --model
             "${PROJECT_SOURCE_DIR}/results/fsri-model.json" --output "${pqc_fsri_report}"
         DEPENDS
             ${pqc_fsri_measurements}
@@ -275,6 +276,7 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
             "${pqc_fsri_synthesis}"
             "${PROJECT_SOURCE_DIR}/scripts/fsri_report.py"
             "${PROJECT_SOURCE_DIR}/results/current-comparison.json"
+            "${PROJECT_SOURCE_DIR}/results/fsri-combinational.json"
             "${PROJECT_SOURCE_DIR}/results/fsri-model.json"
         VERBATIM)
     add_custom_target(pqc-picorv32-fsri-report DEPENDS "${pqc_fsri_report}")

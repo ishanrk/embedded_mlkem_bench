@@ -39,7 +39,8 @@ logic m_claim;
 logic fqmul_claim;
 logic red32_claim;
 logic fsri_claim;
-logic slow_claim;
+logic fsri_active;
+logic claim;
 logic same_request;
 logic [31:0] last_insn;
 logic [31:0] last_rs1;
@@ -54,9 +55,8 @@ logic signed [31:0] modulus_value;
 logic signed [32:0] numerator;
 logic signed [31:0] fqmul_result;
 logic [31:0] m_result;
-logic [4:0] fsri_shift;
-logic [63:0] fsri_value;
-logic [31:0] fsri_result;
+logic [15:0] fsri_half;
+logic [31:0] fsri_factor;
 
 `ifdef FORMAL
 assign formal_state = {state, served, custom_request, last_insn, last_rs1, last_rs2,
@@ -78,14 +78,52 @@ begin
                   (pcpi_insn & 32'hfe00_707f) == 32'h0000_100b;
     fsri_claim = ENABLE_FSRI && pcpi_valid &&
                  (pcpi_insn & 32'hc000_707f) == 32'h0000_200b;
-    slow_claim = m_claim || fqmul_claim || red32_claim;
+    fsri_active = ENABLE_FSRI &&
+                  (last_insn & 32'hc000_707f) == 32'h0000_200b;
+    claim = m_claim || fqmul_claim || red32_claim || fsri_claim;
     same_request = pcpi_insn == last_insn && pcpi_rs1 == last_rs1 && pcpi_rs2 == last_rs2;
+
+    case (pcpi_insn[28:25])
+        4'd0: fsri_half = 16'h0001;
+        4'd1: fsri_half = 16'h8000;
+        4'd2: fsri_half = 16'h4000;
+        4'd3: fsri_half = 16'h2000;
+        4'd4: fsri_half = 16'h1000;
+        4'd5: fsri_half = 16'h0800;
+        4'd6: fsri_half = 16'h0400;
+        4'd7: fsri_half = 16'h0200;
+        4'd8: fsri_half = 16'h0100;
+        4'd9: fsri_half = 16'h0080;
+        4'd10: fsri_half = 16'h0040;
+        4'd11: fsri_half = 16'h0020;
+        4'd12: fsri_half = 16'h0010;
+        4'd13: fsri_half = 16'h0008;
+        4'd14: fsri_half = 16'h0004;
+        default: fsri_half = 16'h0002;
+    endcase
+    fsri_factor = 32'b0;
+    if (pcpi_insn[29:25] != 5'b0)
+    begin
+        if (!pcpi_insn[29] || pcpi_insn[28:25] == 4'b0)
+        begin
+            fsri_factor = {fsri_half, 16'b0};
+        end
+        else
+        begin
+            fsri_factor = {16'b0, fsri_half};
+        end
+    end
 
     multiply_left = 33'sd0;
     multiply_right = 33'sd0;
     if (state == PRODUCT)
     begin
-        if (custom_request)
+        if (fsri_active)
+        begin
+            multiply_left = $signed({1'b0, last_rs1});
+            multiply_right = $signed({1'b0, modulus_value});
+        end
+        else if (custom_request)
         begin
             multiply_left = $signed({{17{last_rs1[15]}}, last_rs1[15:0]});
             multiply_right = $signed({{17{last_rs2[15]}}, last_rs2[15:0]});
@@ -106,8 +144,16 @@ begin
     end
     else if (state == INVERSE)
     begin
-        multiply_left = $signed({17'b0, product_value[15:0]});
-        multiply_right = 33'sd62209;
+        if (fsri_active)
+        begin
+            multiply_left = $signed({1'b0, last_rs2});
+            multiply_right = $signed({1'b0, modulus_value});
+        end
+        else
+        begin
+            multiply_left = $signed({17'b0, product_value[15:0]});
+            multiply_right = 33'sd62209;
+        end
     end
     else if (state == MODULUS)
     begin
@@ -129,36 +175,16 @@ begin
                 $signed({modulus_value[31], modulus_value});
     fqmul_result = $signed({{15{numerator[32]}}, numerator[32:16]});
 
-    fsri_shift = pcpi_insn[29:25];
-    fsri_value = {pcpi_rs2, pcpi_rs1} >> fsri_shift;
-    fsri_result = fsri_value[31:0];
-
-    pcpi_ready = fsri_claim || (state == RESPONSE && pcpi_valid && same_request);
+    pcpi_ready = state == RESPONSE && pcpi_valid && same_request;
     pcpi_wr = pcpi_ready;
-    if (fsri_claim)
+    pcpi_rd = custom_request ? fqmul_result : response_value;
+    if (state == IDLE)
     begin
-        pcpi_rd = fsri_result;
-    end
-    else if (custom_request)
-    begin
-        pcpi_rd = fqmul_result;
-    end
-    else
-    begin
-        pcpi_rd = response_value;
-    end
-
-    if (fsri_claim)
-    begin
-        pcpi_wait = 1'b0;
-    end
-    else if (state == IDLE)
-    begin
-        pcpi_wait = slow_claim && (!served || !same_request);
+        pcpi_wait = claim && (!served || !same_request);
     end
     else if (state == RESPONSE)
     begin
-        pcpi_wait = slow_claim && !same_request;
+        pcpi_wait = claim && !same_request;
     end
     else
     begin
@@ -190,13 +216,19 @@ begin
                 begin
                     served <= 1'b0;
                 end
-                if (slow_claim && (!served || !same_request))
+                if (claim && (!served || !same_request))
                 begin
                     custom_request <= fqmul_claim || red32_claim;
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
-                    if (red32_claim)
+                    if (fsri_claim)
+                    begin
+                        response_value <= pcpi_rs1;
+                        modulus_value <= $signed(fsri_factor);
+                        state <= PRODUCT;
+                    end
+                    else if (red32_claim)
                     begin
                         product_value <= $signed(pcpi_rs1);
                         state <= INVERSE;
@@ -209,7 +241,15 @@ begin
             end
             PRODUCT:
             begin
-                if (custom_request)
+                if (fsri_active)
+                begin
+                    if (last_insn[29:25] != 5'b0)
+                    begin
+                        response_value <= multiply_result[63:32];
+                    end
+                    state <= INVERSE;
+                end
+                else if (custom_request)
                 begin
                     product_value <= multiply_result[31:0];
                     state <= INVERSE;
@@ -222,8 +262,19 @@ begin
             end
             INVERSE:
             begin
-                inverse_value <= multiply_result[15:0];
-                state <= MODULUS;
+                if (fsri_active)
+                begin
+                    if (last_insn[29:25] != 5'b0)
+                    begin
+                        response_value <= response_value | multiply_result[31:0];
+                    end
+                    state <= RESPONSE;
+                end
+                else
+                begin
+                    inverse_value <= multiply_result[15:0];
+                    state <= MODULUS;
+                end
             end
             MODULUS:
             begin
@@ -233,13 +284,19 @@ begin
             RESPONSE:
             begin
                 served <= 1'b1;
-                if (slow_claim && !same_request)
+                if (claim && !same_request)
                 begin
                     custom_request <= fqmul_claim || red32_claim;
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
-                    if (red32_claim)
+                    if (fsri_claim)
+                    begin
+                        response_value <= pcpi_rs1;
+                        modulus_value <= $signed(fsri_factor);
+                        state <= PRODUCT;
+                    end
+                    else if (red32_claim)
                     begin
                         product_value <= $signed(pcpi_rs1);
                         state <= INVERSE;

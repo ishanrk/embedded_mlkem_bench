@@ -1,13 +1,11 @@
 {
-  "schema": "pqc-poly-bench/fsri-model-v2",
+  "schema": "pqc-poly-bench/fsri-model-v3",
   "candidate": "fsri",
   "rotations_per_permutation": 696,
-  "baseline_cycles_per_rotation": 18,
   "fsri_per_rotation": 2,
   "pico_rv32_cpi": {
-    "normal_alu_instruction": 3,
     "combinational_pcpi_instruction": 3,
-    "registered_pcpi_instruction": 4
+    "multiplier_reuse_pcpi_instruction": 6
   },
   "levels": {
     "512": {
@@ -16,58 +14,14 @@
       "noise_permutations": 22,
       "hash_permutations": 27,
       "minimum_permutations": 85,
-      "baseline_cycles": 12636735,
-      "fqmul_gain_percent": 7.385048432209744,
-      "red32_gain_percent": 6.24811709670259,
-      "latency_sweep": {
-        "0": {
-          "saved_cycles": 1064880,
-          "gain_percent": 8.426860260977222,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "1": {
-          "saved_cycles": 946560,
-          "gain_percent": 7.490542454201975,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "2": {
-          "saved_cycles": 828240,
-          "gain_percent": 6.554224647426729,
-          "beats_fqmul": false,
-          "beats_red32": true
-        },
-        "3": {
-          "saved_cycles": 709920,
-          "gain_percent": 5.617906840651481,
-          "beats_fqmul": false,
-          "beats_red32": false
-        },
-        "4": {
-          "saved_cycles": 591600,
-          "gain_percent": 4.681589033876235,
-          "beats_fqmul": false,
-          "beats_red32": false
-        },
-        "5": {
-          "saved_cycles": 473280,
-          "gain_percent": 3.7452712271009876,
-          "beats_fqmul": false,
-          "beats_red32": false
-        },
-        "6": {
-          "saved_cycles": 354960,
-          "gain_percent": 2.8089534203257407,
-          "beats_fqmul": false,
-          "beats_red32": false
-        }
-      },
-      "selected_combinational_pcpi": {
-        "saved_cycles": 709920,
-        "gain_percent": 5.617906840651481,
-        "beats_fqmul": false,
-        "beats_red32": false
+      "minimum_dynamic_fsri": 118320,
+      "software_total_cycles": 12636735,
+      "measured_combinational_total_cycles": 8700799,
+      "multiplier_reuse_prediction": {
+        "added_cycles_vs_combinational": 354960,
+        "total_cycles": 9055759,
+        "gain_vs_software_percent": 28.337826186906664,
+        "retained_combinational_gain_percent": 90.98156067578334
       }
     },
     "768": {
@@ -76,58 +30,14 @@
       "noise_permutations": 20,
       "hash_permutations": 39,
       "minimum_permutations": 140,
-      "baseline_cycles": 20143356,
-      "fqmul_gain_percent": 5.559172960056904,
-      "red32_gain_percent": 4.745435666231585,
-      "latency_sweep": {
-        "0": {
-          "saved_cycles": 1753920,
-          "gain_percent": 8.707188613456466,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "1": {
-          "saved_cycles": 1559040,
-          "gain_percent": 7.739723211961304,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "2": {
-          "saved_cycles": 1364160,
-          "gain_percent": 6.772257810466141,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "3": {
-          "saved_cycles": 1169280,
-          "gain_percent": 5.804792408970978,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "4": {
-          "saved_cycles": 974400,
-          "gain_percent": 4.837327007475815,
-          "beats_fqmul": false,
-          "beats_red32": true
-        },
-        "5": {
-          "saved_cycles": 779520,
-          "gain_percent": 3.869861605980652,
-          "beats_fqmul": false,
-          "beats_red32": false
-        },
-        "6": {
-          "saved_cycles": 584640,
-          "gain_percent": 2.902396204485489,
-          "beats_fqmul": false,
-          "beats_red32": false
-        }
-      },
-      "selected_combinational_pcpi": {
-        "saved_cycles": 1169280,
-        "gain_percent": 5.804792408970978,
-        "beats_fqmul": true,
-        "beats_red32": true
+      "minimum_dynamic_fsri": 194880,
+      "software_total_cycles": 20143356,
+      "measured_combinational_total_cycles": 13604448,
+      "multiplier_reuse_prediction": {
+        "added_cycles_vs_combinational": 584640,
+        "total_cycles": 14189088,
+        "gain_vs_software_percent": 29.559463676261295,
+        "retained_combinational_gain_percent": 91.05905756741032
       }
     },
     "1024": {
@@ -136,60 +46,16 @@
       "noise_permutations": 26,
       "hash_permutations": 51,
       "minimum_permutations": 221,
-      "baseline_cycles": 30964081,
-      "fqmul_gain_percent": 5.315933645826595,
-      "red32_gain_percent": 4.360016368643397,
-      "latency_sweep": {
-        "0": {
-          "saved_cycles": 2768688,
-          "gain_percent": 8.941612056886171,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "1": {
-          "saved_cycles": 2461056,
-          "gain_percent": 7.9480996061210405,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "2": {
-          "saved_cycles": 2153424,
-          "gain_percent": 6.95458715535591,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "3": {
-          "saved_cycles": 1845792,
-          "gain_percent": 5.96107470459078,
-          "beats_fqmul": true,
-          "beats_red32": true
-        },
-        "4": {
-          "saved_cycles": 1538160,
-          "gain_percent": 4.96756225382565,
-          "beats_fqmul": false,
-          "beats_red32": true
-        },
-        "5": {
-          "saved_cycles": 1230528,
-          "gain_percent": 3.9740498030605202,
-          "beats_fqmul": false,
-          "beats_red32": false
-        },
-        "6": {
-          "saved_cycles": 922896,
-          "gain_percent": 2.98053735229539,
-          "beats_fqmul": false,
-          "beats_red32": false
-        }
-      },
-      "selected_combinational_pcpi": {
-        "saved_cycles": 1845792,
-        "gain_percent": 5.96107470459078,
-        "beats_fqmul": true,
-        "beats_red32": true
+      "minimum_dynamic_fsri": 307632,
+      "software_total_cycles": 30964081,
+      "measured_combinational_total_cycles": 20711107,
+      "multiplier_reuse_prediction": {
+        "added_cycles_vs_combinational": 922896,
+        "total_cycles": 21634003,
+        "gain_vs_software_percent": 30.131939003776665,
+        "retained_combinational_gain_percent": 90.99874826562517
       }
     }
   },
-  "decision": "rtl_and_synthesis_test"
+  "decision": "measure_multiplier_reuse"
 }

@@ -1,0 +1,37 @@
+{
+  "schema": "pqc-poly-bench/fsri-reference-v1",
+  "architecture": "combinational",
+  "commit": "1b1d01aaaffe48a0bfff3cdc096cca526f8a40ca",
+  "levels": {
+    "512": {
+      "keygen": 2458375,
+      "encapsulation": 2750045,
+      "decapsulation": 3492379,
+      "total": 8700799,
+      "static_fsri_instructions": 116
+    },
+    "768": {
+      "keygen": 3890111,
+      "encapsulation": 4357089,
+      "decapsulation": 5357248,
+      "total": 13604448,
+      "static_fsri_instructions": 116
+    },
+    "1024": {
+      "keygen": 6102774,
+      "encapsulation": 6660772,
+      "decapsulation": 7947561,
+      "total": 20711107,
+      "static_fsri_instructions": 116
+    }
+  },
+  "three_level_geometric_mean_speedup": 1.4759121545744727,
+  "synthesis": {
+    "lut4": 4018,
+    "flip_flops": 970,
+    "dsp": 4,
+    "bram": 0,
+    "median_fmax_mhz": 66.72,
+    "all_seeds_meet_50mhz": true
+  }
+}

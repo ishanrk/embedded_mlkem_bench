@@ -21,6 +21,18 @@ namespace
     return static_cast<std::uint32_t>(value >> (s & 31U));
 }
 
+[[nodiscard]] std::uint32_t mul_funnel(std::uint32_t a, std::uint32_t b, unsigned s)
+{
+    s &= 31U;
+    if (s == 0U)
+    {
+        return a;
+    }
+    const std::uint64_t factor = UINT64_C(1) << (32U - s);
+    return static_cast<std::uint32_t>((static_cast<std::uint64_t>(a) * factor) >> 32U) |
+           static_cast<std::uint32_t>(static_cast<std::uint64_t>(b) * factor);
+}
+
 [[nodiscard]] std::uint64_t rol(std::uint64_t value, unsigned shift)
 {
     shift &= 63U;
@@ -39,7 +51,8 @@ void check(std::uint32_t a, std::uint32_t b)
 {
     for (unsigned s = 0; s < 32U; ++s)
     {
-        if (pqc_fsri_c(a, b, s) != funnel(a, b, s))
+        const std::uint32_t expected = funnel(a, b, s);
+        if (pqc_fsri_c(a, b, s) != expected || mul_funnel(a, b, s) != expected)
         {
             fail("fsri mismatch");
         }

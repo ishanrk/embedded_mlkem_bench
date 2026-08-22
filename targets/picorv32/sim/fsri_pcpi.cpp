@@ -45,21 +45,38 @@ void tick(Vpqc_pcpi_mlkem &model)
            (6U << 20U);
 }
 
-void check_fsri(Vpqc_pcpi_mlkem &model, std::uint32_t a, std::uint32_t b, unsigned s)
+void run_fsri(Vpqc_pcpi_mlkem &model, std::uint32_t a, std::uint32_t b, unsigned s)
 {
     model.pcpi_valid = 1;
     model.pcpi_insn = insn(s);
     model.pcpi_rs1 = a;
     model.pcpi_rs2 = b;
     model.eval();
-    require(model.pcpi_wait == 0, "request inserted a wait state");
-    require(model.pcpi_ready != 0, "request did not respond combinationally");
-    require(model.pcpi_wr != 0, "response did not write");
-    require(model.pcpi_rd == oracle(a, b, s), "result mismatch");
+    require(model.pcpi_wait != 0 && model.pcpi_ready == 0,
+            "request was not claimed immediately");
+
+    unsigned ready_count = 0;
+    unsigned ready_cycle = 0;
+    for (unsigned cycle = 1; cycle <= 5U; ++cycle)
+    {
+        tick(model);
+        if (model.pcpi_ready != 0)
+        {
+            ++ready_count;
+            ready_cycle = cycle;
+            require(model.pcpi_wait == 0, "response kept wait asserted");
+            require(model.pcpi_wr != 0, "response did not write");
+            require(model.pcpi_rd == oracle(a, b, s), "result mismatch");
+        }
+        else if (cycle < 3U)
+        {
+            require(model.pcpi_wait != 0, "wait dropped before response");
+        }
+    }
+    require(ready_count == 1U, "request did not produce one response");
+    require(ready_cycle == 3U, "latency changed");
     model.pcpi_valid = 0;
-    model.eval();
-    require(model.pcpi_ready == 0 && model.pcpi_wr == 0,
-            "response remained after request");
+    tick(model);
 }
 
 void run_mul(Vpqc_pcpi_mlkem &model, std::uint32_t a, std::uint32_t b)
@@ -115,7 +132,7 @@ int main()
         {
             for (const std::uint32_t b : values)
             {
-                check_fsri(model, a, b, s);
+                run_fsri(model, a, b, s);
             }
         }
     }
@@ -126,47 +143,50 @@ int main()
         const std::uint32_t a = next(state);
         const std::uint32_t b = next(state);
         const unsigned s = next(state) & 31U;
-        check_fsri(model, a, b, s);
+        run_fsri(model, a, b, s);
     }
+
+    run_mul(model, UINT32_C(0x89abcdef), UINT32_C(0x12345678));
 
     model.pcpi_valid = 1;
     model.pcpi_insn = insn(13U);
     model.pcpi_rs1 = UINT32_C(0x12345678);
     model.pcpi_rs2 = UINT32_C(0x89abcdef);
     model.eval();
-    require(model.pcpi_ready != 0 &&
-                model.pcpi_rd == oracle(model.pcpi_rs1, model.pcpi_rs2, 13U),
-            "held request did not respond");
+    require(model.pcpi_wait != 0, "reset request was not claimed");
     tick(model);
-    require(model.pcpi_ready != 0 && model.pcpi_wait == 0 &&
-                model.pcpi_rd == oracle(model.pcpi_rs1, model.pcpi_rs2, 13U),
-            "held request changed");
-
-    model.pcpi_insn = insn(19U);
-    model.pcpi_rs1 = UINT32_C(0xfedcba98);
-    model.pcpi_rs2 = UINT32_C(0x76543210);
-    model.eval();
-    require(model.pcpi_ready != 0 && model.pcpi_wait == 0 &&
-                model.pcpi_rd == oracle(model.pcpi_rs1, model.pcpi_rs2, 19U),
-            "back to back request observed a stale response");
+    model.resetn = 0;
+    tick(model);
+    model.resetn = 1;
     model.pcpi_valid = 0;
     tick(model);
-
-    run_mul(model, UINT32_C(0x89abcdef), UINT32_C(0x12345678));
+    require(model.pcpi_ready == 0 && model.pcpi_wr == 0,
+            "reset did not cancel request");
 
     model.pcpi_valid = 1;
     model.pcpi_insn = insn(7U);
     model.pcpi_rs1 = UINT32_C(0x01234567);
     model.pcpi_rs2 = UINT32_C(0x89abcdef);
+    tick(model);
+    tick(model);
+    tick(model);
+    require(model.pcpi_ready != 0 &&
+                model.pcpi_rd == oracle(model.pcpi_rs1, model.pcpi_rs2, 7U),
+            "first back to back response failed");
+    model.pcpi_insn = insn(19U);
+    model.pcpi_rs1 = UINT32_C(0xfedcba98);
+    model.pcpi_rs2 = UINT32_C(0x76543210);
     model.eval();
-    require(model.pcpi_ready != 0, "reset request did not respond");
-    model.resetn = 0;
+    require(model.pcpi_ready == 0 && model.pcpi_wait != 0,
+            "second request observed a stale response");
+    tick(model);
+    tick(model);
+    tick(model);
+    require(model.pcpi_ready != 0 &&
+                model.pcpi_rd == oracle(model.pcpi_rs1, model.pcpi_rs2, 19U),
+            "second back to back response failed");
     model.pcpi_valid = 0;
     tick(model);
-    model.resetn = 1;
-    tick(model);
-    require(model.pcpi_ready == 0 && model.pcpi_wr == 0,
-            "reset left a response pending");
 
     for (const std::uint32_t instruction :
          {UINT32_C(0x0000000b), UINT32_C(0x0000100b), UINT32_C(0x4000200b),
