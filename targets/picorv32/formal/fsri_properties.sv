@@ -28,7 +28,7 @@ begin
     pcpi_insn = insn;
     pcpi_rs1 = rs1;
     pcpi_rs2 = rs2;
-    if (resetn && cycle >= 4'd1 && cycle <= 4'd4 && (!cancel || cycle <= 4'd2))
+    if (resetn && cycle >= 4'd1 && cycle <= 4'd5 && (!cancel || cycle <= 4'd2))
     begin
         pcpi_valid = 1'b1;
     end
@@ -105,6 +105,7 @@ begin
 
     if (cycle == 4'd5)
     begin
+        assert(!pcpi_wait);
         assert(!pcpi_ready);
         assert(!pcpi_wr);
     end
