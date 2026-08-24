@@ -10,7 +10,7 @@ b) The second is SHA-3/SHAKE [2]. These are used for things like generating the 
 
 The goal of this project was to see whether adding small RISC-V hardware extensions [4], which can be thought of as more specialized instructions that a processor is allowed to execute, could make complete ML-KEM faster on an embedded processor without adding too much hardware area or delay.
 
-I used PicoRV32 as the processor and `mlkem-native` [5] as the ML-KEM implementation. \
+I used PicoRV32 as the processor and `mlkem-native` [5] as the ML-KEM implementation.
 
 I optimized the non instruction added runs with some basic ideas. For example, suppose several operations eventually need to be reduced modulo $q$. You could reduce after every operation. This keeps the value small, but it means doing more reductions. You could instead keep the intermediate value in a larger register, do several operations, and reduce only once at the end. This saves instructions, but if you wait for too long the value can get large enough to overflow the register. So there is a limit to how far you can push this.
 
