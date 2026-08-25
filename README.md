@@ -146,13 +146,13 @@ I use Yosys to synthesize each design and nextpnr to place and route it on an EC
 
 LUT4s are the main configurable logic blocks on the FPGA, so more LUTs roughly means more hardware area. `Fmax` is the highest clock frequency the routed design can meet, so higher is better.
 
-| Design                |            LUT4 |     Flip-flops | DSP | BRAM |         Median Fmax | 50 MHz seeds |
-| --------------------- | --------------: | -------------: | --: | ---: | ------------------: | -----------: |
-| normal PicoRV32       |           3,583 |            970 |   4 |    0 |           68.70 MHz |          5/5 |
-| FQMUL                 |  3,788 (+5.72%) | 1,053 (+8.56%) |   4 |    0 | 60.51 MHz (-11.92%) |          5/5 |
-| RED32                 |  3,816 (+6.50%) | 1,053 (+8.56%) |   4 |    0 | 60.20 MHz (-12.37%) |          5/5 |
-| FSRI direct           | 4,018 (+12.14%) |   970 (+0.00%) |   4 |    0 |  66.72 MHz (-2.88%) |          5/5 |
-| FSRI multiplier reuse |  3,905 (+8.99%) | 1,037 (+6.91%) |   4 |    0 | 50.25 MHz (-26.86%) |          3/5 |
+| Design                |            LUT4 |     Flip-flops | DSP | BRAM |         Median Fmax |
+| --------------------- | --------------: | -------------: | --: | ---: | ------------------: | 
+| normal PicoRV32       |           3,583 |            970 |   4 |    0 |           68.70 MHz |          
+| FQMUL                 |  3,788 (+5.72%) | 1,053 (+8.56%) |   4 |    0 | 60.51 MHz (-11.92%) |          
+| RED32                 |  3,816 (+6.50%) | 1,053 (+8.56%) |   4 |    0 | 60.20 MHz (-12.37%) |          
+| FSRI direct           | 4,018 (+12.14%) |   970 (+0.00%) |   4 |    0 |  66.72 MHz (-2.88%) |         
+| FSRI multiplier reuse |  3,905 (+8.99%) | 1,037 (+6.91%) |   4 |    0 | 50.25 MHz (-26.86%) |          
 
 ![ECP5 LUT4 cost](docs/figures/area.svg)
 
