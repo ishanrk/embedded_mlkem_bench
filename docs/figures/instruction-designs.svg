@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+<title id="title">Three custom instruction designs</title>
+<desc id="desc">Comparison of inputs, exact operations, outputs, and measured direct PCPI latency.</desc>
+<rect width="1200" height="430" fill="white"/>
+<style>
+text { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.title { font-size: 25px; font-weight: 700; fill: #172033; }
+.subtitle { font-size: 15px; fill: #5f6b7a; }
+.panel-title { font-size: 21px; font-weight: 700; fill: #172033; }
+.label { font-size: 16px; fill: #172033; }
+.small { font-size: 14px; fill: #5f6b7a; }
+.value { font-size: 15px; font-weight: 650; fill: #172033; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+</style>
+<text class="title" x="40" y="42">Three custom instruction designs</text>
+<text class="subtitle" x="40" y="68">All use custom-0. The current RTL reuses one shared multiplier expression.</text>
+<rect x="40" y="92" width="350" height="282" rx="12" fill="#f7f9fc" stroke="#d7dde7"/>
+<circle cx="67" cy="122" r="15" fill="#3568d4"/>
+<text x="67" y="127" text-anchor="middle" font-size="14" font-weight="700" fill="white">A</text>
+<text class="panel-title mono" x="93" y="129">mlk.fqmul</text>
+<rect x="420" y="92" width="350" height="282" rx="12" fill="#f7f9fc" stroke="#d7dde7"/>
+<circle cx="447" cy="122" r="15" fill="#c84b4b"/>
+<text x="447" y="127" text-anchor="middle" font-size="14" font-weight="700" fill="white">B</text>
+<text class="panel-title mono" x="473" y="129">mlk.red32</text>
+<rect x="800" y="92" width="350" height="282" rx="12" fill="#f7f9fc" stroke="#d7dde7"/>
+<circle cx="827" cy="122" r="15" fill="#27866f"/>
+<text x="827" y="127" text-anchor="middle" font-size="14" font-weight="700" fill="white">C</text>
+<text class="panel-title mono" x="853" y="129">fsri</text>
+<rect x="62" y="162" width="87" height="57" rx="7" fill="white" stroke="#9cacbf"/>
+<text class="value mono" x="105" y="185" text-anchor="middle">a, b</text>
+<text class="small" x="105" y="205" text-anchor="middle">signed low 16</text>
+<rect x="181" y="151" width="128" height="79" rx="7" fill="#e9f0ff" stroke="#3568d4"/>
+<text class="value" x="245" y="180" text-anchor="middle">multiply</text>
+<text class="value" x="245" y="202" text-anchor="middle">+ Montgomery</text>
+<text class="small" x="245" y="220" text-anchor="middle">q = 3329</text>
+<rect x="326" y="162" width="46" height="57" rx="7" fill="white" stroke="#9cacbf"/>
+<text class="value mono" x="349" y="195" text-anchor="middle">rd</text>
+<text class="label mono" x="62" y="267">rd = RED(a × b)</text>
+<text class="small" x="62" y="294">Used in NTT, inverse NTT, base</text>
+<text class="small" x="62" y="314">multiplication, caches, and conversion.</text>
+<text class="value" x="62" y="348">4 PCPI response edges</text>
+<line x1="149" y1="190" x2="173" y2="190" stroke="#5f6b7a" stroke-width="2"/>
+<path d="M 173 185 L 181 190 L 173 195 Z" fill="#5f6b7a"/>
+<line x1="309" y1="190" x2="318" y2="190" stroke="#5f6b7a" stroke-width="2"/>
+<path d="M 318 185 L 326 190 L 318 195 Z" fill="#5f6b7a"/>
+<rect x="442" y="162" width="104" height="57" rx="7" fill="white" stroke="#9cacbf"/>
+<text class="value mono" x="494" y="185" text-anchor="middle">t = rs1</text>
+<text class="small" x="494" y="205" text-anchor="middle">signed 32 bit</text>
+<rect x="578" y="151" width="115" height="79" rx="7" fill="#fff0ef" stroke="#c84b4b"/>
+<text class="value" x="635" y="180" text-anchor="middle">Montgomery</text>
+<text class="value" x="635" y="202" text-anchor="middle">reduction</text>
+<text class="small" x="635" y="220" text-anchor="middle">q = 3329</text>
+<rect x="710" y="162" width="42" height="57" rx="7" fill="white" stroke="#9cacbf"/>
+<text class="value mono" x="731" y="195" text-anchor="middle">rd</text>
+<text class="label mono" x="442" y="267">rd = RED(t)</text>
+<text class="small" x="442" y="294">An ordinary RISC-V MUL computes t.</text>
+<text class="small" x="442" y="314">Only the reduction moves to hardware.</text>
+<text class="value" x="442" y="348">3 PCPI response edges</text>
+<line x1="546" y1="190" x2="570" y2="190" stroke="#5f6b7a" stroke-width="2"/>
+<path d="M 570 185 L 578 190 L 570 195 Z" fill="#5f6b7a"/>
+<line x1="693" y1="190" x2="702" y2="190" stroke="#5f6b7a" stroke-width="2"/>
+<path d="M 702 185 L 710 190 L 702 195 Z" fill="#5f6b7a"/>
+<rect x="822" y="151" width="104" height="79" rx="7" fill="white" stroke="#9cacbf"/>
+<text class="value mono" x="874" y="176" text-anchor="middle">rs2, rs1</text>
+<text class="small" x="874" y="197" text-anchor="middle">two words</text>
+<text class="small mono" x="874" y="217" text-anchor="middle">s[4:0]</text>
+<rect x="958" y="151" width="124" height="79" rx="7" fill="#eaf7f3" stroke="#27866f"/>
+<text class="value mono" x="1020" y="180" text-anchor="middle">{rs2,rs1}</text>
+<text class="value mono" x="1020" y="204" text-anchor="middle">&gt;&gt; s</text>
+<text class="small" x="1020" y="222" text-anchor="middle">take low 32</text>
+<rect x="1099" y="162" width="58" height="57" rx="7" fill="white" stroke="#9cacbf"/>
+<text class="value mono" x="1128" y="195" text-anchor="middle">rd</text>
+<text class="label mono" x="822" y="267">rd = low32(({rs2,rs1} &gt;&gt; s))</text>
+<text class="small" x="822" y="294">Two FSRI instructions build one 64-bit</text>
+<text class="small" x="822" y="314">Keccak rotate from 32-bit halves.</text>
+<text class="value" x="822" y="348">3 PCPI edges; 6 core cycles</text>
+<line x1="926" y1="190" x2="950" y2="190" stroke="#5f6b7a" stroke-width="2"/>
+<path d="M 950 185 L 958 190 L 950 195 Z" fill="#5f6b7a"/>
+<line x1="1082" y1="190" x2="1091" y2="190" stroke="#5f6b7a" stroke-width="2"/>
+<path d="M 1091 185 L 1099 190 L 1091 195 Z" fill="#5f6b7a"/>
+<text class="small" x="40" y="406">PCPI latency is measured from request acceptance to ready. Whole-core CPI also includes PicoRV32 control overhead.</text>
+</svg>
