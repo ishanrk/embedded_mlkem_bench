@@ -160,13 +160,13 @@ LUT4s are the main configurable logic blocks on the FPGA, so more LUTs roughly m
 
 The direct FSRI design gives the best cycle result and barely changes the clock frequency, but it uses 12.14% more LUTs.
 
-I then tried reusing the multiplier to reduce this cost. That brings the LUT increase down to 8.99%, but the timing becomes much worse. Only three out of the five FPGA placements can still meet 50 MHz.
+I then tried reusing the multiplier to reduce this cost. That brings the LUT increase down to 8.99%, but the timing becomes much worse.
 
 FQMUL and RED32 use less area than direct FSRI, but both still add more hardware than I originally wanted and both reduce the maximum clock frequency by around 12%.
 
 So under the hardware limits I originally set, none of the three instructions passes every requirement.
 
-That does not mean the experiment failed. FSRI still gives the strongest reduction in complete ML-KEM cycles by a large margin. The issue is that the direct version costs too much area, while the smaller multiplier-reuse version gives up too much timing.
+That does not mean the experiment failed as we now know what doesn't work :). FSRI still gives the strongest reduction in complete ML-KEM cycles by a large margin. The issue is that the direct version costs too much area, while the smaller multiplier-reuse version gives up too much timing. This gives some insight into potential future directions for custom instruction design for ML-KEM.
 
 The complete machine-readable results are in [`results/summary.json`](results/summary.json).
 
