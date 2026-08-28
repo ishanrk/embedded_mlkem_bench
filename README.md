@@ -8,7 +8,7 @@ a) The first is polynomial arithmetic such as the NTT [1], inverse NTT, field mu
 
 b) The second is SHA-3/SHAKE [2]. These are used for things like generating the public matrix, hashing values, deriving randomness, and deriving the final shared secret. They use the Keccak permutation [3], which performs a large number of rotations on 64-bit values.
 
-The goal of this project was to see whether adding small RISC-V hardware extensions [4], which can be thought of as more specialized instructions that a processor is allowed to execute, could make complete ML-KEM faster on an embedded processor without adding too much hardware area or delay.
+**The goal of this project was to see whether adding small RISC-V hardware extensions [4], which can be thought of as more specialized instructions that a processor is allowed to execute, could make complete ML-KEM faster on an embedded processor without adding too much hardware area or delay.**
 
 I used PicoRV32 as the processor and `mlkem-native` [5] as the ML-KEM implementation.
 
