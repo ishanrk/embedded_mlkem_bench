@@ -106,7 +106,7 @@ b) The second tries to reuse the existing multiplier hardware to save some area.
 
 The direct version gives the better ML-KEM result and keeps the clock frequency fairly close to the normal processor, but it uses more LUTs. The multiplier-reuse version uses somewhat less area but makes the longest path through the processor much slower.
 
-The current RTL contains the multiplier-reuse version. The direct FSRI results are kept in `results/summary.json` and correspond to commit `1b1d01aaaffe48a0bfff3cdc096cca526f8a40ca`.
+The direct FSRI results are kept in `results/summary.json`
 
 # Testing and Results
 
