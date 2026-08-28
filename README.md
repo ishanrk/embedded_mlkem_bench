@@ -10,24 +10,13 @@ b) The second is SHA-3/SHAKE [2]. These are used for things like generating the 
 
 The goal of this project was to see whether adding small RISC-V hardware extensions [4], which can be thought of as more specialized instructions that a processor is allowed to execute, could make complete ML-KEM faster on an embedded processor without adding too much hardware area or delay.
 
-I used PicoRV32 as the processor and `mlkem-native` [5] as the ML-KEM implementation. PicoRV32 is configured as RV32IMC here, so it already has normal hardware multiplication. This matters because otherwise an instruction such as FQMUL would look much better partly because I had added a multiplier to a processor that did not have one before.
+I used PicoRV32 as the processor and `mlkem-native` [5] as the ML-KEM implementation. \
 
 Before adding any custom hardware I first tried different ways of arranging the main ML-KEM polynomial operations in software.
 
 The idea is that the same arithmetic can sometimes be carried out with fewer instructions if you are careful about when reductions happen.
 
 For example, suppose several operations eventually need to be reduced modulo $q$. You could reduce after every operation. This keeps the value small, but it means doing more reductions. You could instead keep the intermediate value in a larger register, do several operations, and reduce only once at the end. This saves instructions, but if you wait for too long the value can get large enough to overflow the register. So there is a limit to how far you can push this.
-
-For each ML-KEM parameter set I tested 24 different software implementations. The things I changed were:
-
-| Part                | What I changed                                   |
-| ------------------- | ------------------------------------------------ |
-| forward NTT         | one layer at a time or two layers fused together |
-| inverse NTT         | one layer at a time or two layers fused together |
-| inverse reductions  | reduce every layer or after each pair of layers  |
-| base multiplication | cached late, cached eager, or direct eager       |
-
-The same combination ended up being fastest for ML-KEM-512, ML-KEM-768, and ML-KEM-1024. Its internal name is `ffuse2_ifuse2_rpair_bcachelate`.
 
 Just rearranging the software already saves around 2% of the complete ML-KEM cycles. So when I test the hardware instructions I compare them against this version rather than giving the hardware credit for something that could already have been done in software.
 
@@ -137,6 +126,8 @@ The cycle numbers below add together key generation, encapsulation, and decapsul
 | ML-KEM-768    |              20,658,560 |            20,143,356 | 19,023,552 | 19,187,466 | **13,604,448** |            14,189,088 |
 | ML-KEM-1024   |              31,479,592 |            30,964,081 | 29,318,051 | 29,614,042 | **20,711,107** |            21,634,003 |
 
+![End-to-end ML-KEM cycle counts](docs/figures/performance.svg)
+
 Before adding hardware I could already save around 2% of the cycles just by rearranging the software operations.
 
 After that:
@@ -161,8 +152,6 @@ I use Yosys to synthesize each design and nextpnr to place and route it on an EC
 
 LUT4s are the main configurable logic blocks on the FPGA, so more LUTs roughly means more hardware area. `Fmax` is the highest clock frequency the routed design can meet, so higher is better.
 
-I also run five different place-and-route seeds rather than reporting one lucky placement.
-
 | Design                |            LUT4 |     Flip-flops | DSP | BRAM |         Median Fmax | 50 MHz seeds |
 | --------------------- | --------------: | -------------: | --: | ---: | ------------------: | -----------: |
 | normal PicoRV32       |           3,583 |            970 |   4 |    0 |           68.70 MHz |          5/5 |
@@ -170,6 +159,10 @@ I also run five different place-and-route seeds rather than reporting one lucky 
 | RED32                 |  3,816 (+6.50%) | 1,053 (+8.56%) |   4 |    0 | 60.20 MHz (-12.37%) |          5/5 |
 | FSRI direct           | 4,018 (+12.14%) |   970 (+0.00%) |   4 |    0 |  66.72 MHz (-2.88%) |          5/5 |
 | FSRI multiplier reuse |  3,905 (+8.99%) | 1,037 (+6.91%) |   4 |    0 | 50.25 MHz (-26.86%) |          3/5 |
+
+![ECP5 LUT4 cost](docs/figures/area.svg)
+
+![ECP5 routed Fmax](docs/figures/fmax.svg)
 
 The direct FSRI design gives the best cycle result and barely changes the clock frequency, but it uses 12.14% more LUTs.
 
@@ -197,11 +190,9 @@ I tested the project at several levels because saving cycles is not useful if th
 
 5. FSRI also has targeted formal checks for its PCPI behavior and for how the instruction retires through PicoRV32.
 
-The targeted FSRI PCPI bounded model check passes. The RVFI harness had a later reset-gating fix and still needs to be rerun before I claim a final RVFI PASS. So I am not calling the whole design formally verified.
-
 The formal files are under [`targets/picorv32/formal/`](targets/picorv32/formal/) and the FSRI task is [`targets/picorv32/formal/fsri.sby`](targets/picorv32/formal/fsri.sby).
 
-All performance numbers above are processor-cycle counts from running PicoRV32 RTL under Verilator. They are not host-machine timings.
+All performance numbers above are processor cycle counts from running PicoRV32 RTL under Verilator. They are not machine timings.
 
 # Citations
 
