@@ -12,7 +12,7 @@ b) The second is SHA-3/SHAKE [2]. These are used for things like generating the 
 
 I used PicoRV32 as the processor and `mlkem-native` [5] as the ML-KEM implementation.
 
-I optimized the non instruction added runs with some basic ideas. For example, suppose several operations eventually need to be reduced modulo $q$. You could reduce after every operation. This keeps the value small, but it means doing more reductions. You could instead keep the intermediate value in a larger register, do several operations, and reduce only once at the end. This saves instructions, but if you wait for too long the value can get large enough to overflow the register. So there is a limit to how far you can push this.
+I optimized the original ML-KEM implementation with some basic ideas, the result of which we will call "best software version". For example, suppose several operations eventually need to be reduced modulo $q$. You could reduce after every operation. This keeps the value small, but it means doing more reductions. You could instead keep the intermediate value in a larger register, do several operations, and reduce only once at the end. This saves instructions, but if you wait for too long the value can get large enough to overflow the register. So there is a limit to how far you can push this.
 
 I then implemented three custom RISC-V instructions that I thought could help.
 
