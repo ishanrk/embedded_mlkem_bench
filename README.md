@@ -198,12 +198,12 @@ All performance numbers above are processor cycle counts from running PicoRV32 R
 
 [4] RISC-V Instruction Set Manual and RISC-V custom instruction encoding documentation.
 
-[5] `mlkem-native`, the ML-KEM implementation used by this project. The pinned revision used in the experiments is `69d24e37b8a04c6050ec55bc84a4228d7051bb4b`.
+[5] `mlkem-native`, the ML-KEM implementation used by this project. https://github.com/pq-code-package/mlkem-native
 
 [6] E. Alkim, H. Evkan, N. Lahr, R. Niederhagen, and R. Petri, "ISA Extensions for Finite Field Arithmetic: Accelerating Kyber and NewHope on RISC-V," TCHES 2020.
 
 [7] RISC-V Bitmanip v0.93 funnel-shift specification.
 
-[8] PicoRV32, pinned at `a473fc8fca393771d83b0ffcf0b14db3393339d8`.
+[8] PicoRV32 https://github.com/yosyshq/picorv32
 
 [9] Verilator, Yosys, and nextpnr, used for RTL simulation, synthesis, and ECP5 place and route.
