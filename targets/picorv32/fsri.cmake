@@ -66,7 +66,7 @@ pqc_add_verilated(
     "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
     "${pqc_rtl_dir}/pqc_picorv32_sim_top.sv")
 
-set(pqc_fsri_pcpi_dir "${pqc_target_dir}/fsri-pcpi-model")
+set(pqc_fsri_pcpi_dir "${pqc_target_dir}/fsri-${PQC_POLY_FSRI_IMPL}-pcpi-model")
 set(pqc_fsri_pcpi_sim "${pqc_fsri_pcpi_dir}/Vpqc_pcpi_mlkem")
 add_custom_command(
     OUTPUT "${pqc_fsri_pcpi_sim}"
@@ -237,7 +237,7 @@ add_dependencies(
     pqc-picorv32-mlkem-generate)
 
 if(PQC_POLY_PICORV32_SYNTHESIS)
-    set(pqc_fsri_synthesis "${pqc_results}/fsri-synthesis.json")
+    set(pqc_fsri_synthesis "${pqc_results}/fsri-${PQC_POLY_FSRI_IMPL}-synthesis.json")
     add_custom_command(
         OUTPUT "${pqc_fsri_synthesis}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_results}"
@@ -246,7 +246,7 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
             --nextpnr "${PQC_NEXTPNR}" --ecppack "${PQC_ECPPACK}" --picorv32
             "${pqc_picorv32_source}" --pcpi "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv" --core
             "${pqc_rtl_dir}/pqc_picorv32_core_top.sv" --script "${pqc_synth_dir}/core.ys"
-            --work "${pqc_target_dir}/synthesis-fsri" --output "${pqc_fsri_synthesis}"
+            --work "${pqc_target_dir}/synthesis-fsri-${PQC_POLY_FSRI_IMPL}" --output "${pqc_fsri_synthesis}"
             --enable-fsri --fsri-impl "${PQC_POLY_FSRI_IMPL}"
         DEPENDS
             "${pqc_picorv32_source}"

@@ -25,7 +25,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0x0",
       "multiply_result": "0x0",
-      "numerator": "0x0"
+      "numerator": "0x0",
+      "fsri_window": "0x0",
+      "fsri_shifted": "0x0"
     },
     {
       "edge": 1,
@@ -44,7 +46,9 @@
       "multiply_left": "0x1",
       "multiply_right": "0xf301",
       "multiply_result": "0xf301",
-      "numerator": "0x180000001"
+      "numerator": "0x180000001",
+      "fsri_window": "0x8000",
+      "fsri_shifted": "0x8000"
     },
     {
       "edge": 2,
@@ -63,7 +67,9 @@
       "multiply_left": "0x1fffff301",
       "multiply_right": "0xd01",
       "multiply_result": "0x3ffffffffff570001",
-      "numerator": "0x180000001"
+      "numerator": "0x180000001",
+      "fsri_window": "0x80000001",
+      "fsri_shifted": "0x80000001"
     },
     {
       "edge": 3,
@@ -82,7 +88,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0x0",
       "multiply_result": "0x0",
-      "numerator": "0x180a90000"
+      "numerator": "0x180a90000",
+      "fsri_window": "0x80000001",
+      "fsri_shifted": "0x80000001"
     }
   ],
   "accepted_edge": 1,
@@ -90,14 +98,16 @@
   "sampling": "edge zero is settled request before first rising edge then settled post rising edge snapshots",
   "latency": "first settled ready assertion indexed from request at edge zero direct is combinational at zero and can be consumed at edge one sequential snapshots include capture edge cpu issue and retirement excluded",
   "source": "red32.sv",
-  "source_sha256": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+  "source_sha256": "4cc9c251efe0716df91655d958a7d5e806e909873fb516731f7289f983ad2414",
   "source_revision": null,
   "parameters": {
     "ENABLE_FQMUL": 0,
     "ENABLE_RED32": 1,
-    "ENABLE_FSRI": 0
+    "ENABLE_FSRI": 0,
+    "FSRI_IMPL": 0
   },
   "tool": "Verilator 5.051 devel rev v5.050-108-gcac2c3df1 (mod)",
+  "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
   "build_command": [
     "verilator",
     "--cc",
@@ -118,7 +128,9 @@
     "-std=c++20 -O2",
     "/home/ishan/code/pqc-poly-bench/web/public/evidence/red32.sv",
     "/home/ishan/code/pqc-poly-bench/scripts/workbench/observe.sv",
-    "/home/ishan/code/pqc-poly-bench/scripts/workbench/trace.cpp"
+    "/home/ishan/code/pqc-poly-bench/scripts/workbench/trace.cpp",
+    "-DPQC_FSRI_PARAMETER",
+    "-GFSRI_IMPL=0"
   ],
   "command": [
     "/home/ishan/code/pqc-poly-bench/build/workbench/red32/Vpqc_pcpi_observe",
@@ -127,7 +139,7 @@
     "0x0",
     "/home/ishan/code/pqc-poly-bench/web/public/evidence/red32-0.vcd"
   ],
-  "binary_sha256": "d27eb07324899cc809fcac3461f445f35af3adc8de8cbf41c1b475cf7fa37ac7",
+  "binary_sha256": "4c0d78a3d057464851c74d75b02c1989eb623feeabbd523934d214d562838ffb",
   "status": "locally reproduced run",
   "vcd": "red32-0.vcd"
 }

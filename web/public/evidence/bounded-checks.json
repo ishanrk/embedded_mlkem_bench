@@ -1,0 +1,40 @@
+{
+  "schema": "pqc-poly-bench/bounded-check-v1",
+  "tool": "SBY v0.67-4-gfea6e46",
+  "yosys": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+  "scope": "pcpi bmc depth 8 only rvfi depth 22 not rerun",
+  "assumptions": "existing fsri_properties harness fixed arbitrary operands valid fsri encoding unsupported non multiply encoding optional reset cancellation",
+  "source_sha256": "4cc9c251efe0716df91655d958a7d5e806e909873fb516731f7289f983ad2414",
+  "checks": [
+    {
+      "variant": "reuse",
+      "task": "pcpi",
+      "bound": 8,
+      "engine": "abc bmc3",
+      "result": "PASS 0 0",
+      "command": [
+        "sby",
+        "-f",
+        "fsri.sby",
+        "pcpi"
+      ],
+      "cwd": "/home/ishan/code/pqc-poly-bench/build/workbench/formal-reuse",
+      "harness_sha256": "1a13ef364541cc0431e1d83e83b6c39ea76dfbd9d02956d75d1ff3f81fa65a70"
+    },
+    {
+      "variant": "sliced",
+      "task": "pcpi",
+      "bound": 8,
+      "engine": "abc bmc3",
+      "result": "PASS 0 1",
+      "command": [
+        "sby",
+        "-f",
+        "fsri.sby",
+        "pcpi"
+      ],
+      "cwd": "/home/ishan/code/pqc-poly-bench/build/workbench/formal-sliced",
+      "harness_sha256": "811763290d24783a7992aa2eee742ec26cd6797c656e56da4eabcdd47f5aec7f"
+    }
+  ]
+}

@@ -1,0 +1,208 @@
+{
+  "schema": "pqc-poly-bench/pcpi-checks-v1",
+  "source_sha256": "4cc9c251efe0716df91655d958a7d5e806e909873fb516731f7289f983ad2414",
+  "tool": "Verilator 5.051 devel rev v5.050-108-gcac2c3df1 (mod)",
+  "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+  "repository_sha": "443f7d96b6548643b6e8b535bcc25d7b4fd8a833",
+  "driver_sha256": "4d60162eeca38f0ef8bf3a5de7d1c05e4fc7e549f41c90643bc15c0a1b4d9957",
+  "checks": [
+    {
+      "name": "disabled",
+      "parameters": {
+        "ENABLE_FQMUL": 0,
+        "ENABLE_RED32": 0,
+        "ENABLE_FSRI": 0,
+        "FSRI_IMPL": 0
+      },
+      "command": [
+        "verilator",
+        "--cc",
+        "--exe",
+        "--build",
+        "-j",
+        "4",
+        "--threads",
+        "1",
+        "--Mdir",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/check-disabled",
+        "--top-module",
+        "pqc_pcpi_mlkem",
+        "--Wno-fatal",
+        "-CFLAGS",
+        "-std=c++20 -O2 -DPQC_FEATURE=0 -DPQC_FSRI_IMPL=0",
+        "-GENABLE_FQMUL=0",
+        "-GENABLE_RED32=0",
+        "-GENABLE_FSRI=0",
+        "-GFSRI_IMPL=0",
+        "/home/ishan/code/pqc-poly-bench/targets/picorv32/rtl/pqc_pcpi_mlkem.sv",
+        "/home/ishan/code/pqc-poly-bench/scripts/workbench/pcpi.cpp"
+      ],
+      "result": "196 deterministic arithmetic transactions plus reset held identical back to back and decode checks passed"
+    },
+    {
+      "name": "fqmul",
+      "parameters": {
+        "ENABLE_FQMUL": 1,
+        "ENABLE_RED32": 0,
+        "ENABLE_FSRI": 0,
+        "FSRI_IMPL": 0
+      },
+      "command": [
+        "verilator",
+        "--cc",
+        "--exe",
+        "--build",
+        "-j",
+        "4",
+        "--threads",
+        "1",
+        "--Mdir",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/check-fqmul",
+        "--top-module",
+        "pqc_pcpi_mlkem",
+        "--Wno-fatal",
+        "-CFLAGS",
+        "-std=c++20 -O2 -DPQC_FEATURE=1 -DPQC_FSRI_IMPL=0",
+        "-GENABLE_FQMUL=1",
+        "-GENABLE_RED32=0",
+        "-GENABLE_FSRI=0",
+        "-GFSRI_IMPL=0",
+        "/home/ishan/code/pqc-poly-bench/targets/picorv32/rtl/pqc_pcpi_mlkem.sv",
+        "/home/ishan/code/pqc-poly-bench/scripts/workbench/pcpi.cpp"
+      ],
+      "result": "501 deterministic arithmetic transactions plus reset held identical back to back and decode checks passed"
+    },
+    {
+      "name": "red32",
+      "parameters": {
+        "ENABLE_FQMUL": 0,
+        "ENABLE_RED32": 1,
+        "ENABLE_FSRI": 0,
+        "FSRI_IMPL": 0
+      },
+      "command": [
+        "verilator",
+        "--cc",
+        "--exe",
+        "--build",
+        "-j",
+        "4",
+        "--threads",
+        "1",
+        "--Mdir",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/check-red32",
+        "--top-module",
+        "pqc_pcpi_mlkem",
+        "--Wno-fatal",
+        "-CFLAGS",
+        "-std=c++20 -O2 -DPQC_FEATURE=2 -DPQC_FSRI_IMPL=0",
+        "-GENABLE_FQMUL=0",
+        "-GENABLE_RED32=1",
+        "-GENABLE_FSRI=0",
+        "-GFSRI_IMPL=0",
+        "/home/ishan/code/pqc-poly-bench/targets/picorv32/rtl/pqc_pcpi_mlkem.sv",
+        "/home/ishan/code/pqc-poly-bench/scripts/workbench/pcpi.cpp"
+      ],
+      "result": "501 deterministic arithmetic transactions plus reset held identical back to back and decode checks passed"
+    },
+    {
+      "name": "reuse",
+      "parameters": {
+        "ENABLE_FQMUL": 0,
+        "ENABLE_RED32": 0,
+        "ENABLE_FSRI": 1,
+        "FSRI_IMPL": 0
+      },
+      "command": [
+        "verilator",
+        "--cc",
+        "--exe",
+        "--build",
+        "-j",
+        "4",
+        "--threads",
+        "1",
+        "--Mdir",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/check-reuse",
+        "--top-module",
+        "pqc_pcpi_mlkem",
+        "--Wno-fatal",
+        "-CFLAGS",
+        "-std=c++20 -O2 -DPQC_FEATURE=3 -DPQC_FSRI_IMPL=0",
+        "-GENABLE_FQMUL=0",
+        "-GENABLE_RED32=0",
+        "-GENABLE_FSRI=1",
+        "-GFSRI_IMPL=0",
+        "/home/ishan/code/pqc-poly-bench/targets/picorv32/rtl/pqc_pcpi_mlkem.sv",
+        "/home/ishan/code/pqc-poly-bench/scripts/workbench/pcpi.cpp"
+      ],
+      "result": "2020 deterministic arithmetic transactions plus reset held identical back to back and decode checks passed"
+    },
+    {
+      "name": "sliced",
+      "parameters": {
+        "ENABLE_FQMUL": 0,
+        "ENABLE_RED32": 0,
+        "ENABLE_FSRI": 1,
+        "FSRI_IMPL": 1
+      },
+      "command": [
+        "verilator",
+        "--cc",
+        "--exe",
+        "--build",
+        "-j",
+        "4",
+        "--threads",
+        "1",
+        "--Mdir",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/check-sliced",
+        "--top-module",
+        "pqc_pcpi_mlkem",
+        "--Wno-fatal",
+        "-CFLAGS",
+        "-std=c++20 -O2 -DPQC_FEATURE=3 -DPQC_FSRI_IMPL=1",
+        "-GENABLE_FQMUL=0",
+        "-GENABLE_RED32=0",
+        "-GENABLE_FSRI=1",
+        "-GFSRI_IMPL=1",
+        "/home/ishan/code/pqc-poly-bench/targets/picorv32/rtl/pqc_pcpi_mlkem.sv",
+        "/home/ishan/code/pqc-poly-bench/scripts/workbench/pcpi.cpp"
+      ],
+      "result": "2020 deterministic arithmetic transactions plus reset held identical back to back and decode checks passed"
+    },
+    {
+      "name": "direct",
+      "parameters": {
+        "ENABLE_FQMUL": 0,
+        "ENABLE_RED32": 0,
+        "ENABLE_FSRI": 1,
+        "FSRI_IMPL": 2
+      },
+      "command": [
+        "verilator",
+        "--cc",
+        "--exe",
+        "--build",
+        "-j",
+        "4",
+        "--threads",
+        "1",
+        "--Mdir",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/check-direct",
+        "--top-module",
+        "pqc_pcpi_mlkem",
+        "--Wno-fatal",
+        "-CFLAGS",
+        "-std=c++20 -O2 -DPQC_FEATURE=3 -DPQC_FSRI_IMPL=2",
+        "-GENABLE_FQMUL=0",
+        "-GENABLE_RED32=0",
+        "-GENABLE_FSRI=1",
+        "-GFSRI_IMPL=2",
+        "/home/ishan/code/pqc-poly-bench/targets/picorv32/rtl/pqc_pcpi_mlkem.sv",
+        "/home/ishan/code/pqc-poly-bench/scripts/workbench/pcpi.cpp"
+      ],
+      "result": "2020 deterministic arithmetic transactions plus reset held identical back to back and decode checks passed"
+    }
+  ]
+}

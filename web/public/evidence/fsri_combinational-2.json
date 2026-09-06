@@ -25,7 +25,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0x0",
       "multiply_result": "0x0",
-      "numerator": "0x0"
+      "numerator": "0x0",
+      "fsri_window": "0x0",
+      "fsri_shifted": "0x0"
     },
     {
       "edge": 1,
@@ -44,7 +46,9 @@
       "multiply_left": "0x0",
       "multiply_right": "0x0",
       "multiply_result": "0x0",
-      "numerator": "0x0"
+      "numerator": "0x0",
+      "fsri_window": "0x0",
+      "fsri_shifted": "0x0"
     }
   ],
   "accepted_edge": 1,
@@ -60,6 +64,7 @@
     "ENABLE_FSRI": 1
   },
   "tool": "Verilator 5.051 devel rev v5.050-108-gcac2c3df1 (mod)",
+  "compiler": "g++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
   "build_command": [
     "verilator",
     "--cc",
@@ -89,7 +94,7 @@
     "0x12345678",
     "/home/ishan/code/pqc-poly-bench/web/public/evidence/fsri_combinational-2.vcd"
   ],
-  "binary_sha256": "db6443e8c06078d9b062fdc47ac0f5222ce4cb867234695646a0fd1da6a1c3b0",
+  "binary_sha256": "a2394a2a4ee51249984033115d3b3a7a0fafda187ea0289f6d1baca2bb7df9b9",
   "status": "locally reproduced run",
   "vcd": "fsri_combinational-2.vcd"
 }

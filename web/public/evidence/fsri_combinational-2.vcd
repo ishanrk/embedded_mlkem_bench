@@ -22,10 +22,13 @@ $timescale 1ps $end
   $var wire 33 + multiply_right [32:0] $end
   $var wire 66 - multiply_result [65:0] $end
   $var wire 33 G numerator [32:0] $end
+  $var wire 32 I fsri_window [31:0] $end
+  $var wire 32 J fsri_shifted [31:0] $end
   $scope module pqc_pcpi_observe $end
-   $var wire 1 S ENABLE_FQMUL [0:0] $end
-   $var wire 1 S ENABLE_RED32 [0:0] $end
-   $var wire 32 T ENABLE_FSRI [31:0] $end
+   $var wire 1 U ENABLE_FQMUL [0:0] $end
+   $var wire 1 U ENABLE_RED32 [0:0] $end
+   $var wire 32 V ENABLE_FSRI [31:0] $end
+   $var wire 32 W FSRI_IMPL [31:0] $end
    $var wire 1 > clk $end
    $var wire 1 ? resetn $end
    $var wire 1 @ pcpi_valid $end
@@ -47,10 +50,12 @@ $timescale 1ps $end
    $var wire 33 + multiply_right [32:0] $end
    $var wire 66 - multiply_result [65:0] $end
    $var wire 33 G numerator [32:0] $end
+   $var wire 32 I fsri_window [31:0] $end
+   $var wire 32 J fsri_shifted [31:0] $end
    $scope module dut $end
-    $var wire 1 S ENABLE_FQMUL [0:0] $end
-    $var wire 1 S ENABLE_RED32 [0:0] $end
-    $var wire 32 T ENABLE_FSRI [31:0] $end
+    $var wire 1 U ENABLE_FQMUL [0:0] $end
+    $var wire 1 U ENABLE_RED32 [0:0] $end
+    $var wire 32 V ENABLE_FSRI [31:0] $end
     $var wire 1 > clk $end
     $var wire 1 ? resetn $end
     $var wire 1 @ pcpi_valid $end
@@ -64,12 +69,12 @@ $timescale 1ps $end
     $var wire 3 0 state [2:0] $end
     $var wire 1 1 served $end
     $var wire 1 2 custom_request $end
-    $var wire 1 I m_claim $end
-    $var wire 1 U fqmul_claim $end
-    $var wire 1 U red32_claim $end
-    $var wire 1 J fsri_claim $end
-    $var wire 1 I slow_claim $end
-    $var wire 1 K same_request $end
+    $var wire 1 K m_claim $end
+    $var wire 1 X fqmul_claim $end
+    $var wire 1 X red32_claim $end
+    $var wire 1 L fsri_claim $end
+    $var wire 1 K slow_claim $end
+    $var wire 1 M same_request $end
     $var wire 32 3 last_insn [31:0] $end
     $var wire 32 # last_rs1 [31:0] $end
     $var wire 32 $ last_rs2 [31:0] $end
@@ -80,12 +85,12 @@ $timescale 1ps $end
     $var wire 32 ; product_value [31:0] $end
     $var wire 16 & inverse_value [15:0] $end
     $var wire 32 < modulus_value [31:0] $end
-    $var wire 33 L numerator [32:0] $end
-    $var wire 32 N fqmul_result [31:0] $end
+    $var wire 33 N numerator [32:0] $end
+    $var wire 32 P fqmul_result [31:0] $end
     $var wire 32 = m_result [31:0] $end
-    $var wire 5 O fsri_shift [4:0] $end
-    $var wire 64 P fsri_value [63:0] $end
-    $var wire 32 R fsri_result [31:0] $end
+    $var wire 5 Q fsri_shift [4:0] $end
+    $var wire 64 R fsri_value [63:0] $end
+    $var wire 32 T fsri_result [31:0] $end
    $upscope $end
   $upscope $end
  $upscope $end
@@ -123,17 +128,20 @@ b00000000000000000000000000000000 C
 b00000000000000000000000000000000 E
 0F
 b000000000000000000000000000000000 G
-0I
-0J
-1K
-b000000000000000000000000000000000 L
-b00000000000000000000000000000000 N
-b00000 O
-b0000000000000000000000000000000000000000000000000000000000000000 P
-b00000000000000000000000000000000 R
-0S
-b00000000000000000000000000000001 T
+b00000000000000000000000000000000 I
+b00000000000000000000000000000000 J
+0K
+0L
+1M
+b000000000000000000000000000000000 N
+b00000000000000000000000000000000 P
+b00000 Q
+b0000000000000000000000000000000000000000000000000000000000000000 R
+b00000000000000000000000000000000 T
 0U
+b00000000000000000000000000000001 V
+b00000000000000000000000000000000 W
+0X
 #1
 1>
 #2
@@ -145,10 +153,10 @@ b10001001101010111100110111101111 B
 b00010010001101000101011001111000 C
 1D
 b00100100011010001010110011110001 E
-1J
-0K
-b11111 O
-b0000000000000000000000000000000000100100011010001010110011110001 P
-b00100100011010001010110011110001 R
+1L
+0M
+b11111 Q
+b0000000000000000000000000000000000100100011010001010110011110001 R
+b00100100011010001010110011110001 T
 #3
 1>

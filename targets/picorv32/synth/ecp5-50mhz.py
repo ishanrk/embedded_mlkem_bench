@@ -139,6 +139,8 @@ def main():
         "parameters": {key: environment[key] for key in ("STOCK_MUL", "ENABLE_FQMUL", "ENABLE_RED32", "ENABLE_FSRI", "FSRI_IMPL")},
         "netlist_sha256": hashlib.sha256(netlist_path.read_bytes()).hexdigest(),
         "reproduction": report_command([sys.executable, str(pathlib.Path(__file__).resolve()), *sys.argv[1:]], replacements),
+        "picorv32_revision": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
+        "compiler_flags": None,
         "elf_sha256": None,
         "scope": "ecp5 core only without board memory",
     }

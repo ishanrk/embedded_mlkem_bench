@@ -66,6 +66,20 @@ def main():
             trace = json.loads((out / entry["file"]).read_text())
             a, b = (int(trace[k], 0) for k in ("rs1", "rs2"))
             assert int(trace["snapshots"][-1]["rd"], 0) == reference(trace["instruction"], a, b, trace["shift"])
+        for entry in catalog["traces"]:
+            trace = json.loads((out / entry["file"]).read_text())
+            if digest(out / trace["source"]) != trace["source_sha256"]:
+                raise RuntimeError(f"trace source mismatch {entry['id']}")
+        if (out / "packed-feasibility.json").exists():
+            packed = json.loads((out / "packed-feasibility.json").read_text())
+            for name, expected in packed["sources"].items():
+                if digest(root / name) != expected:
+                    raise RuntimeError(f"stale packed feasibility source {name}")
+        for name in ("pcpi-checks.json", "bounded-checks.json"):
+            if (out / name).exists():
+                checks = json.loads((out / name).read_text())
+                if checks["source_sha256"] != digest(root / rtl):
+                    raise RuntimeError(f"stale rtl checks {name}")
         print("source hashes artifact hashes and rtl arithmetic agree")
         return
     inputs = [rtl, "scripts/workbench/observe.sv", "scripts/workbench/trace.cpp",
@@ -83,7 +97,8 @@ def main():
         catalog["inputs"][name] = digest(root / name)
     for variant, kind, revision in (("fqmul", "fqmul", None), ("red32", "red32", None),
                                   ("fsri_multiplier_reuse", "fsri", None),
-                                  ("fsri_combinational", "fsri", historical)):
+                                  ("fsri_combinational", "fsri", historical),
+                                  ("fsri_sliced", "fsri", None), ("fsri_direct", "fsri", None)):
         source = out / f"{variant}.sv"
         source.write_text(run(["git", "show", f"{revision}:{rtl}"]) + "\n" if revision else (root / rtl).read_text())
         if args.data_only or not shutil.which("verilator"):
@@ -94,6 +109,8 @@ def main():
                    "--Mdir", directory, "--top-module", "pqc_pcpi_observe", "--Wno-fatal",
                    f"-GENABLE_{kind.upper()}=1", "-CFLAGS", "-std=c++20 -O2", source,
                    root / "scripts/workbench/observe.sv", root / "scripts/workbench/trace.cpp"]
+        if not revision:
+            command += ["-DPQC_FSRI_PARAMETER", f"-GFSRI_IMPL={1 if variant == 'fsri_sliced' else 2 if variant == 'fsri_direct' else 0}"]
         run(command, directory / "build.log")
         binary = directory / "Vpqc_pcpi_observe"
         cases = [(0xdead8000, 0xbeef0680, 0), (3328, 3328, 0)] if kind == "fqmul" else (
@@ -116,11 +133,15 @@ def main():
                   "sampling": "edge zero is settled request before first rising edge then settled post rising edge snapshots",
                   "latency": "first settled ready assertion indexed from request at edge zero direct is combinational at zero and can be consumed at edge one sequential snapshots include capture edge cpu issue and retirement excluded",
                   "source": source.name, "source_sha256": digest(source), "source_revision": revision,
-                  "parameters": {f"ENABLE_{k.upper()}": int(k == kind) for k in ("fqmul", "red32", "fsri")},
-                  "tool": run(["verilator", "--version"]), "build_command": [str(x) for x in command],
+                  "parameters": {**{f"ENABLE_{k.upper()}": int(k == kind) for k in ("fqmul", "red32", "fsri")},
+                                 **({"FSRI_IMPL": 1 if variant == "fsri_sliced" else 2 if variant == "fsri_direct" else 0} if not revision else {})},
+                  "tool": run(["verilator", "--version"]), "compiler": run(["g++", "--version"]).splitlines()[0], "build_command": [str(x) for x in command],
                   "command": [str(x) for x in trace_command], "binary_sha256": digest(binary),
                   "status": "locally reproduced run", "vcd": f"{name}.vcd"})
             catalog["traces"].append({"id": name, "variant": variant, "file": f"{name}.json"})
+    if (out / "catalog.json").exists():
+        prior = json.loads((out / "catalog.json").read_text())
+        catalog["inputs"] = {**prior["inputs"], **catalog["inputs"]}
     catalog["artifacts"] = {p.name: digest(p) for p in out.iterdir() if p.is_file() and p.name != "catalog.json"}
     write("catalog.json", catalog)
     print(f"exported {len(catalog['traces'])} native rtl traces")
