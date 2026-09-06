@@ -6,6 +6,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+from workbench.measurements import export as export_measurements
 
 root = pathlib.Path(__file__).resolve().parents[1]
 out = root / "web/public/evidence"
@@ -68,7 +69,7 @@ def main():
         print("source hashes artifact hashes and rtl arithmetic agree")
         return
     inputs = [rtl, "scripts/workbench/observe.sv", "scripts/workbench/trace.cpp",
-              "scripts/workbench_data.py", "results/summary.json"]
+              "scripts/workbench_data.py", "scripts/workbench/measurements.py", "results/summary.json"]
     catalog = {"schema": "pqc-poly-bench/workbench-v1", "repository_sha": run(["git", "rev-parse", "HEAD"]),
                "dirty": bool(run(["git", "status", "--porcelain", "--untracked-files=normal"])),
                "inputs": {p: digest(root / p) for p in inputs}, "traces": [],
@@ -78,6 +79,8 @@ def main():
     for name in ("fqmul", "red32", "fsri"):
         shutil.copyfile(root / f"targets/picorv32/mlkem/{name}.h", out / f"{name}.h")
         catalog["inputs"][f"targets/picorv32/mlkem/{name}.h"] = digest(out / f"{name}.h")
+    for name in export_measurements(root, out):
+        catalog["inputs"][name] = digest(root / name)
     for variant, kind, revision in (("fqmul", "fqmul", None), ("red32", "red32", None),
                                   ("fsri_multiplier_reuse", "fsri", None),
                                   ("fsri_combinational", "fsri", historical)):

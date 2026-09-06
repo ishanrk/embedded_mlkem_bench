@@ -1,0 +1,765 @@
+{
+  "schema": "pqc-poly-bench/workbench-measurements-v1",
+  "levels": {
+    "512": {
+      "portable": {
+        "plan_id": "mlk512_portable",
+        "cycles": {
+          "keygen": 3766309,
+          "encapsulation": 4077697,
+          "decapsulation": 5160554
+        },
+        "instructions": {
+          "keygen": 703476,
+          "encapsulation": 761219,
+          "decapsulation": 962399
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_portable",
+            "level": "512",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 21517625,
+            "end_cycle": 25284052,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 3766402,
+            "instruction_count": 703498,
+            "multiplier": "project"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_portable",
+            "level": "512",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 372876399,
+            "end_cycle": 376954214,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 4077790,
+            "instruction_count": 761241,
+            "multiplier": "project"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_portable",
+            "level": "512",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 860876265,
+            "end_cycle": 866036937,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 5160647,
+            "instruction_count": 962421,
+            "multiplier": "project"
+          }
+        },
+        "source": "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk512_portable-project.jsonl"
+      },
+      "software": {
+        "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone",
+        "cycles": {
+          "keygen": 3711104,
+          "encapsulation": 3947876,
+          "decapsulation": 4977755
+        },
+        "instructions": {
+          "keygen": 691941,
+          "encapsulation": 738242,
+          "decapsulation": 927537
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "512",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 20040522,
+            "end_cycle": 23751496,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 3710949,
+            "instruction_count": 691984,
+            "multiplier": "project"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "512",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 366374409,
+            "end_cycle": 370322427,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 3947993,
+            "instruction_count": 738266,
+            "multiplier": "project"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "512",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 840910824,
+            "end_cycle": 845888689,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 4977840,
+            "instruction_count": 927568,
+            "multiplier": "project"
+          }
+        },
+        "source": "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl"
+      },
+      "fqmul": {
+        "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+        "cycles": {
+          "keygen": 3497610,
+          "encapsulation": 3664791,
+          "decapsulation": 4541105
+        },
+        "instructions": {
+          "keygen": 650547,
+          "encapsulation": 684766,
+          "decapsulation": 844572
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+            "level": "512",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 13842975,
+            "end_cycle": 17340704,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 3497704,
+            "instruction_count": 650569,
+            "multiplier": "fqmul"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+            "level": "512",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 340750384,
+            "end_cycle": 344415294,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 3664885,
+            "instruction_count": 684788,
+            "multiplier": "fqmul"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk512_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+            "level": "512",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 783115159,
+            "end_cycle": 787656383,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 4541199,
+            "instruction_count": 844594,
+            "multiplier": "fqmul"
+          }
+        },
+        "source": "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-measurements.jsonl"
+      }
+    },
+    "768": {
+      "portable": {
+        "plan_id": "mlk768_portable",
+        "cycles": {
+          "keygen": 5992621,
+          "encapsulation": 6586321,
+          "decapsulation": 8079618
+        },
+        "instructions": {
+          "keygen": 1124289,
+          "encapsulation": 1238569,
+          "decapsulation": 1518122
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_portable",
+            "level": "768",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 23827963,
+            "end_cycle": 29821262,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 5993274,
+            "instruction_count": 1124435,
+            "multiplier": "project"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_portable",
+            "level": "768",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 583479019,
+            "end_cycle": 590066018,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 6586974,
+            "instruction_count": 1238715,
+            "multiplier": "project"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_portable",
+            "level": "768",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 1368540148,
+            "end_cycle": 1376620444,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 8080271,
+            "instruction_count": 1518268,
+            "multiplier": "project"
+          }
+        },
+        "source": "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk768_portable-project.jsonl"
+      },
+      "software": {
+        "plan_id": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone",
+        "cycles": {
+          "keygen": 5897792,
+          "encapsulation": 6419627,
+          "decapsulation": 7825937
+        },
+        "instructions": {
+          "keygen": 1107007,
+          "encapsulation": 1206893,
+          "decapsulation": 1471377
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "768",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 21680298,
+            "end_cycle": 27578576,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 5898253,
+            "instruction_count": 1107084,
+            "multiplier": "project"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "768",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 571264318,
+            "end_cycle": 577684336,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 6419993,
+            "instruction_count": 1207031,
+            "multiplier": "project"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "768",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 1338305803,
+            "end_cycle": 1346132086,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 7826258,
+            "instruction_count": 1471551,
+            "multiplier": "project"
+          }
+        },
+        "source": "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl"
+      },
+      "fqmul": {
+        "plan_id": "mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul",
+        "cycles": {
+          "keygen": 5618665,
+          "encapsulation": 6091140,
+          "decapsulation": 7313747
+        },
+        "instructions": {
+          "keygen": 1047207,
+          "encapsulation": 1136680,
+          "decapsulation": 1361918
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul",
+            "level": "768",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 15197486,
+            "end_cycle": 20816829,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 5619318,
+            "instruction_count": 1047353,
+            "multiplier": "fqmul"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul",
+            "level": "768",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 539383304,
+            "end_cycle": 545475122,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 6091793,
+            "instruction_count": 1136826,
+            "multiplier": "fqmul"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk768_ffuse2_ifuse2_rpair_bdirecteager_xfqmul",
+            "level": "768",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 1268166243,
+            "end_cycle": 1275480668,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 7314400,
+            "instruction_count": 1362064,
+            "multiplier": "fqmul"
+          }
+        },
+        "source": "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-measurements.jsonl"
+      }
+    },
+    "1024": {
+      "portable": {
+        "plan_id": "mlk1024_portable",
+        "cycles": {
+          "keygen": 9402982,
+          "encapsulation": 10065013,
+          "decapsulation": 12011597
+        },
+        "instructions": {
+          "keygen": 1758182,
+          "encapsulation": 1891663,
+          "decapsulation": 2252091
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_portable",
+            "level": "1024",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 26149532,
+            "end_cycle": 35660461,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 9510904,
+            "instruction_count": 1778420,
+            "multiplier": "project"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_portable",
+            "level": "1024",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 900226652,
+            "end_cycle": 910399612,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 10172935,
+            "instruction_count": 1911901,
+            "multiplier": "project"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_portable",
+            "level": "1024",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 2104711001,
+            "end_cycle": 2116830545,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 12119519,
+            "instruction_count": 2272329,
+            "multiplier": "project"
+          }
+        },
+        "source": "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_portable-project.jsonl"
+      },
+      "software": {
+        "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone",
+        "cycles": {
+          "keygen": 9299335,
+          "encapsulation": 9899724,
+          "decapsulation": 11765022
+        },
+        "instructions": {
+          "keygen": 1736217,
+          "encapsulation": 1851260,
+          "decapsulation": 2193453
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "1024",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 24827051,
+            "end_cycle": 34234163,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 9407087,
+            "instruction_count": 1756496,
+            "multiplier": "project"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "1024",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 887360794,
+            "end_cycle": 897368677,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 10007858,
+            "instruction_count": 1871485,
+            "multiplier": "project"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone",
+            "level": "1024",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 2074532745,
+            "end_cycle": 2086405669,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 11872899,
+            "instruction_count": 2213773,
+            "multiplier": "project"
+          }
+        },
+        "source": "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl"
+      },
+      "fqmul": {
+        "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+        "cycles": {
+          "keygen": 8879368,
+          "encapsulation": 9406970,
+          "decapsulation": 11031713
+        },
+        "instructions": {
+          "keygen": 1653410,
+          "encapsulation": 1756309,
+          "decapsulation": 2051543
+        },
+        "status": "raw evidence available",
+        "examples": {
+          "keygen": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+            "level": "1024",
+            "operation": "keygen",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 18017110,
+            "end_cycle": 27004556,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 8987421,
+            "instruction_count": 1673648,
+            "multiplier": "fqmul"
+          },
+          "encapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+            "level": "1024",
+            "operation": "encapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 842344906,
+            "end_cycle": 851859954,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 9515023,
+            "instruction_count": 1776547,
+            "multiplier": "fqmul"
+          },
+          "decapsulation": {
+            "schema": "pqc-poly-bench/mlkem-measurement-v1",
+            "plan_id": "mlk1024_ffuse2_ifuse2_rpair_bcacheeager_xfqmul",
+            "level": "1024",
+            "operation": "decapsulation",
+            "input": 0,
+            "repeat": 0,
+            "begin_cycle": 1972087482,
+            "end_cycle": 1983227273,
+            "marker_overhead_cycles": 25,
+            "calibrated_cycles": 11139766,
+            "instruction_count": 2071781,
+            "multiplier": "fqmul"
+          }
+        },
+        "source": "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-measurements.jsonl"
+      }
+    }
+  },
+  "aggregation": "sum of per-operation medians across 30 inputs with three identical repeats per input",
+  "verification": "historical verified flags are not independent local reruns",
+  "sources": [
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-final-comparison.json",
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-measurements.jsonl",
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-synthesis.json",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk512_portable-project.jsonl",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl",
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-measurements.jsonl",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk768_portable-project.jsonl",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl",
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-measurements.jsonl",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_portable-project.jsonl",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl",
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-measurements.jsonl"
+  ],
+  "synthesis": {
+    "schema": "pqc-poly-bench/fqmul-synthesis-v1",
+    "baseline": {
+      "fpga_part": "LFE5U-45F-6BG381C",
+      "target_frequency_mhz": 50,
+      "period_ns": 20,
+      "fqmul_enabled": false,
+      "yosys_version": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+      "nextpnr_version": "\"nextpnr-ecp5\" -- Next Generation Place and Route (Version nextpnr-0.10-106-g00376b6b)",
+      "ecppack_version": "Project Trellis ecppack Version 1.4-79-g56bb170",
+      "yosys_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/yosys -c ${PROJECT_SOURCE_DIR}/targets/picorv32/synth/core.ys",
+      "seeds": [
+        {
+          "seed": 1,
+          "lut4": 3583,
+          "flip_flops": 970,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 69.9,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-1.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 1",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-1.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-1.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        },
+        {
+          "seed": 2,
+          "lut4": 3583,
+          "flip_flops": 970,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 70.68,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-2.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 2",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-2.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-2.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        },
+        {
+          "seed": 3,
+          "lut4": 3583,
+          "flip_flops": 970,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 68.7,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-3.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 3",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-3.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-3.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        },
+        {
+          "seed": 4,
+          "lut4": 3583,
+          "flip_flops": 970,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 66.39,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-4.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 4",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-4.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-4.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        },
+        {
+          "seed": 5,
+          "lut4": 3583,
+          "flip_flops": 970,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 66.99,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-5.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 5",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-5.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis/seed-5.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        }
+      ]
+    },
+    "fqmul": {
+      "fpga_part": "LFE5U-45F-6BG381C",
+      "target_frequency_mhz": 50,
+      "period_ns": 20,
+      "fqmul_enabled": true,
+      "yosys_version": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+      "nextpnr_version": "\"nextpnr-ecp5\" -- Next Generation Place and Route (Version nextpnr-0.10-106-g00376b6b)",
+      "ecppack_version": "Project Trellis ecppack Version 1.4-79-g56bb170",
+      "yosys_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/yosys -c ${PROJECT_SOURCE_DIR}/targets/picorv32/synth/core.ys",
+      "seeds": [
+        {
+          "seed": 1,
+          "lut4": 3788,
+          "flip_flops": 1053,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 60.51,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-1.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 1",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-1.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-1.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        },
+        {
+          "seed": 2,
+          "lut4": 3788,
+          "flip_flops": 1053,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 60.68,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-2.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 2",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-2.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-2.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        },
+        {
+          "seed": 3,
+          "lut4": 3788,
+          "flip_flops": 1053,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 57.4,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-3.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 3",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-3.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-3.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        },
+        {
+          "seed": 4,
+          "lut4": 3788,
+          "flip_flops": 1053,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 54.38,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-4.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 4",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-4.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-4.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        },
+        {
+          "seed": 5,
+          "lut4": 3788,
+          "flip_flops": 1053,
+          "dsp": 4,
+          "bram": 0,
+          "maximum_frequency_mhz": 62.12,
+          "meets_50mhz": true,
+          "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-5.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 5",
+          "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-5.config ${PROJECT_SOURCE_DIR}/build/picorv32-step3/targets/picorv32/synthesis-fqmul/seed-5.bit",
+          "nextpnr_returncode": 0,
+          "ecppack_returncode": 0
+        }
+      ]
+    },
+    "comparison": {
+      "median_baseline_lut4": 3583,
+      "median_fqmul_lut4": 3788,
+      "median_lut4_increase_percent": 5.721462,
+      "median_baseline_flip_flops": 970,
+      "median_fqmul_flip_flops": 1053,
+      "median_flip_flop_increase_percent": 8.556701,
+      "median_baseline_frequency_mhz": 68.7,
+      "median_fqmul_frequency_mhz": 60.51,
+      "median_frequency_ratio": 0.880786,
+      "lut_gate_passed": false,
+      "flip_flop_gate_passed": false,
+      "dsp_gate_passed": true,
+      "bram_gate_passed": true,
+      "all_seeds_meet_50mhz": true,
+      "median_frequency_gate_passed": false,
+      "all_gates_passed": false
+    }
+  },
+  "normalized_seeds": [
+    {
+      "seed": 1,
+      "status": "raw evidence available",
+      "lut4": 3788,
+      "frequency_mhz": 60.51
+    },
+    {
+      "seed": 2,
+      "status": "raw evidence available",
+      "lut4": 3788,
+      "frequency_mhz": 60.68
+    },
+    {
+      "seed": 3,
+      "status": "raw evidence available",
+      "lut4": 3788,
+      "frequency_mhz": 57.4
+    },
+    {
+      "seed": 4,
+      "status": "raw evidence available",
+      "lut4": 3788,
+      "frequency_mhz": 54.38
+    },
+    {
+      "seed": 5,
+      "status": "raw evidence available",
+      "lut4": 3788,
+      "frequency_mhz": 62.12
+    }
+  ]
+}

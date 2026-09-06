@@ -1,16 +1,26 @@
 {
   "schema": "pqc-poly-bench/workbench-v1",
-  "repository_sha": "6a4ae402f75192e6084f37400692e8769fcb8bab",
+  "repository_sha": "d5580d6f3a146e29886fb3d9a24dbe41a027f974",
   "dirty": true,
   "inputs": {
     "targets/picorv32/rtl/pqc_pcpi_mlkem.sv": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
     "scripts/workbench/observe.sv": "3a4ae06f43fee915d5c499e849093a557bb24b62523d7eb8af266324999c2aef",
     "scripts/workbench/trace.cpp": "be17ab07fb11e845f9c6af29591b753e6c4fdd2c90c5592d5214fb777c157044",
-    "scripts/workbench_data.py": "f8486e347484c7c93c4ebdb57caa696f3cde0ace618c783c78bc7e88c5e4b311",
+    "scripts/workbench_data.py": "dd0972abb95b3cc2d2b5c242de69b7a32428be7f5332d25d3b1c2e09a4faaebf",
+    "scripts/workbench/measurements.py": "50ba335d189e01ca1d049a27dc782a7cc283f40750294404dc069f577eaf9599",
     "results/summary.json": "70260758751f5c25dfdcae2774ee919ab268ef42a87884ea6602fcbb7a31d7bb",
     "targets/picorv32/mlkem/fqmul.h": "2c5f9b2c2f328359736f16346fe8c8659e406fb87eaf525e70bd6f2a5062b11e",
     "targets/picorv32/mlkem/red32.h": "244a80908ee5f8e0ac409b746a4dce14f59d65615159e5bca9362f653c5b3f61",
-    "targets/picorv32/mlkem/fsri.h": "104eff9afc068b3f6e104b01d3647b4534b0ab40f817c6ee97460bf90f729453"
+    "targets/picorv32/mlkem/fsri.h": "104eff9afc068b3f6e104b01d3647b4534b0ab40f817c6ee97460bf90f729453",
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-final-comparison.json": "0e03a7758aa29f04b11a54a103ae39bbcba8af28644b5655ced03863faeaadb8",
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-measurements.jsonl": "2c708016489e6d1e8cf5720e25b62082597ddd6f52356784d43efa763f74945b",
+    "results/raw/picorv32-step3-fd803594-69d24e37/fqmul-synthesis.json": "b4799dd8a31978135d5ed522f090b833f00d84c5ea0c5e554f4ab22396922956",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk512_portable-project.jsonl": "79db2ff3b998f5b93a86387cc9afa97c44e05a994349a6562092a898083b9858",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk512_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl": "fecb0a9fa728b1c24cede7a0429c27bee13cebd77c67733df38774345a22e661",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk768_portable-project.jsonl": "ea612f21251b423011927a3517a76040b69f0b29e9285b5c916776adf6198e9d",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl": "969fef84233352af966749f4d6f88ed620e76721c2dc4df9ee84d1535538fabf",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_portable-project.jsonl": "b8b0fd882bfb6b953092250f0b17b7a1d2ab4884cc503370c3bf6dfedfc23a0a",
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl": "0dcf4e38b02deb3d4eba29d00c8b1bd1111d139f3bc5f33afaa3eb29a2e5a38a"
   },
   "traces": [
     {
@@ -109,6 +119,7 @@
     "fsri_combinational-2.vcd": "7db6842602f3557bc8ba356b217ec6ba261ad615fb7b0f207e1766248ff0b191",
     "fsri_multiplier_reuse-2.vcd": "501d8da37ab17814d74c84a6bbc046e8275066f46c6b38828c65ae0d874e3cb1",
     "summary.json": "70260758751f5c25dfdcae2774ee919ab268ef42a87884ea6602fcbb7a31d7bb",
-    "fsri_combinational.sv": "b3302d1705b2bba65e0bbd5b584a08ac6b17b909210d113739c08fa56afcdde1"
+    "fsri_combinational.sv": "b3302d1705b2bba65e0bbd5b584a08ac6b17b909210d113739c08fa56afcdde1",
+    "measurements.json": "b837221c8fb88d82652dd3af0383c9f3d67a92287d6d5a2cd1be69196b2cc9ea"
   }
 }
