@@ -16,7 +16,7 @@ if(PQC_POLY_PICORV32_MLKEM)
         OUTPUT "${pqc_red32_pcpi_sim}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_red32_pcpi_dir}"
         COMMAND
-            "${PQC_VERILATOR}" --cc --exe --build -j 0 --Mdir "${pqc_red32_pcpi_dir}"
+            "${PQC_VERILATOR}" --cc --exe --build -j "${PQC_POLY_BUILD_JOBS}" --Mdir "${pqc_red32_pcpi_dir}"
             --top-module pqc_pcpi_mlkem --prefix Vpqc_pcpi_mlkem --Wno-fatal
             -CFLAGS "-std=c++20 -O3" -GENABLE_RED32=1
             "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv" "${pqc_sim_dir}/red32_pcpi.cpp"

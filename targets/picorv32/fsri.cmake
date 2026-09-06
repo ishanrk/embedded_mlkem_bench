@@ -26,7 +26,7 @@ foreach(
 endforeach()
 
 set(pqc_fsri_generated "${pqc_target_dir}/fsri-generated")
-set(pqc_fsri_results "${pqc_target_dir}/fsri-results")
+set(pqc_fsri_results "${pqc_target_dir}/fsri-${PQC_POLY_FSRI_IMPL}-results")
 file(MAKE_DIRECTORY "${pqc_fsri_generated}")
 
 set(pqc_fsri_keccak_source "${pqc_mlkem_root}/src/fips202/keccakf1600.c")
@@ -59,8 +59,8 @@ pqc_add_verilated(
     fsri
     pqc_picorv32_sim_top
     Vpqc_picorv32_sim_top
-    "${pqc_sim_cflags} -DPQC_FSRI=1"
-    -GENABLE_FSRI=1
+    "${pqc_sim_cflags} -DPQC_FSRI=1 -DPQC_FSRI_IMPL=${pqc_fsri_impl}"
+    "-GENABLE_FSRI=1;-GFSRI_IMPL=${pqc_fsri_impl}"
     "${pqc_picorv32_source}"
     "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
     "${pqc_rtl_dir}/pqc_picorv32_core_top.sv"
@@ -72,13 +72,13 @@ add_custom_command(
     OUTPUT "${pqc_fsri_pcpi_sim}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_fsri_pcpi_dir}"
     COMMAND
-        "${PQC_VERILATOR}" --cc --exe --build -j 0 --Mdir "${pqc_fsri_pcpi_dir}"
+        "${PQC_VERILATOR}" --cc --exe --build -j "${PQC_POLY_BUILD_JOBS}" --Mdir "${pqc_fsri_pcpi_dir}"
         --top-module pqc_pcpi_mlkem --prefix Vpqc_pcpi_mlkem --Wno-fatal
-        -CFLAGS "-std=c++20 -O3" -GENABLE_FSRI=1
-        "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv" "${pqc_sim_dir}/fsri_pcpi.cpp"
+        -CFLAGS "-std=c++20 -O3 -DPQC_FEATURE=3 -DPQC_FSRI_IMPL=${pqc_fsri_impl}" -GENABLE_FSRI=1 -GFSRI_IMPL=${pqc_fsri_impl}
+        "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv" "${PROJECT_SOURCE_DIR}/scripts/workbench/pcpi.cpp"
     DEPENDS
         "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
-        "${pqc_sim_dir}/fsri_pcpi.cpp"
+        "${PROJECT_SOURCE_DIR}/scripts/workbench/pcpi.cpp"
     VERBATIM)
 add_custom_target(
     pqc-picorv32-fsri-pcpi
@@ -247,7 +247,7 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
             "${pqc_picorv32_source}" --pcpi "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv" --core
             "${pqc_rtl_dir}/pqc_picorv32_core_top.sv" --script "${pqc_synth_dir}/core.ys"
             --work "${pqc_target_dir}/synthesis-fsri" --output "${pqc_fsri_synthesis}"
-            --enable-fsri
+            --enable-fsri --fsri-impl "${PQC_POLY_FSRI_IMPL}"
         DEPENDS
             "${pqc_picorv32_source}"
             "${pqc_rtl_dir}/pqc_pcpi_mlkem.sv"
