@@ -23,3 +23,6 @@ formal-*
 /synthesis
 !/results/raw/**/*.json
 !/results/raw/**/*.jsonl
+/web/node_modules/
+/web/dist/
+!/web/public/evidence/*.vcd
