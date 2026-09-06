@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+<title id="title">Complete ML-KEM cycle count</title>
+<desc id="desc">Lower is better · Only verified complete-operation totals are shown</desc>
+<rect width="1400" height="760" fill="white"/>
+<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.change{font-size:12px;fill:#667085}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>
+<text x="56" y="48" class="title">Complete ML-KEM cycle count</text>
+<text x="56" y="78" class="subtitle">Lower is better · Only verified complete-operation totals are shown</text>
+<path d="M70 535.5H1330" stroke="#98a2b3" stroke-width="1"/>
+<rect x="84.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="150.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="150" y="570" text-anchor="middle" class="variant">Baseline</text>
+<rect x="359.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="425.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="425" y="570" text-anchor="middle" class="variant">FQMUL</text>
+<rect x="634.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="700.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="700" y="570" text-anchor="middle" class="variant">RED32</text>
+<rect x="909.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="975.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="975" y="570" text-anchor="middle" class="variant">FSRI</text>
+<rect x="1184.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="1250.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="1250" y="570" text-anchor="middle" class="variant">DOT2X</text>
+<text x="700" y="655" text-anchor="middle" class="note">No measured values are available yet</text>
+<text x="700" y="716" text-anchor="middle" class="note">Pending parameter sets: ML-KEM-512, ML-KEM-768, ML-KEM-1024</text>
+</svg>

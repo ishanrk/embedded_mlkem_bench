@@ -70,7 +70,19 @@ The instruction wrappers and software references are in [`targets/picorv32/mlkem
 
 The simulator subtracts the measured MMIO marker overhead and records median PicoRV32 cycle counts. It also scans each disassembly to ensure only the intended custom encoding appears. Output checksums must match across all five variants for each parameter set before a complete summary can be produced.
 
-### Cycle results
+### Performance
+
+The generated figures read individual verified values from the canonical summary. Missing measurements stay visibly pending until the fair rerun fills them.
+
+#### Total cycles
+
+![Complete ML-KEM cycle count for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/total-cycles.svg)
+
+#### Operation breakdown
+
+![ML-KEM operation cycle counts for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/operation-cycles.svg)
+
+#### Exact cycle results
 
 The previous checked in numbers compared different software schedules and are not valid for this narrower experiment. They were removed rather than relabeled. The table will be populated by the fair rerun.
 
@@ -85,6 +97,20 @@ The previous checked in numbers compared different software schedules and are no
 Yosys lowers the complete PicoRV32 core and selected PCPI hardware to ECP5 cells. nextpnr places and routes the same netlist with seeds 1 through 5. ecppack confirms that each routed configuration can be packed. Results record LUT4 flip flops DSP blocks BRAM blocks every routed maximum frequency and the median maximum frequency. The route requests 50 MHz and records whether each seed meets it.
 
 Source netlist repository and tool hashes are kept with the raw synthesis results so a number can be tied to the exact input that produced it.
+
+### Hardware cost
+
+#### LUT4 area
+
+![Complete core LUT4 counts for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/lut4-area.svg)
+
+#### Flip flops
+
+![Complete core flip-flop counts for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/flip-flops.svg)
+
+#### Routed maximum frequency
+
+![Median routed maximum frequency and seed results for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/fmax.svg)
 
 ### Hardware results
 
