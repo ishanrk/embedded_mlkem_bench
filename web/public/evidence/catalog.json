@@ -20,7 +20,14 @@
     "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk768_portable-project.jsonl": "ea612f21251b423011927a3517a76040b69f0b29e9285b5c916776adf6198e9d",
     "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk768_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl": "969fef84233352af966749f4d6f88ed620e76721c2dc4df9ee84d1535538fabf",
     "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_portable-project.jsonl": "b8b0fd882bfb6b953092250f0b17b7a1d2ab4884cc503370c3bf6dfedfc23a0a",
-    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl": "0dcf4e38b02deb3d4eba29d00c8b1bd1111d139f3bc5f33afaa3eb29a2e5a38a"
+    "results/raw/picorv32-step2-3f13dce5-69d24e37/mlk1024_ffuse2_ifuse2_rpair_bcachelate_xnone-project.jsonl": "0dcf4e38b02deb3d4eba29d00c8b1bd1111d139f3bc5f33afaa3eb29a2e5a38a",
+    "scripts/workbench_schematic.py": "265299ae738919aa25500260097292a2e4b0bf50fb7770fb9667180c280bed9d",
+    "scripts/workbench_planner.py": "bea473ea5e8c261c55a3815d335fd1686405bf22b23df7594b8187861a77f0bd",
+    "scripts/workbench/planner.cpp": "47323f5fd81f0231c9cff7a9f95abe420c1e7d3dc27475d397e4f67384c05c5c",
+    "src/mlkem_plan.cpp": "2625e95723fc9e1db646f591d1cda77c5fc6586c08f909c696e41b8229cc37a9",
+    "src/mlkem_check.cpp": "0cc34d697a119d68593d14cef8a85c6830a304e0d00b60ecd7b65f745ad26cae",
+    "src/mlkem_codegen.cpp": "339f8296cb2da2a8c6674849f12df8e63f8e66ba0a254bab296da7fa88eb9ca8",
+    "include/pqc_poly/mlkem_plan.hpp": "8ecbe4912f25e04d6d9b28f2915a5361474826f3f5cc607b154ee8cbb0ea49fc"
   },
   "traces": [
     {
@@ -120,6 +127,12 @@
     "fsri_multiplier_reuse-2.vcd": "501d8da37ab17814d74c84a6bbc046e8275066f46c6b38828c65ae0d874e3cb1",
     "summary.json": "70260758751f5c25dfdcae2774ee919ab268ef42a87884ea6602fcbb7a31d7bb",
     "fsri_combinational.sv": "b3302d1705b2bba65e0bbd5b584a08ac6b17b909210d113739c08fa56afcdde1",
-    "measurements.json": "b837221c8fb88d82652dd3af0383c9f3d67a92287d6d5a2cd1be69196b2cc9ea"
+    "measurements.json": "b837221c8fb88d82652dd3af0383c9f3d67a92287d6d5a2cd1be69196b2cc9ea",
+    "fsri_combinational-schematic.svg": "6f9c7427b02d7bbe944d8ee67ef148bc42ffd82fd503657d6120bac324668205",
+    "schematics.json": "135abe551a4c458da324353610676a2cd98697588fc0d36fc5aa100b0af0a4fd",
+    "red32-schematic.svg": "01a5c6f44d17d59a80ace6765ba4176769d4ff20d52dc8b0761ef529b61a8ee3",
+    "fqmul-schematic.svg": "f8f66ac806a20ccdc350e9cd4eb735ebcdbc3bc2c93af139bcd2741c0d36b3d3",
+    "fsri_multiplier_reuse-schematic.svg": "910075efc6182595077857abebb7c8b8f1a6932ac3d9c19c1bd7755a13be230a",
+    "planner.json": "edac81524f77adf04891dad5e404976b2bed9481015c7edef777bb76e3307ab2"
   }
 }

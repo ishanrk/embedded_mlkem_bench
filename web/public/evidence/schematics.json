@@ -1,0 +1,109 @@
+{
+  "schema": "pqc-poly-bench/schematic-v1",
+  "variants": {
+    "fqmul": {
+      "svg": "fqmul-schematic.svg",
+      "source_sha256": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+      "parameters": {
+        "ENABLE_FQMUL": 1,
+        "ENABLE_RED32": 0,
+        "ENABLE_FSRI": 0
+      },
+      "stage": "Yosys RTLIL after proc and opt with word-level arithmetic cells",
+      "command": [
+        "yosys",
+        "-p",
+        "read_verilog -sv /home/ishan/code/pqc-poly-bench/web/public/evidence/fqmul.sv; chparam -set ENABLE_FQMUL 1 -set ENABLE_RED32 0 -set ENABLE_FSRI 0 pqc_pcpi_mlkem; hierarchy -top pqc_pcpi_mlkem; proc; opt; write_json /home/ishan/code/pqc-poly-bench/build/workbench/fqmul-netlist.json"
+      ],
+      "render_command": [
+        "/home/ishan/code/pqc-poly-bench/web/node_modules/.bin/netlistsvg",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/fqmul-netlist.json",
+        "-o",
+        "/home/ishan/code/pqc-poly-bench/web/public/evidence/fqmul-schematic.svg"
+      ],
+      "yosys": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+      "netlistsvg": "1.0.2",
+      "json_sha256": "9394de4f06aaf161d04c0a6b7283c1ae2070d32b26244a2c7812e677dd011582",
+      "svg_sha256": "f8f66ac806a20ccdc350e9cd4eb735ebcdbc3bc2c93af139bcd2741c0d36b3d3",
+      "source": "fqmul.sv"
+    },
+    "red32": {
+      "svg": "red32-schematic.svg",
+      "source_sha256": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+      "parameters": {
+        "ENABLE_FQMUL": 0,
+        "ENABLE_RED32": 1,
+        "ENABLE_FSRI": 0
+      },
+      "stage": "Yosys RTLIL after proc and opt with word-level arithmetic cells",
+      "command": [
+        "yosys",
+        "-p",
+        "read_verilog -sv /home/ishan/code/pqc-poly-bench/web/public/evidence/red32.sv; chparam -set ENABLE_FQMUL 0 -set ENABLE_RED32 1 -set ENABLE_FSRI 0 pqc_pcpi_mlkem; hierarchy -top pqc_pcpi_mlkem; proc; opt; write_json /home/ishan/code/pqc-poly-bench/build/workbench/red32-netlist.json"
+      ],
+      "render_command": [
+        "/home/ishan/code/pqc-poly-bench/web/node_modules/.bin/netlistsvg",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/red32-netlist.json",
+        "-o",
+        "/home/ishan/code/pqc-poly-bench/web/public/evidence/red32-schematic.svg"
+      ],
+      "yosys": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+      "netlistsvg": "1.0.2",
+      "json_sha256": "df7a0af35881679bfee87b8cb49248d087caddbb4d1282c7b0703b22f939dad4",
+      "svg_sha256": "01a5c6f44d17d59a80ace6765ba4176769d4ff20d52dc8b0761ef529b61a8ee3",
+      "source": "red32.sv"
+    },
+    "fsri_multiplier_reuse": {
+      "svg": "fsri_multiplier_reuse-schematic.svg",
+      "source_sha256": "d1ea2b8a6d235f4f6e36a41a1bf7f37f8b4bf369cf5e871654623976cb648484",
+      "parameters": {
+        "ENABLE_FQMUL": 0,
+        "ENABLE_RED32": 0,
+        "ENABLE_FSRI": 1
+      },
+      "stage": "Yosys RTLIL after proc and opt with word-level arithmetic cells",
+      "command": [
+        "yosys",
+        "-p",
+        "read_verilog -sv /home/ishan/code/pqc-poly-bench/web/public/evidence/fsri_multiplier_reuse.sv; chparam -set ENABLE_FQMUL 0 -set ENABLE_RED32 0 -set ENABLE_FSRI 1 pqc_pcpi_mlkem; hierarchy -top pqc_pcpi_mlkem; proc; opt; write_json /home/ishan/code/pqc-poly-bench/build/workbench/fsri_multiplier_reuse-netlist.json"
+      ],
+      "render_command": [
+        "/home/ishan/code/pqc-poly-bench/web/node_modules/.bin/netlistsvg",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/fsri_multiplier_reuse-netlist.json",
+        "-o",
+        "/home/ishan/code/pqc-poly-bench/web/public/evidence/fsri_multiplier_reuse-schematic.svg"
+      ],
+      "yosys": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+      "netlistsvg": "1.0.2",
+      "json_sha256": "06ca07c7235ca82d549a318eadcd91ce32bc931b98071354fb45a12049d733a1",
+      "svg_sha256": "910075efc6182595077857abebb7c8b8f1a6932ac3d9c19c1bd7755a13be230a",
+      "source": "fsri_multiplier_reuse.sv"
+    },
+    "fsri_combinational": {
+      "svg": "fsri_combinational-schematic.svg",
+      "source_sha256": "b3302d1705b2bba65e0bbd5b584a08ac6b17b909210d113739c08fa56afcdde1",
+      "parameters": {
+        "ENABLE_FQMUL": 0,
+        "ENABLE_RED32": 0,
+        "ENABLE_FSRI": 1
+      },
+      "stage": "Yosys RTLIL after proc and opt with word-level arithmetic cells",
+      "command": [
+        "yosys",
+        "-p",
+        "read_verilog -sv /home/ishan/code/pqc-poly-bench/web/public/evidence/fsri_combinational.sv; chparam -set ENABLE_FQMUL 0 -set ENABLE_RED32 0 -set ENABLE_FSRI 1 pqc_pcpi_mlkem; hierarchy -top pqc_pcpi_mlkem; proc; opt; write_json /home/ishan/code/pqc-poly-bench/build/workbench/fsri_combinational-netlist.json"
+      ],
+      "render_command": [
+        "/home/ishan/code/pqc-poly-bench/web/node_modules/.bin/netlistsvg",
+        "/home/ishan/code/pqc-poly-bench/build/workbench/fsri_combinational-netlist.json",
+        "-o",
+        "/home/ishan/code/pqc-poly-bench/web/public/evidence/fsri_combinational-schematic.svg"
+      ],
+      "yosys": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+      "netlistsvg": "1.0.2",
+      "json_sha256": "299a1fcba29605825052cf8f92819c25aa5a85df087843a1018ee02c693f63d0",
+      "svg_sha256": "6f9c7427b02d7bbe944d8ee67ef148bc42ffd82fd503657d6120bac324668205",
+      "source": "fsri_combinational.sv"
+    }
+  }
+}
