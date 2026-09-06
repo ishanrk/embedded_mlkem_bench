@@ -1,0 +1,51 @@
+/home/ishan/code/pqc-poly-bench/build/workbench/fqmul-butterfly.o:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <pqc_forward_layer>:
+   0:	10050613          	addi	a2,a0,256
+
+00000004 <.L2>:
+   4:	10051703          	lh	a4,256(a0)
+   8:	00b7070b          	.insn	4, 0x00b7070b
+   c:	00055783          	lhu	a5,0(a0)
+  10:	0509                	c.addi	a0,2
+  12:	00f706b3          	add	a3,a4,a5
+  16:	8f99                	c.sub	a5,a4
+  18:	fed51f23          	sh	a3,-2(a0)
+  1c:	0ef51f23          	sh	a5,254(a0)
+  20:	fea612e3          	bne	a2,a0,4 <.L2>
+  24:	8082                	c.jr	ra
+
+00000026 <pqc_forward_pair>:
+  26:	08050e13          	addi	t3,a0,128
+
+0000002a <.L6>:
+  2a:	10051783          	lh	a5,256(a0)
+  2e:	00b7878b          	.insn	4, 0x00b7878b
+  32:	00055703          	lhu	a4,0(a0)
+  36:	18051303          	lh	t1,384(a0)
+  3a:	00e788b3          	add	a7,a5,a4
+  3e:	8f1d                	c.sub	a4,a5
+  40:	00b3030b          	.insn	4, 0x00b3030b
+  44:	08055783          	lhu	a5,128(a0)
+  48:	00f30833          	add	a6,t1,a5
+  4c:	0842                	c.slli	a6,0x10
+  4e:	41085813          	srai	a6,a6,0x10
+  52:	00c8080b          	.insn	4, 0x00c8080b
+  56:	406787b3          	sub	a5,a5,t1
+  5a:	07c2                	c.slli	a5,0x10
+  5c:	01180333          	add	t1,a6,a7
+  60:	410888b3          	sub	a7,a7,a6
+  64:	87c1                	c.srai	a5,0x10
+  66:	00651023          	sh	t1,0(a0)
+  6a:	09151023          	sh	a7,128(a0)
+  6e:	00d7878b          	.insn	4, 0x00d7878b
+  72:	00e78833          	add	a6,a5,a4
+  76:	8f1d                	c.sub	a4,a5
+  78:	11051023          	sh	a6,256(a0)
+  7c:	18e51023          	sh	a4,384(a0)
+  80:	0509                	c.addi	a0,2
+  82:	faae14e3          	bne	t3,a0,2a <.L6>
+  86:	8082                	c.jr	ra
