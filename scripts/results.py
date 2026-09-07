@@ -9,6 +9,8 @@ import sys
 
 VARIANTS = ("baseline", "fqmul", "red32", "fsri", "dot2x")
 LEVELS = ("512", "768", "1024")
+INPUT_COUNT = 30
+REPEATS = 3
 PINS = {
     "mlkem_native": "69d24e37b8a04c6050ec55bc84a4228d7051bb4b",
     "picorv32": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
@@ -70,6 +72,8 @@ def load_run(input_dir, variant, level):
         raise RuntimeError(f"wrong run identity in {path}")
     if data.get("verified") is not True:
         raise RuntimeError(f"unverified run in {path}")
+    if data.get("operation_inputs") != INPUT_COUNT or data.get("repeats") != REPEATS:
+        raise RuntimeError(f"wrong benchmark sampling in {path}")
     instruction_count = data.get("custom_instruction_count")
     if variant == "baseline" and instruction_count != 0:
         raise RuntimeError(f"baseline contains a custom instruction in {path}")
@@ -120,14 +124,23 @@ def load_synthesis(input_dir, variant):
     return result
 
 
-def complete_summary(input_dir):
+def aggregate_summary(input_dir, allow_missing):
     result = pending_summary()
-    result["status"] = "complete"
     checksums = {level: set() for level in LEVELS}
+    benchmark_count = 0
+    synthesis_count = 0
     for variant in VARIANTS:
         for level in LEVELS:
+            path = input_dir / f"{variant}-{level}.json"
+            if not path.is_file():
+                if allow_missing:
+                    continue
+                raise RuntimeError(f"missing benchmark result: {path}")
             run, values = load_run(input_dir, variant, level)
-            checksums[level].add(run.get("output_checksum"))
+            checksum = run.get("output_checksum")
+            if not isinstance(checksum, int):
+                raise RuntimeError(f"invalid output checksum in {path}")
+            checksums[level].add(checksum)
             result["measurements"][variant][level] = {
                 "keygen_cycles": values["keygen"],
                 "encapsulation_cycles": values["encapsulation"],
@@ -136,25 +149,47 @@ def complete_summary(input_dir):
                 "percent_change_vs_baseline": None,
                 "verified": True,
             }
+            benchmark_count += 1
     for level, values in checksums.items():
-        if len(values) != 1 or None in values:
+        if len(values) > 1:
             raise RuntimeError(f"variant output mismatch for ML KEM {level}")
     for level in LEVELS:
         baseline = result["measurements"]["baseline"][level]["total_cycles"]
+        if baseline is None:
+            continue
         for variant in VARIANTS:
             measurement = result["measurements"][variant][level]
+            if measurement["total_cycles"] is None:
+                continue
             measurement["percent_change_vs_baseline"] = percent_change(
                 measurement["total_cycles"], baseline
             )
 
     for variant in VARIANTS:
+        path = input_dir / f"{variant}-synthesis.json"
+        if not path.is_file():
+            if allow_missing:
+                continue
+            raise RuntimeError(f"missing synthesis result: {path}")
         result["hardware"][variant] = load_synthesis(input_dir, variant)
+        synthesis_count += 1
     baseline_fmax = result["hardware"]["baseline"]["median_fmax_mhz"]
-    for variant in VARIANTS:
-        hardware = result["hardware"][variant]
-        hardware["fmax_change_vs_baseline_percent"] = percent_change(
-            hardware["median_fmax_mhz"], baseline_fmax
-        )
+    if baseline_fmax is not None:
+        for variant in VARIANTS:
+            hardware = result["hardware"][variant]
+            if hardware["median_fmax_mhz"] is None:
+                continue
+            hardware["fmax_change_vs_baseline_percent"] = percent_change(
+                hardware["median_fmax_mhz"], baseline_fmax
+            )
+
+    measurement_count = benchmark_count + synthesis_count
+    if benchmark_count == len(VARIANTS) * len(LEVELS) and synthesis_count == len(
+        VARIANTS
+    ):
+        result["status"] = "complete"
+    elif measurement_count:
+        result["status"] = "partial"
     return result
 
 
@@ -166,12 +201,7 @@ def main():
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
 
-    try:
-        summary = complete_summary(args.input)
-    except RuntimeError:
-        if not args.allow_missing:
-            raise
-        summary = pending_summary()
+    summary = aggregate_summary(args.input, args.allow_missing)
     content = json.dumps(summary, indent=2) + "\n"
     if args.check:
         if args.output.read_text(encoding="utf-8") != content:
