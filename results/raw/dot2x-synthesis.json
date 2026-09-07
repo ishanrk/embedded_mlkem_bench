@@ -1,0 +1,108 @@
+{
+  "schema": "pqc-poly-bench/synthesis-v2",
+  "provenance": {
+    "repository_sha": "4e5a638bcf90e6e67a4eb2aa7059bde035600826",
+    "dirty": true,
+    "source_sha256": {
+      "pcpi": "5710720440afb487b14f6d468ccaa2619dec3e1569750ccad205ced320a564cd",
+      "core": "af2f9a91925e442f260603a6aa3c6ecfe50ee474fe6379b5b40e8d33a59fa308",
+      "picorv32": "0836050971b3c6cdd28ac3b1e5719a67fb645161912bef1e472e63995ceb0622",
+      "script": "58d2d4e38bea7cc6e694afbad55bddda9d756b6049079ab40fa9f9b4ff19f062"
+    },
+    "parameters": {
+      "ENABLE_FQMUL": "0",
+      "ENABLE_RED32": "0",
+      "ENABLE_FSRI": "0",
+      "ENABLE_DOT2X": "1"
+    },
+    "netlist_sha256": "e684bd63f22ffadd61d16e22e690f6850af8ad8b12b403e19306011c5017b92b",
+    "reproduction": "/usr/bin/python3 ${PROJECT_SOURCE_DIR}/scripts/ecp5-50mhz.py --yosys ${PQC_OSS_CAD_SUITE_ROOT}/bin/yosys --nextpnr ${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --ecppack ${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack --picorv32 ${PROJECT_SOURCE_DIR}/build/dot2x-pico/_deps/picorv32-src/picorv32.v --pcpi ${PROJECT_SOURCE_DIR}/targets/picorv32/rtl/pqc_pcpi_mlkem.sv --core ${PROJECT_SOURCE_DIR}/targets/picorv32/rtl/pqc_picorv32_core_top.sv --script ${PROJECT_SOURCE_DIR}/targets/picorv32/synth/core.ys --work ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x --output ${PROJECT_SOURCE_DIR}/build/dot2x-final-results-5/dot2x-synthesis.json --enable-dot2x",
+    "picorv32_revision": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
+    "compiler_flags": null,
+    "elf_sha256": null,
+    "scope": "ecp5 core only without board memory"
+  },
+  "fpga_part": "LFE5U-45F-6BG381C",
+  "target_frequency_mhz": 50,
+  "period_ns": 20,
+  "fqmul_enabled": false,
+  "red32_enabled": false,
+  "fsri_enabled": false,
+  "dot2x_enabled": true,
+  "yosys_version": "Yosys 0.67+111 (git sha1 4821ed17b-dirty, Release, Clang /usr/bin/clang++ 21.1.8)",
+  "nextpnr_version": "\"nextpnr-ecp5\" -- Next Generation Place and Route (Version nextpnr-0.10-106-g00376b6b)",
+  "ecppack_version": "Project Trellis ecppack Version 1.4-79-g56bb170",
+  "yosys_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/yosys -c ${PROJECT_SOURCE_DIR}/targets/picorv32/synth/core.ys",
+  "seeds": [
+    {
+      "seed": 1,
+      "status": "complete",
+      "lut4": 3855,
+      "flip_flops": 1005,
+      "dsp": 4,
+      "bram": 0,
+      "maximum_frequency_mhz": 58.9,
+      "meets_50mhz": true,
+      "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-1.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 1",
+      "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-1.config ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-1.bit",
+      "nextpnr_returncode": 0,
+      "ecppack_returncode": 0
+    },
+    {
+      "seed": 2,
+      "status": "complete",
+      "lut4": 3855,
+      "flip_flops": 1005,
+      "dsp": 4,
+      "bram": 0,
+      "maximum_frequency_mhz": 59.97,
+      "meets_50mhz": true,
+      "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-2.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 2",
+      "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-2.config ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-2.bit",
+      "nextpnr_returncode": 0,
+      "ecppack_returncode": 0
+    },
+    {
+      "seed": 3,
+      "status": "complete",
+      "lut4": 3855,
+      "flip_flops": 1005,
+      "dsp": 4,
+      "bram": 0,
+      "maximum_frequency_mhz": 53.07,
+      "meets_50mhz": true,
+      "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-3.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 3",
+      "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-3.config ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-3.bit",
+      "nextpnr_returncode": 0,
+      "ecppack_returncode": 0
+    },
+    {
+      "seed": 4,
+      "status": "complete",
+      "lut4": 3855,
+      "flip_flops": 1005,
+      "dsp": 4,
+      "bram": 0,
+      "maximum_frequency_mhz": 51.54,
+      "meets_50mhz": true,
+      "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-4.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 4",
+      "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-4.config ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-4.bit",
+      "nextpnr_returncode": 0,
+      "ecppack_returncode": 0
+    },
+    {
+      "seed": 5,
+      "status": "complete",
+      "lut4": 3855,
+      "flip_flops": 1005,
+      "dsp": 4,
+      "bram": 0,
+      "maximum_frequency_mhz": 54.95,
+      "meets_50mhz": true,
+      "command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/nextpnr-ecp5 --json ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/core.json --textcfg ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-5.config --45k --package CABGA381 --speed 6 --freq 50 --lpf-allow-unconstrained --seed 5",
+      "ecppack_command": "${PQC_OSS_CAD_SUITE_ROOT}/bin/ecppack ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-5.config ${PROJECT_SOURCE_DIR}/build/dot2x-pico/targets/picorv32/synthesis-dot2x/seed-5.bit",
+      "nextpnr_returncode": 0,
+      "ecppack_returncode": 0
+    }
+  ]
+}

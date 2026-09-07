@@ -75,18 +75,41 @@ def load_run(input_dir, variant, level):
     if data.get("operation_inputs") != INPUT_COUNT or data.get("repeats") != REPEATS:
         raise RuntimeError(f"wrong benchmark sampling in {path}")
     instruction_count = data.get("custom_instruction_count")
+    if not isinstance(instruction_count, int) or isinstance(instruction_count, bool):
+        raise RuntimeError(f"invalid instruction count in {path}")
     if variant == "baseline" and instruction_count != 0:
         raise RuntimeError(f"baseline contains a custom instruction in {path}")
-    if variant != "baseline" and not isinstance(instruction_count, int):
-        raise RuntimeError(f"missing instruction count in {path}")
     if variant != "baseline" and instruction_count <= 0:
         raise RuntimeError(f"custom instruction absent in {path}")
     cycles = data.get("cycles", {})
     values = {}
     for operation in ("keygen", "encapsulation", "decapsulation"):
-        value = cycles.get(operation, {}).get("median")
-        if not isinstance(value, int) or value <= 0:
+        operation_data = cycles.get(operation, {})
+        value = operation_data.get("median")
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
             raise RuntimeError(f"invalid {operation} cycles in {path}")
+        samples = operation_data.get("samples")
+        if (
+            not isinstance(samples, list)
+            or len(samples) != INPUT_COUNT * REPEATS
+            or not all(
+                isinstance(sample, int)
+                and not isinstance(sample, bool)
+                and sample > 0
+                for sample in samples
+            )
+        ):
+            raise RuntimeError(f"invalid {operation} samples in {path}")
+        if any(
+            samples[index] != samples[index - index % REPEATS]
+            for index in range(len(samples))
+        ):
+            raise RuntimeError(f"inconsistent {operation} repeats in {path}")
+        ordered = sorted(samples)
+        middle = len(ordered) // 2
+        expected_median = (ordered[middle - 1] + ordered[middle]) // 2
+        if value != expected_median:
+            raise RuntimeError(f"wrong {operation} median in {path}")
         values[operation] = value
     if cycles.get("total") != sum(values.values()):
         raise RuntimeError(f"wrong cycle total in {path}")
@@ -152,7 +175,7 @@ def aggregate_summary(input_dir, allow_missing):
             benchmark_count += 1
     for level, values in checksums.items():
         if len(values) > 1:
-            raise RuntimeError(f"variant output mismatch for ML KEM {level}")
+            raise RuntimeError(f"variant output mismatch for ML-KEM {level}")
     for level in LEVELS:
         baseline = result["measurements"]["baseline"][level]["total_cycles"]
         if baseline is None:

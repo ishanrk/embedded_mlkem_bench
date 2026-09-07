@@ -6,25 +6,54 @@
 <text x="56" y="48" class="title">Routed maximum frequency</text>
 <text x="56" y="78" class="subtitle">Higher is better · Bars show the median and open circles show individual routing seeds</text>
 <path d="M70 535.5H1330" stroke="#98a2b3" stroke-width="1"/>
-<rect x="74.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="132.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<rect x="74.00" y="192.15" width="116" height="342.85" rx="4" fill="#687386"/>
+<text x="132.00" y="181.15" text-anchor="middle" class="value">64.70 MHz</text>
+<path d="M216 173.60V230.67" stroke="#687386" stroke-width="1.5"/>
+<circle cx="206" cy="174.50" r="4.5" fill="white" stroke="#687386" stroke-width="2"><title>Seed 1: 68.03 MHz</title></circle>
+<circle cx="211" cy="192.15" r="4.5" fill="white" stroke="#687386" stroke-width="2"><title>Seed 2: 64.70 MHz</title></circle>
+<circle cx="216" cy="206.83" r="4.5" fill="white" stroke="#687386" stroke-width="2"><title>Seed 3: 61.93 MHz</title></circle>
+<circle cx="221" cy="230.67" r="4.5" fill="white" stroke="#687386" stroke-width="2"><title>Seed 4: 57.43 MHz</title></circle>
+<circle cx="226" cy="173.60" r="4.5" fill="white" stroke="#687386" stroke-width="2"><title>Seed 5: 68.20 MHz</title></circle>
 <text x="150" y="570" text-anchor="middle" class="variant">Baseline</text>
-<text x="150" y="620" text-anchor="middle" class="change">seeds pending</text>
-<rect x="349.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="407.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="150" y="593" text-anchor="middle" class="change">baseline</text>
+<rect x="349.00" y="222.30" width="116" height="312.70" rx="4" fill="#316bd6"/>
+<text x="407.00" y="211.30" text-anchor="middle" class="value">59.01 MHz</text>
+<path d="M491 209.69V245.25" stroke="#316bd6" stroke-width="1.5"/>
+<circle cx="481" cy="209.69" r="4.5" fill="white" stroke="#316bd6" stroke-width="2"><title>Seed 1: 61.39 MHz</title></circle>
+<circle cx="486" cy="214.46" r="4.5" fill="white" stroke="#316bd6" stroke-width="2"><title>Seed 2: 60.49 MHz</title></circle>
+<circle cx="491" cy="222.30" r="4.5" fill="white" stroke="#316bd6" stroke-width="2"><title>Seed 3: 59.01 MHz</title></circle>
+<circle cx="496" cy="245.25" r="4.5" fill="white" stroke="#316bd6" stroke-width="2"><title>Seed 4: 54.68 MHz</title></circle>
+<circle cx="501" cy="235.71" r="4.5" fill="white" stroke="#316bd6" stroke-width="2"><title>Seed 5: 56.48 MHz</title></circle>
 <text x="425" y="570" text-anchor="middle" class="variant">FQMUL</text>
-<text x="425" y="620" text-anchor="middle" class="change">seeds pending</text>
-<rect x="624.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="682.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="425" y="593" text-anchor="middle" class="change">-8.79% vs baseline</text>
+<rect x="624.00" y="225.75" width="116" height="309.25" rx="4" fill="#c64d4d"/>
+<text x="682.00" y="214.75" text-anchor="middle" class="value">58.36 MHz</text>
+<path d="M766 209.48V253.20" stroke="#c64d4d" stroke-width="1.5"/>
+<circle cx="756" cy="225.75" r="4.5" fill="white" stroke="#c64d4d" stroke-width="2"><title>Seed 1: 58.36 MHz</title></circle>
+<circle cx="761" cy="226.59" r="4.5" fill="white" stroke="#c64d4d" stroke-width="2"><title>Seed 2: 58.20 MHz</title></circle>
+<circle cx="766" cy="253.20" r="4.5" fill="white" stroke="#c64d4d" stroke-width="2"><title>Seed 3: 53.18 MHz</title></circle>
+<circle cx="771" cy="209.48" r="4.5" fill="white" stroke="#c64d4d" stroke-width="2"><title>Seed 4: 61.43 MHz</title></circle>
+<circle cx="776" cy="224.42" r="4.5" fill="white" stroke="#c64d4d" stroke-width="2"><title>Seed 5: 58.61 MHz</title></circle>
 <text x="700" y="570" text-anchor="middle" class="variant">RED32</text>
-<text x="700" y="620" text-anchor="middle" class="change">seeds pending</text>
-<rect x="899.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="957.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="700" y="593" text-anchor="middle" class="change">-9.80% vs baseline</text>
+<rect x="899.00" y="183.41" width="116" height="351.59" rx="4" fill="#27866f"/>
+<text x="957.00" y="172.41" text-anchor="middle" class="value">66.35 MHz</text>
+<path d="M1041 170.00V213.08" stroke="#27866f" stroke-width="1.5"/>
+<circle cx="1031" cy="181.13" r="4.5" fill="white" stroke="#27866f" stroke-width="2"><title>Seed 1: 66.78 MHz</title></circle>
+<circle cx="1036" cy="213.08" r="4.5" fill="white" stroke="#27866f" stroke-width="2"><title>Seed 2: 60.75 MHz</title></circle>
+<circle cx="1041" cy="183.41" r="4.5" fill="white" stroke="#27866f" stroke-width="2"><title>Seed 3: 66.35 MHz</title></circle>
+<circle cx="1046" cy="170.00" r="4.5" fill="white" stroke="#27866f" stroke-width="2"><title>Seed 4: 68.88 MHz</title></circle>
+<circle cx="1051" cy="212.50" r="4.5" fill="white" stroke="#27866f" stroke-width="2"><title>Seed 5: 60.86 MHz</title></circle>
 <text x="975" y="570" text-anchor="middle" class="variant">FSRI</text>
-<text x="975" y="620" text-anchor="middle" class="change">seeds pending</text>
-<rect x="1174.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="1232.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="975" y="593" text-anchor="middle" class="change">+2.55% vs baseline</text>
+<rect x="1174.00" y="243.82" width="116" height="291.18" rx="4" fill="#8356b6"/>
+<text x="1232.00" y="232.82" text-anchor="middle" class="value">54.95 MHz</text>
+<path d="M1316 217.21V261.89" stroke="#8356b6" stroke-width="1.5"/>
+<circle cx="1306" cy="222.88" r="4.5" fill="white" stroke="#8356b6" stroke-width="2"><title>Seed 1: 58.90 MHz</title></circle>
+<circle cx="1311" cy="217.21" r="4.5" fill="white" stroke="#8356b6" stroke-width="2"><title>Seed 2: 59.97 MHz</title></circle>
+<circle cx="1316" cy="253.78" r="4.5" fill="white" stroke="#8356b6" stroke-width="2"><title>Seed 3: 53.07 MHz</title></circle>
+<circle cx="1321" cy="261.89" r="4.5" fill="white" stroke="#8356b6" stroke-width="2"><title>Seed 4: 51.54 MHz</title></circle>
+<circle cx="1326" cy="243.82" r="4.5" fill="white" stroke="#8356b6" stroke-width="2"><title>Seed 5: 54.95 MHz</title></circle>
 <text x="1250" y="570" text-anchor="middle" class="variant">DOT2X</text>
-<text x="1250" y="620" text-anchor="middle" class="change">seeds pending</text>
-<text x="700" y="655" text-anchor="middle" class="note">No routed frequency measurements are available yet</text>
+<text x="1250" y="593" text-anchor="middle" class="change">-15.07% vs baseline</text>
 </svg>
