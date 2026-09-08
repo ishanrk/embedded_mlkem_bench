@@ -39,7 +39,7 @@ def start(title, description):
         f'<title id="title">{escape(title)}</title>',
         f'<desc id="desc">{escape(description)}</desc>',
         f'<rect width="{WIDTH}" height="{HEIGHT}" fill="white"/>',
-        '<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.change{font-size:12px;fill:#667085}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>',
+        '<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>',
         f'<text x="56" y="48" class="title">{escape(title)}</text>',
         f'<text x="56" y="78" class="subtitle">{escape(description)}</text>',
     ]
@@ -70,15 +70,6 @@ def hardware_value(data, variant, field):
     return None
 
 
-def percent_change(value, baseline):
-    if value is None or baseline is None or baseline == 0:
-        return None
-    change = (value / baseline - 1.0) * 100.0
-    if abs(change) < 0.005:
-        change = 0.0
-    return f"{change:+.2f}%"
-
-
 def format_integer(value):
     return f"{value:,}"
 
@@ -104,7 +95,6 @@ def draw_single_bars(name, title, subtitle, values, formatter, note=None):
     bar_width = 132
     present = [value for value in values if value is not None]
     maximum = max(present) if present else None
-    baseline = values[0]
     lines.append(
         f'<path d="M70 {bottom}.5H1330" stroke="#98a2b3" stroke-width="1"/>'
     )
@@ -124,15 +114,6 @@ def draw_single_bars(name, title, subtitle, values, formatter, note=None):
         lines.append(
             f'<text x="{center}" y="570" text-anchor="middle" class="variant">{LABELS[variant]}</text>'
         )
-        change = percent_change(value, baseline)
-        if variant == "baseline" and value is not None:
-            lines.append(
-                f'<text x="{center}" y="593" text-anchor="middle" class="change">baseline</text>'
-            )
-        elif change is not None:
-            lines.append(
-                f'<text x="{center}" y="593" text-anchor="middle" class="change">{change} vs baseline</text>'
-            )
     if not present:
         lines.append(
             '<text x="700" y="655" text-anchor="middle" class="note">No measured values are available yet</text>'
@@ -166,7 +147,6 @@ def grouped_bars(name, title, subtitle, groups, formatter, note=None):
     for group_index, (group_label, values) in enumerate(groups):
         center = 70 + group_width * (group_index + 0.5)
         start_x = center - content_width / 2
-        baseline = values[0]
         for variant_index, (variant, value) in enumerate(zip(VARIANTS, values)):
             bar_center = start_x + slot_width * (variant_index + 0.5)
             x = bar_center - bar_width / 2
@@ -184,15 +164,6 @@ def grouped_bars(name, title, subtitle, groups, formatter, note=None):
             lines.append(
                 f'<text x="{bar_center:.2f}" y="548" text-anchor="middle" class="variant">{LABELS[variant]}</text>'
             )
-            change = percent_change(value, baseline)
-            if variant == "baseline" and value is not None:
-                lines.append(
-                    f'<text x="{bar_center:.2f}" y="569" text-anchor="middle" class="change">baseline</text>'
-                )
-            elif change is not None:
-                lines.append(
-                    f'<text x="{bar_center:.2f}" y="569" text-anchor="middle" class="change">{change}</text>'
-                )
         lines.append(
             f'<text x="{center:.2f}" y="614" text-anchor="middle" class="group">{escape(group_label)}</text>'
         )
@@ -220,7 +191,7 @@ def total_cycles(data):
         draw_single_bars(
             "total-cycles.svg",
             "Complete ML-KEM cycle count",
-            "Lower is better · Only verified complete-operation totals are shown",
+            "Fewer cycles = more efficient",
             values,
             format_integer,
             "Pending parameter sets: " + ", ".join(pending_levels),
@@ -229,18 +200,10 @@ def total_cycles(data):
     note = None
     if pending_levels:
         note = "Pending parameter sets: " + ", ".join(pending_levels)
-    complete = len(groups) == len(LEVELS) and all(
-        value is not None for _, values in groups for value in values
-    )
-    subtitle = (
-        "Lower is better · Exact totals and change from each parameter set baseline"
-        if complete
-        else "Lower is better · Missing variant measurements are marked pending"
-    )
     grouped_bars(
         "total-cycles.svg",
         "Complete ML-KEM cycle count",
-        subtitle,
+        "Fewer cycles = more efficient",
         groups,
         format_integer,
         note,
@@ -268,20 +231,11 @@ def operation_cycles(data):
         ]
         groups.append((label, values))
     complete = completeness[level] == len(fields) * len(VARIANTS)
-    subtitle = (
-        f"Lower is better · ML-KEM-{level} operation medians and change from baseline"
-        if complete
-        else "Lower is better · The parameter set with the most verified measurements is shown"
-    )
-    note = (
-        "All values are medians from 30 inputs and three repeats"
-        if complete
-        else "Pending labels indicate operations without a verified cycle measurement"
-    )
+    note = None if complete else "Pending labels mark unavailable measurements"
     grouped_bars(
         "operation-cycles.svg",
-        f"ML-KEM-{level} operation cycle count",
-        subtitle,
+        f"Cycles per ML-KEM operation for ML-KEM-{level}",
+        "Fewer cycles = more efficient",
         groups,
         format_integer,
         note,
@@ -293,7 +247,7 @@ def lut4_area(data):
     draw_single_bars(
         "lut4-area.svg",
         "Complete PicoRV32 core LUT4 area",
-        "Lower is better · Complete routed core with the selected PCPI hardware",
+        "Fewer LUT4s = less FPGA logic",
         values,
         format_integer,
     )
@@ -303,22 +257,18 @@ def flip_flops(data):
     values = [
         hardware_value(data, variant, "flip_flops") for variant in VARIANTS
     ]
-    dsp_values = [hardware_value(data, variant, "dsp") for variant in VARIANTS]
-    subtitle = "Lower is better · Complete routed core with the selected PCPI hardware"
-    if all(value == 4 for value in dsp_values):
-        subtitle += " · All five variants use the same 4 DSP blocks"
     draw_single_bars(
         "flip-flops.svg",
         "Complete PicoRV32 core flip-flop area",
-        subtitle,
+        "Fewer flip flops = less register logic",
         values,
         format_integer,
     )
 
 
 def fmax(data):
-    title = "Routed maximum frequency"
-    subtitle = "Higher is better · Bars show the median and open circles show individual routing seeds"
+    title = "Median routed maximum frequency"
+    subtitle = "Higher median frequency = faster clock"
     lines = start(title, subtitle)
     top = 135
     bottom = 535
@@ -341,14 +291,13 @@ def fmax(data):
     present = [value for value in medians if value is not None]
     present.extend(value for seeds in seed_values for value in seeds)
     maximum = max(present) if present else None
-    baseline = medians[0]
     lines.append(
         f'<path d="M70 {bottom}.5H1330" stroke="#98a2b3" stroke-width="1"/>'
     )
     for variant, center, median, seeds in zip(
         VARIANTS, centers, medians, seed_values
     ):
-        x = center - bar_width / 2 - 18
+        x = center - bar_width / 2
         if median is None:
             draw_pending_slot(lines, x, bar_width, bottom)
         else:
@@ -361,32 +310,18 @@ def fmax(data):
                 f'<text x="{x + bar_width / 2:.2f}" y="{y - 11:.2f}" text-anchor="middle" class="value">{escape(format_frequency(median))}</text>'
             )
         if seeds:
-            marker_x = center + 66
+            marker_x = center + bar_width / 2 + 22
             seed_y = [bottom - (bottom - top - 35) * value / maximum for value in seeds]
             lines.append(
-                f'<path d="M{marker_x} {min(seed_y):.2f}V{max(seed_y):.2f}" stroke="{COLORS[variant]}" stroke-width="1.5"/>'
+                f'<path d="M{marker_x - 7} {min(seed_y):.2f}H{marker_x + 7} M{marker_x} {min(seed_y):.2f}V{max(seed_y):.2f} M{marker_x - 7} {max(seed_y):.2f}H{marker_x + 7}" stroke="{COLORS[variant]}" stroke-width="2"/>'
             )
-            for seed_index, (value, y) in enumerate(zip(seeds, seed_y), start=1):
-                dot_x = marker_x + (seed_index - 3) * 5
-                lines.append(
-                    f'<circle cx="{dot_x}" cy="{y:.2f}" r="4.5" fill="white" stroke="{COLORS[variant]}" stroke-width="2"><title>Seed {seed_index}: {escape(format_frequency(value))}</title></circle>'
-                )
         lines.append(
             f'<text x="{center}" y="570" text-anchor="middle" class="variant">{LABELS[variant]}</text>'
         )
-        change = percent_change(median, baseline)
-        if variant == "baseline" and median is not None:
-            lines.append(
-                f'<text x="{center}" y="593" text-anchor="middle" class="change">baseline</text>'
-            )
-        elif change is not None:
-            lines.append(
-                f'<text x="{center}" y="593" text-anchor="middle" class="change">{change} vs baseline</text>'
-            )
         if len(seeds) != 5:
             seed_status = "seeds pending" if not seeds else f"{len(seeds)} of 5 seeds"
             lines.append(
-                f'<text x="{center}" y="620" text-anchor="middle" class="change">{seed_status}</text>'
+                f'<text x="{center}" y="620" text-anchor="middle" class="note">{seed_status}</text>'
             )
     if not present:
         lines.append(

@@ -1,73 +1,57 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
-<title id="title">ML-KEM-512 operation cycle count</title>
-<desc id="desc">Lower is better · ML-KEM-512 operation medians and change from baseline</desc>
+<title id="title">Cycles per ML-KEM operation for ML-KEM-512</title>
+<desc id="desc">Fewer cycles = more efficient</desc>
 <rect width="1400" height="760" fill="white"/>
-<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.change{font-size:12px;fill:#667085}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>
-<text x="56" y="48" class="title">ML-KEM-512 operation cycle count</text>
-<text x="56" y="78" class="subtitle">Lower is better · ML-KEM-512 operation medians and change from baseline</text>
+<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>
+<text x="56" y="48" class="title">Cycles per ML-KEM operation for ML-KEM-512</text>
+<text x="56" y="78" class="subtitle">Fewer cycles = more efficient</text>
 <path d="M70 515.5H1330" stroke="#98a2b3" stroke-width="1"/>
 <rect x="86.00" y="263.57" width="60.00" height="251.43" rx="3" fill="#687386"/>
 <text x="116.00" y="253.57" text-anchor="middle" class="value">3,743,636</text>
 <text x="116.00" y="548" text-anchor="middle" class="variant">Baseline</text>
-<text x="116.00" y="569" text-anchor="middle" class="change">baseline</text>
 <rect x="168.00" y="276.17" width="60.00" height="238.83" rx="3" fill="#316bd6"/>
 <text x="198.00" y="266.17" text-anchor="middle" class="value">3,556,027</text>
 <text x="198.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
-<text x="198.00" y="569" text-anchor="middle" class="change">-5.01%</text>
 <rect x="250.00" y="275.70" width="60.00" height="239.30" rx="3" fill="#c64d4d"/>
 <text x="280.00" y="265.70" text-anchor="middle" class="value">3,563,052</text>
 <text x="280.00" y="548" text-anchor="middle" class="variant">RED32</text>
-<text x="280.00" y="569" text-anchor="middle" class="change">-4.82%</text>
 <rect x="332.00" y="348.52" width="60.00" height="166.48" rx="3" fill="#27866f"/>
 <text x="362.00" y="338.52" text-anchor="middle" class="value">2,478,765</text>
 <text x="362.00" y="548" text-anchor="middle" class="variant">FSRI</text>
-<text x="362.00" y="569" text-anchor="middle" class="change">-33.79%</text>
 <rect x="414.00" y="263.30" width="60.00" height="251.70" rx="3" fill="#8356b6"/>
 <text x="444.00" y="253.30" text-anchor="middle" class="value">3,747,591</text>
 <text x="444.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
-<text x="444.00" y="569" text-anchor="middle" class="change">+0.11%</text>
 <text x="280.00" y="614" text-anchor="middle" class="group">Key generation</text>
 <rect x="506.00" y="242.61" width="60.00" height="272.39" rx="3" fill="#687386"/>
 <text x="536.00" y="232.61" text-anchor="middle" class="value">4,055,679</text>
 <text x="536.00" y="548" text-anchor="middle" class="variant">Baseline</text>
-<text x="536.00" y="569" text-anchor="middle" class="change">baseline</text>
 <rect x="588.00" y="259.51" width="60.00" height="255.49" rx="3" fill="#316bd6"/>
 <text x="618.00" y="249.51" text-anchor="middle" class="value">3,804,098</text>
 <text x="618.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
-<text x="618.00" y="569" text-anchor="middle" class="change">-6.20%</text>
 <rect x="670.00" y="257.72" width="60.00" height="257.28" rx="3" fill="#c64d4d"/>
 <text x="700.00" y="247.72" text-anchor="middle" class="value">3,830,728</text>
 <text x="700.00" y="548" text-anchor="middle" class="variant">RED32</text>
-<text x="700.00" y="569" text-anchor="middle" class="change">-5.55%</text>
 <rect x="752.00" y="324.99" width="60.00" height="190.01" rx="3" fill="#27866f"/>
 <text x="782.00" y="314.99" text-anchor="middle" class="value">2,829,156</text>
 <text x="782.00" y="548" text-anchor="middle" class="variant">FSRI</text>
-<text x="782.00" y="569" text-anchor="middle" class="change">-30.24%</text>
 <rect x="834.00" y="242.21" width="60.00" height="272.79" rx="3" fill="#8356b6"/>
 <text x="864.00" y="232.21" text-anchor="middle" class="value">4,061,664</text>
 <text x="864.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
-<text x="864.00" y="569" text-anchor="middle" class="change">+0.15%</text>
 <text x="700.00" y="614" text-anchor="middle" class="group">Encapsulation</text>
 <rect x="926.00" y="170.53" width="60.00" height="344.47" rx="3" fill="#687386"/>
 <text x="956.00" y="160.53" text-anchor="middle" class="value">5,128,885</text>
 <text x="956.00" y="548" text-anchor="middle" class="variant">Baseline</text>
-<text x="956.00" y="569" text-anchor="middle" class="change">baseline</text>
 <rect x="1008.00" y="196.38" width="60.00" height="318.62" rx="3" fill="#316bd6"/>
 <text x="1038.00" y="186.38" text-anchor="middle" class="value">4,744,068</text>
 <text x="1038.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
-<text x="1038.00" y="569" text-anchor="middle" class="change">-7.50%</text>
 <rect x="1090.00" y="194.17" width="60.00" height="320.83" rx="3" fill="#c64d4d"/>
 <text x="1120.00" y="184.17" text-anchor="middle" class="value">4,776,989</text>
 <text x="1120.00" y="548" text-anchor="middle" class="variant">RED32</text>
-<text x="1120.00" y="569" text-anchor="middle" class="change">-6.86%</text>
 <rect x="1172.00" y="271.17" width="60.00" height="243.83" rx="3" fill="#27866f"/>
 <text x="1202.00" y="261.17" text-anchor="middle" class="value">3,630,453</text>
 <text x="1202.00" y="548" text-anchor="middle" class="variant">FSRI</text>
-<text x="1202.00" y="569" text-anchor="middle" class="change">-29.22%</text>
 <rect x="1254.00" y="170.00" width="60.00" height="345.00" rx="3" fill="#8356b6"/>
 <text x="1284.00" y="160.00" text-anchor="middle" class="value">5,136,843</text>
 <text x="1284.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
-<text x="1284.00" y="569" text-anchor="middle" class="change">+0.16%</text>
 <text x="1120.00" y="614" text-anchor="middle" class="group">Decapsulation</text>
-<text x="700" y="716" text-anchor="middle" class="note">All values are medians from 30 inputs and three repeats</text>
 </svg>
