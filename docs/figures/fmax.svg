@@ -54,6 +54,6 @@
 <circle cx="1316" cy="253.78" r="4.5" fill="white" stroke="#8356b6" stroke-width="2"><title>Seed 3: 53.07 MHz</title></circle>
 <circle cx="1321" cy="261.89" r="4.5" fill="white" stroke="#8356b6" stroke-width="2"><title>Seed 4: 51.54 MHz</title></circle>
 <circle cx="1326" cy="243.82" r="4.5" fill="white" stroke="#8356b6" stroke-width="2"><title>Seed 5: 54.95 MHz</title></circle>
-<text x="1250" y="570" text-anchor="middle" class="variant">DOT2X</text>
+<text x="1250" y="570" text-anchor="middle" class="variant">FDOT2X</text>
 <text x="1250" y="593" text-anchor="middle" class="change">-15.07% vs baseline</text>
 </svg>

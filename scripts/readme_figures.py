@@ -18,7 +18,7 @@ LABELS = {
     "fqmul": "FQMUL",
     "red32": "RED32",
     "fsri": "FSRI",
-    "dot2x": "DOT2X",
+    "dot2x": "FDOT2X",
 }
 COLORS = {
     "baseline": "#687386",
