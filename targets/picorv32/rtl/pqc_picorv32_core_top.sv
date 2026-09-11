@@ -1,3 +1,4 @@
+// connects the pinned PicoRV32 core to this project's PCPI instruction block
 module pqc_picorv32_core_top #(
     parameter STOCK_MUL = 1'b0,
     parameter ENABLE_FQMUL = 1'b0,
@@ -17,6 +18,7 @@ module pqc_picorv32_core_top #(
     input  logic [31:0] mem_rdata
 `ifdef RISCV_FORMAL
     ,
+    // RVFI exposes each retired instruction so formal monitors can check architectural effects
     output logic        rvfi_valid,
     output logic [63:0] rvfi_order,
     output logic [31:0] rvfi_insn,
@@ -76,6 +78,7 @@ pqc_pcpi_mlkem #(
 ) project_pcpi (
     .clk(clk),
     .resetn(resetn),
+    // stock comparison uses PicoRV32's internal fast multiplier, so this block sees no requests
     .pcpi_valid(pcpi_valid && !STOCK_MUL),
     .pcpi_insn(pcpi_insn),
     .pcpi_rs1(pcpi_rs1),
@@ -92,6 +95,7 @@ pqc_pcpi_mlkem #(
 
 always_comb
 begin
+    // select either the external project PCPI response or the internal stock MUL path
     if (STOCK_MUL)
     begin
         pcpi_wr = 1'b0;
@@ -109,6 +113,7 @@ begin
 end
 
 picorv32 #(
+    // core parameters are pinned so differences come from the selected instruction hardware
     .ENABLE_COUNTERS(1),
     .ENABLE_COUNTERS64(1),
     .ENABLE_REGS_16_31(1),
@@ -122,6 +127,7 @@ picorv32 #(
     .CATCH_MISALIGN(1),
     .CATCH_ILLINSN(1),
     .ENABLE_PCPI(1),
+    // normal project builds route RV32M multiply through pqc_pcpi_mlkem for multiplier reuse
     .ENABLE_MUL(0),
     .ENABLE_FAST_MUL(STOCK_MUL),
     .ENABLE_DIV(1),
@@ -203,6 +209,7 @@ begin
                        (rvfi_insn & 32'hfe00_707f) == 32'h0000_100b ||
                        (rvfi_insn & 32'hc000_707f) == 32'h0000_200b))
     begin
+        // multicycle operands came from the PCPI latch, which is the value RVFI should report
         rvfi_rs1_rdata = project_formal_state[175:144];
         rvfi_rs2_rdata = project_formal_state[143:112];
     end
@@ -210,6 +217,7 @@ end
 assign formal_fqmul_accept = pcpi_valid &&
                              (pcpi_insn & 32'hfe00_707f) == 32'h0000_000b &&
                              project_wait && project_formal_state[212:210] == 3'd0;
+// acceptance taps connect the internal PCPI transaction to the end-to-end RVFI monitors
 assign formal_fqmul_left = pcpi_rs1;
 assign formal_fqmul_right = pcpi_rs2;
 assign formal_fqmul_state = project_formal_state;
