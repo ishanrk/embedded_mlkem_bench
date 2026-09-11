@@ -39,11 +39,13 @@
       }
     },
     {
-      "name": "picorv32-synthesis",
-      "displayName": "pinned picorv32 ecp5 synthesis",
+      "name": "picorv32-experiment",
+      "displayName": "complete pinned picorv32 experiment",
       "inherits": "picorv32-sim",
-      "binaryDir": "${sourceDir}/build/picorv32-synthesis",
+      "binaryDir": "${sourceDir}/build/picorv32-experiment",
       "cacheVariables": {
+        "PQC_POLY_PICORV32_MLKEM": "ON",
+        "PQC_POLY_PICORV32_FORMAL": "ON",
         "PQC_POLY_PICORV32_SYNTHESIS": "ON"
       }
     }
@@ -63,9 +65,19 @@
       "targets": ["pqc-picorv32-sim"]
     },
     {
+      "name": "picorv32-formal",
+      "configurePreset": "picorv32-experiment",
+      "targets": ["pqc-picorv32-formal"]
+    },
+    {
       "name": "picorv32-synthesis",
-      "configurePreset": "picorv32-synthesis",
-      "targets": ["pqc-picorv32-sim", "pqc-picorv32-synthesis"]
+      "configurePreset": "picorv32-experiment",
+      "targets": ["pqc-picorv32-synthesis"]
+    },
+    {
+      "name": "picorv32-results",
+      "configurePreset": "picorv32-experiment",
+      "targets": ["pqc-picorv32-results"]
     }
   ],
   "testPresets": [

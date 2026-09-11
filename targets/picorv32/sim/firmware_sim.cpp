@@ -14,6 +14,7 @@
 #include <string_view>
 #include <vector>
 
+// runs bare metal firmware inside the Verilator processor model
 namespace
 {
 
@@ -119,6 +120,7 @@ void require(bool condition, std::string_view message)
 [[nodiscard]] std::array<std::size_t, 3> instruction_counts(
     const std::string &path)
 {
+    // checks which custom encodings were emitted in the firmware
     std::array<std::size_t, 3> counts{};
     std::string_view text = read_file(path);
     while (!text.empty())
@@ -222,6 +224,7 @@ void write_result(const options &settings,
                   const std::vector<std::uint64_t> &ends,
                   const std::vector<std::uint32_t> &status)
 {
+    // separates marker intervals into the three complete MLKEM operations
     constexpr unsigned repeats = 3;
     const std::size_t samples_per_operation =
         static_cast<std::size_t>(settings.inputs) * repeats;
@@ -307,6 +310,7 @@ void simulate(const options &settings)
         validate_instruction_counts(settings, counts);
     }
 
+    // clock reset then run until firmware writes the terminate address
     Vpqc_picorv32_sim_top model;
     std::vector<std::uint64_t> begins;
     std::vector<std::uint64_t> ends;
