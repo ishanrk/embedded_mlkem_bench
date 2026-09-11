@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import argparse
 import hashlib
 import json
@@ -6,45 +7,83 @@ import pathlib
 import shutil
 import subprocess
 import sys
-from workbench.measurements import export as export_measurements
-
-root = pathlib.Path(__file__).resolve().parents[1]
-out = root / "web/public/evidence"
-work = root / "build/workbench"
-historical = "1b1d01aaaffe48a0bfff3cdc096cca526f8a40ca"
-rtl = "targets/picorv32/rtl/pqc_pcpi_mlkem.sv"
 
 
-def run(command, log=None):
-    # captures command output for generated evidence and failure logs
-    result = subprocess.run([str(x) for x in command], cwd=root, text=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
-    if log:
-        pathlib.Path(log).write_text(result.stdout + result.stderr)
-    if result.returncode:
-        raise RuntimeError(f"command failed {command}\n{result.stderr[-3000:]}")
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+OUT = ROOT / "web/public/evidence"
+WORK = ROOT / "build/workbench"
+RTL = ROOT / "targets/picorv32/rtl/pqc_pcpi_mlkem.sv"
+
+
+def run(command, log=None, cwd=ROOT):
+    result = subprocess.run(
+        [str(value) for value in command],
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=300,
+        check=False,
+    )
+    if log is not None:
+        pathlib.Path(log).write_text(result.stdout, encoding="utf-8")
+    if result.returncode != 0:
+        raise RuntimeError(f"command failed {command}\n{result.stdout[-3000:]}")
     return result.stdout.strip()
 
 
 def digest(path):
-    # hashes identify the source bytes used for each browser artifact
     return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
 
 
 def write(name, value):
-    (out / name).write_text(json.dumps(value, indent=2) + "\n")
+    (OUT / name).write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
-def reference(kind, a, b, shift):
-    # calculates expected instruction results for generated traces
+def refresh_catalog(*inputs):
+    catalog_path = OUT / "catalog.json"
+    if not catalog_path.exists():
+        return
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    for source in inputs:
+        path = pathlib.Path(source).resolve()
+        catalog["inputs"][path.relative_to(ROOT).as_posix()] = digest(path)
+    catalog["artifacts"] = {
+        path.name: digest(path)
+        for path in OUT.iterdir()
+        if path.is_file() and path.name != "catalog.json"
+    }
+    write("catalog.json", catalog)
+
+
+def reference(kind, first, second, shift):
     def signed(value, width):
         value &= (1 << width) - 1
         return value - (1 << width) if value >> (width - 1) else value
+
     if kind == "fsri":
-        return ((b << 32 | a) >> shift) & 0xffffffff
-    t = signed(a, 32) if kind == "red32" else signed(a, 16) * signed(b, 16)
-    u = signed((t & 65535) * 62209, 16)
-    return ((t - u * 3329) // 65536) & 0xffffffff
+        return ((second << 32 | first) >> shift) & 0xFFFFFFFF
+    value = signed(first, 32) if kind == "red32" else signed(first, 16) * signed(second, 16)
+    inverse = signed((value & 0xFFFF) * 62209, 16)
+    return ((value - inverse * 3329) // 65536) & 0xFFFFFFFF
+
+
+def check_catalog():
+    catalog = json.loads((OUT / "catalog.json").read_text(encoding="utf-8"))
+    for name, expected in catalog["inputs"].items():
+        if digest(ROOT / name) != expected:
+            raise RuntimeError(f"stale workbench input {name}")
+    for name, expected in catalog["artifacts"].items():
+        if digest(OUT / name) != expected:
+            raise RuntimeError(f"changed workbench artifact {name}")
+    for entry in catalog["traces"]:
+        trace = json.loads((OUT / entry["file"]).read_text(encoding="utf-8"))
+        first = int(trace["rs1"], 0)
+        second = int(trace["rs2"], 0)
+        expected = reference(trace["instruction"], first, second, trace["shift"])
+        response = next(value for value in trace["snapshots"] if int(value["ready"], 0))
+        if int(response["rd"], 0) != expected:
+            raise RuntimeError(f"wrong saved trace result {entry['id']}")
 
 
 def main():
@@ -55,106 +94,129 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.jobs <= 16:
         parser.error("jobs must be between one and sixteen")
-    out.mkdir(parents=True, exist_ok=True)
-    work.mkdir(parents=True, exist_ok=True)
     if args.check:
-        # check mode compares stored evidence hashes without rewriting files
-        catalog = json.loads((out / "catalog.json").read_text())
-        for name, expected in catalog["inputs"].items():
-            if digest(root / name) != expected:
-                raise RuntimeError(f"stale generated evidence for {name}")
-        for name, expected in catalog["artifacts"].items():
-            if digest(out / name) != expected:
-                raise RuntimeError(f"changed generated artifact {name}")
-        for entry in catalog["traces"]:
-            trace = json.loads((out / entry["file"]).read_text())
-            a, b = (int(trace[k], 0) for k in ("rs1", "rs2"))
-            assert int(trace["snapshots"][-1]["rd"], 0) == reference(trace["instruction"], a, b, trace["shift"])
-        for entry in catalog["traces"]:
-            trace = json.loads((out / entry["file"]).read_text())
-            if digest(out / trace["source"]) != trace["source_sha256"]:
-                raise RuntimeError(f"trace source mismatch {entry['id']}")
-        if (out / "packed-feasibility.json").exists():
-            packed = json.loads((out / "packed-feasibility.json").read_text())
-            for name, expected in packed["sources"].items():
-                if digest(root / name) != expected:
-                    raise RuntimeError(f"stale packed feasibility source {name}")
-        for name in ("pcpi-checks.json", "bounded-checks.json"):
-            if (out / name).exists():
-                checks = json.loads((out / name).read_text())
-                if checks["source_sha256"] != digest(root / rtl):
-                    raise RuntimeError(f"stale rtl checks {name}")
-        print("source hashes artifact hashes and rtl arithmetic agree")
+        check_catalog()
+        print("workbench evidence matches its source files")
         return
-    inputs = [rtl, "scripts/workbench/observe.sv", "scripts/workbench/trace.cpp",
-              "scripts/workbench_data.py", "scripts/workbench/measurements.py", "results/summary.json"]
-    # catalog lists each browser artifact and its source hash
-    catalog = {"schema": "pqc-poly-bench/workbench-v1", "repository_sha": run(["git", "rev-parse", "HEAD"]),
-               "dirty": bool(run(["git", "status", "--porcelain", "--untracked-files=normal"])),
-               "inputs": {p: digest(root / p) for p in inputs}, "traces": [],
-               "execution": "recorded native verilator playback", "wasm": "unavailable emcc not installed",
-               "upstream": json.loads((root / "results/summary.json").read_text())["platform"]}
-    shutil.copyfile(root / "results/summary.json", out / "summary.json")
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    WORK.mkdir(parents=True, exist_ok=True)
+    inputs = [
+        "targets/picorv32/rtl/pqc_pcpi_mlkem.sv",
+        "targets/picorv32/mlkem/fqmul.h",
+        "targets/picorv32/mlkem/red32.h",
+        "targets/picorv32/mlkem/fsri.h",
+        "scripts/workbench/observe.sv",
+        "scripts/workbench/trace.cpp",
+        "scripts/workbench_data.py",
+        "results/summary.json",
+    ]
     for name in ("fqmul", "red32", "fsri"):
-        shutil.copyfile(root / f"targets/picorv32/mlkem/{name}.h", out / f"{name}.h")
-        catalog["inputs"][f"targets/picorv32/mlkem/{name}.h"] = digest(out / f"{name}.h")
-    for name in export_measurements(root, out):
-        catalog["inputs"][name] = digest(root / name)
-    # builds Verilator models and saves PCPI traces and VCD waveforms
-    for variant, kind, revision in (("fqmul", "fqmul", None), ("red32", "red32", None),
-                                  ("fsri_multiplier_reuse", "fsri", None),
-                                  ("fsri_combinational", "fsri", historical),
-                                  ("fsri_sliced", "fsri", None), ("fsri_direct", "fsri", None)):
-        source = out / f"{variant}.sv"
-        source.write_text(run(["git", "show", f"{revision}:{rtl}"]) + "\n" if revision else (root / rtl).read_text())
-        if args.data_only or not shutil.which("verilator"):
-            continue
-        directory = work / variant
-        directory.mkdir(exist_ok=True)
-        command = ["verilator", "--cc", "--exe", "--build", "--trace", "--threads", "1", "-j", str(args.jobs),
-                   "--Mdir", directory, "--top-module", "pqc_pcpi_observe", "--Wno-fatal",
-                   f"-GENABLE_{kind.upper()}=1", "-CFLAGS", "-std=c++20 -O2", source,
-                   root / "scripts/workbench/observe.sv", root / "scripts/workbench/trace.cpp"]
-        if not revision:
-            command += ["-DPQC_FSRI_PARAMETER", f"-GFSRI_IMPL={1 if variant == 'fsri_sliced' else 2 if variant == 'fsri_direct' else 0}"]
-        run(command, directory / "build.log")
-        binary = directory / "Vpqc_pcpi_observe"
-        cases = [(0xdead8000, 0xbeef0680, 0), (3328, 3328, 0)] if kind == "fqmul" else (
-            [(0x80000001, 0, 0), (0x7fffffff, 0, 0)] if kind == "red32" else
-            [(0x89abcdef, 0x12345678, shift) for shift in (0, 13, 31)])
-        for index, (a, b, shift) in enumerate(cases):
-            name = f"{variant}-{index}"
-            encoding = {"fqmul": 0xb, "red32": 0x100b, "fsri": 0x200b}[kind] | (shift << 25) | (7 << 7) | (5 << 15)
-            if kind != "red32":
-                encoding |= 6 << 20
-            trace_command = [binary, hex(encoding), hex(a), hex(b), out / f"{name}.vcd"]
-            snapshots = json.loads(run(trace_command))
-            expected = reference(kind, a, b, shift)
-            assert int(snapshots[-1]["rd"], 0) == expected, name
-            write(f"{name}.json", {"schema": "pqc-poly-bench/pcpi-trace-v1", "variant": variant,
-                  "instruction": kind, "rs1": hex(a), "rs2": hex(b), "shift": shift,
-                  "encoding": hex(encoding), "expected": hex(expected), "snapshots": snapshots,
-                  "accepted_edge": 1,
-                  "response_edge": next(s["edge"] for s in snapshots if int(s["ready"], 0)),
-                  "sampling": "edge zero is settled request before first rising edge then settled post rising edge snapshots",
-                  "latency": "first settled ready assertion indexed from request at edge zero direct is combinational at zero and can be consumed at edge one sequential snapshots include capture edge cpu issue and retirement excluded",
-                  "source": source.name, "source_sha256": digest(source), "source_revision": revision,
-                  "parameters": {**{f"ENABLE_{k.upper()}": int(k == kind) for k in ("fqmul", "red32", "fsri")},
-                                 **({"FSRI_IMPL": 1 if variant == "fsri_sliced" else 2 if variant == "fsri_direct" else 0} if not revision else {})},
-                  "tool": run(["verilator", "--version"]), "compiler": run(["g++", "--version"]).splitlines()[0], "build_command": [str(x) for x in command],
-                  "command": [str(x) for x in trace_command], "binary_sha256": digest(binary),
-                  "status": "locally reproduced run", "vcd": f"{name}.vcd"})
-            catalog["traces"].append({"id": name, "variant": variant, "file": f"{name}.json"})
-    if (out / "catalog.json").exists():
-        prior = json.loads((out / "catalog.json").read_text())
-        catalog["inputs"] = {**prior["inputs"], **catalog["inputs"]}
-    catalog["artifacts"] = {p.name: digest(p) for p in out.iterdir() if p.is_file() and p.name != "catalog.json"}
+        inputs.append(f"targets/picorv32/formal/{name}.sby")
+        inputs.append(f"targets/picorv32/formal/{name}_properties.sv")
+    catalog = {
+        "schema": "pqc-poly-bench/workbench-v2",
+        "inputs": {name: digest(ROOT / name) for name in inputs},
+        "traces": [],
+        "artifacts": {},
+    }
+    shutil.copyfile(ROOT / "results/summary.json", OUT / "summary.json")
+    shutil.copyfile(RTL, OUT / "pqc_pcpi_mlkem.sv")
+    for name in ("fqmul", "red32", "fsri"):
+        shutil.copyfile(
+            ROOT / f"targets/picorv32/mlkem/{name}.h", OUT / f"{name}.h"
+        )
+        shutil.copyfile(
+            ROOT / f"targets/picorv32/formal/{name}.sby",
+            OUT / f"{name}.sby",
+        )
+        shutil.copyfile(
+            ROOT / f"targets/picorv32/formal/{name}_properties.sv",
+            OUT / f"{name}_properties.sv",
+        )
+
+    if not args.data_only:
+        if shutil.which("verilator") is None:
+            raise RuntimeError("verilator is required to record traces")
+        source = OUT / "pqc_pcpi_mlkem.sv"
+        for kind, feature in (("fqmul", "FQMUL"), ("red32", "RED32"), ("fsri", "FSRI")):
+            directory = WORK / f"trace-{kind}"
+            directory.mkdir(parents=True, exist_ok=True)
+            command = [
+                "verilator",
+                "--cc",
+                "--exe",
+                "--build",
+                "--trace",
+                "--threads",
+                "1",
+                "-j",
+                str(args.jobs),
+                "--Mdir",
+                directory,
+                "--top-module",
+                "pqc_pcpi_observe",
+                "--Wno-fatal",
+                f"-GENABLE_{feature}=1",
+                "-CFLAGS",
+                "-std=c++20 -O2",
+                source,
+                ROOT / "scripts/workbench/observe.sv",
+                ROOT / "scripts/workbench/trace.cpp",
+            ]
+            run(command, directory / "build.log")
+            cases = {
+                "fqmul": [(0xDEAD8000, 0xBEEF0680, 0), (3328, 3328, 0)],
+                "red32": [(0x80000001, 0, 0), (0x7FFFFFFF, 0, 0)],
+                "fsri": [(0x89ABCDEF, 0x12345678, shift) for shift in (0, 13, 31)],
+            }[kind]
+            binary = directory / "Vpqc_pcpi_observe"
+            for index, (first, second, shift) in enumerate(cases):
+                instruction = {"fqmul": 0xB, "red32": 0x100B, "fsri": 0x200B}[kind]
+                instruction |= shift << 25 | 7 << 7 | 5 << 15
+                if kind != "red32":
+                    instruction |= 6 << 20
+                name = f"{kind}-{index}"
+                vcd = OUT / f"{name}.vcd"
+                snapshots = json.loads(
+                    run([binary, hex(instruction), hex(first), hex(second), vcd])
+                )
+                expected = reference(kind, first, second, shift)
+                response = next(value for value in snapshots if int(value["ready"], 0))
+                if int(response["rd"], 0) != expected:
+                    raise RuntimeError(f"wrong Verilator result {name}")
+                write(
+                    f"{name}.json",
+                    {
+                        "schema": "pqc-poly-bench/pcpi-trace-v2",
+                        "instruction": kind,
+                        "rs1": hex(first),
+                        "rs2": hex(second),
+                        "shift": shift,
+                        "encoding": hex(instruction),
+                        "snapshots": snapshots,
+                        "response_edge": response["edge"],
+                        "source": source.name,
+                        "source_sha256": digest(source),
+                        "tool": run(["verilator", "--version"]),
+                        "vcd": vcd.name,
+                    },
+                )
+                catalog["traces"].append(
+                    {"id": name, "instruction": kind, "file": f"{name}.json"}
+                )
+
+    catalog["artifacts"] = {
+        path.name: digest(path)
+        for path in OUT.iterdir()
+        if path.is_file() and path.name != "catalog.json"
+    }
     write("catalog.json", catalog)
-    print(f"exported {len(catalog['traces'])} native rtl traces")
+    print(f"exported {len(catalog['traces'])} Verilator traces")
 
 
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, RuntimeError, ValueError, AssertionError) as error:
-        sys.exit(str(error))
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as error:
+        sys.exit(f"error {error}")

@@ -48,8 +48,6 @@ void snapshot(const Vpqc_pcpi_observe &model, unsigned edge)
                              (static_cast<unsigned __int128>(model.multiply_result[1]) << 32) |
                              model.multiply_result[0]);
     field("numerator", model.numerator);
-    field("fsri_window", model.fsri_window);
-    field("fsri_shifted", model.fsri_shifted);
     std::cout << "}";
 }
 }

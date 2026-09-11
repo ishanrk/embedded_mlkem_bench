@@ -1,0 +1,26 @@
+{
+  "schema": "pqc-poly-bench/schematics-v2",
+  "variants": {
+    "fqmul": {
+      "svg": "fqmul-schematic.svg",
+      "source_sha256": "fa6582d9cc1a174f43952db731e8e771120d8d12b9a08aef35c6dfa4c69f2a49",
+      "netlist_sha256": "08b32ad8ea840ab64f8cc99328f18cffd127672b500d745a4eccc6ebcfa07cc9",
+      "svg_sha256": "ab560fe4757eca2fb4210593088fb7281e435c24035714fb96c6fa586f5d4dd0",
+      "stage": "Yosys word level logic before technology mapping"
+    },
+    "red32": {
+      "svg": "red32-schematic.svg",
+      "source_sha256": "fa6582d9cc1a174f43952db731e8e771120d8d12b9a08aef35c6dfa4c69f2a49",
+      "netlist_sha256": "01e065776aa275382472f7f77a8050334c33e72bc56f17c2a4385a45ecb9be27",
+      "svg_sha256": "66aba396febb3caace6494164d6088823484c79f3c2cd5dceb7cdb0adad48253",
+      "stage": "Yosys word level logic before technology mapping"
+    },
+    "fsri": {
+      "svg": "fsri-schematic.svg",
+      "source_sha256": "fa6582d9cc1a174f43952db731e8e771120d8d12b9a08aef35c6dfa4c69f2a49",
+      "netlist_sha256": "1d7612047dc98f7a8b7fefa9d9a88d56be6c46dd17273129f3e4b0cdf6c4d759",
+      "svg_sha256": "354ac4c0ac08ec8d3329e3ceaba5d130db75d51738d5fdedbeb6b69623f95a35",
+      "stage": "Yosys word level logic before technology mapping"
+    }
+  }
+}
