@@ -205,6 +205,7 @@ void append_strings(std::string &out, std::span<const std::string> values)
 
 std::int32_t red32_reference(std::uint32_t value) noexcept
 {
+    // interpret all 32 input bits as a signed product, then do only Montgomery reduction
     const std::int64_t signed_value =
         value <= static_cast<std::uint32_t>(INT32_MAX)
             ? static_cast<std::int64_t>(value)
@@ -220,6 +221,7 @@ std::int32_t red32_reference(std::uint32_t value) noexcept
 
 mlkem_plan red32_schedule_plan(const red32_plan &plan) noexcept
 {
+    // borrow the ordinary software schedule so RED32 differs only at the reduction hook
     return {plan.level, plan.forward, plan.inverse, plan.inverse_reduction, plan.basemul,
             mlkem_instruction::none};
 }
@@ -242,6 +244,7 @@ std::string red32_plan_id(const red32_plan &plan)
 
 std::vector<red32_plan> enumerate_red32_comparison_plans()
 {
+    // 3*2*2*2*3 = 72; there is no instruction axis because every row is RED32
     constexpr std::array levels{mlkem_level::mlkem512, mlkem_level::mlkem768,
                                 mlkem_level::mlkem1024};
     constexpr std::array forwards{ntt_traversal::stage_major, ntt_traversal::fuse_two_layers};
@@ -395,6 +398,7 @@ const mlkem_measurement &select_measured_red32_plan(
     mlkem_level level, std::span<const red32_candidate> candidates,
     std::span<const mlkem_measurement> measurements)
 {
+    // RED32 has its own complete 24-plan set per level, separate from FQMUL evidence
     std::vector<std::string_view> required;
     required.reserve(24);
     for (const red32_candidate &candidate : candidates)

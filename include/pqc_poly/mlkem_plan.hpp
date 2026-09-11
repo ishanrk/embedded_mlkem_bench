@@ -11,7 +11,12 @@
 namespace pqc_poly
 {
 
+// shared tag for planner output, so old evidence is not silently read as a new layout
 inline constexpr std::string_view mlkem_plan_schema = "pqc-poly-bench/mlkem-plan-v1";
+
+// now enumerate over all possible choices like the mlkem version
+// differetn optimizations like fusing 2 layers 
+// modulo reduction after every layer or every 2 layers
 
 enum class mlkem_level
 {
@@ -20,6 +25,8 @@ enum class mlkem_level
     mlkem1024,
 };
 
+// stage-major finishes one whole NTT layer before starting the next
+// fuse-two-layers keeps a small four-coefficient group hot across two layers
 enum class ntt_traversal
 {
     stage_major,
@@ -34,14 +41,18 @@ enum class intt_traversal
 
 enum class intt_sum_reduction
 {
+    // waiting for a layer pair saves reductions but lets the sums grow further
     every_layer,
     after_layer_pair,
 };
 
+// caching strategy
 enum class basemul_schedule
 {
+    // cached stores b*zeta; late keeps 32-bit products until the dot product is complete
     cached_late32,
     cached_eager32,
+    // direct recomputes b*zeta and needs no cache workspace
     direct_eager32,
 };
 
@@ -53,6 +64,7 @@ enum class mlkem_instruction
 
 struct mlkem_plan
 {
+    // one point in the software/instruction design space
     mlkem_level level{mlkem_level::mlkem512};
     ntt_traversal forward{ntt_traversal::stage_major};
     intt_traversal inverse{intt_traversal::stage_major};
@@ -60,9 +72,11 @@ struct mlkem_plan
     basemul_schedule basemul{basemul_schedule::cached_late32};
     mlkem_instruction instruction{mlkem_instruction::none};
 
+    // `friend` can see every field; `= default` asks C++ to compare them all
     friend bool operator==(const mlkem_plan &, const mlkem_plan &) = default;
 };
 
+// constraints on user memory allocation
 struct mlkem_request
 {
     std::uint64_t scratch_limit{UINT64_MAX};
@@ -71,8 +85,10 @@ struct mlkem_request
     friend bool operator==(const mlkem_request &, const mlkem_request &) = default;
 };
 
+// block of one NTT
 struct mlkem_record
 {
+    // one butterfly block: two `length`-coefficient halves using one zeta
     std::uint16_t layer{0};
     std::uint16_t block{0};
     std::uint16_t zeta_index{0};
@@ -85,6 +101,7 @@ struct mlkem_record
 
 struct mlkem_candidate
 {
+    // analyzed plan plus the facts the checker/code generator rely on
     std::string schema{mlkem_plan_schema};
     mlkem_plan plan{};
     std::string id{};
@@ -92,6 +109,7 @@ struct mlkem_candidate
     std::vector<mlkem_record> inverse_records{};
     std::uint32_t forward_bound{0};
     std::uint32_t inverse_lazy_bound{0};
+    // worst dot-product magnitude before its final reduction
     std::uint64_t accumulator_bound{0};
     std::uint32_t mulcache_coefficients{0};
     std::uint32_t scratch_bytes{0};
@@ -107,6 +125,7 @@ struct mlkem_candidate
 
 struct mlkem_measurement
 {
+    // one candidate's end-to-end evidence; selection only accepts verified rows
     std::string plan_id{};
     std::uint64_t keygen_cycles{0};
     std::uint64_t encapsulation_cycles{0};
@@ -124,6 +143,7 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+// `[[nodiscard]]` warns if a result is ignored; `noexcept` says these mappings cannot throw
 [[nodiscard]] std::string_view mlkem_level_name(mlkem_level value) noexcept;
 [[nodiscard]] std::string_view ntt_traversal_name(ntt_traversal value) noexcept;
 [[nodiscard]] std::string_view intt_traversal_name(intt_traversal value) noexcept;
@@ -132,6 +152,7 @@ public:
 [[nodiscard]] std::string_view mlkem_instruction_name(mlkem_instruction value) noexcept;
 [[nodiscard]] unsigned mlkem_k(mlkem_level level) noexcept;
 
+// request -> plans -> candidates -> generated backends -> measurements -> winner
 [[nodiscard]] mlkem_request parse_mlkem_request(std::string_view json);
 [[nodiscard]] std::string mlkem_plan_id(const mlkem_plan &plan);
 [[nodiscard]] std::vector<mlkem_plan> enumerate_mlkem_plans();

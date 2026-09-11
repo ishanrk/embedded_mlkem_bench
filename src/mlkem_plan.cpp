@@ -9,20 +9,24 @@
 
 namespace pqc_poly
 {
+// file-local helpers live in this unnamed namespace, so they cannot collide at link time
 namespace
 {
 
+// describe the normal breadth-first NTT schedule independently of emitted C
 [[nodiscard]] std::vector<mlkem_record> forward_records()
 {
     std::vector<mlkem_record> out;
     out.reserve(127);
     for (unsigned layer = 1; layer <= 7; ++layer)
     {
+        // shifts by a layer are powers of two: lengths halve while block counts double
         const unsigned length = 256U >> layer;
         const unsigned blocks = 1U << (layer - 1U);
         for (unsigned block = 0; block < blocks; ++block)
         {
             const unsigned left = block * 2U * length;
+            // zeta table ranges for the seven layers start at 1,2,4,...,64
             out.push_back(
                 {static_cast<std::uint16_t>(layer), static_cast<std::uint16_t>(block),
                  static_cast<std::uint16_t>(blocks + block), static_cast<std::uint16_t>(left),
@@ -32,6 +36,7 @@ namespace
     return out;
 }
 
+// same 127 butterfly blocks in the reverse transform's zeta order
 [[nodiscard]] std::vector<mlkem_record> inverse_records()
 {
     std::vector<mlkem_record> out;
@@ -178,6 +183,7 @@ std::string mlkem_plan_id(const mlkem_plan &plan)
 
 std::vector<mlkem_plan> enumerate_mlkem_plans()
 {
+    // constexpr keeps this fixed design space available at compile time
     constexpr std::array levels{mlkem_level::mlkem512, mlkem_level::mlkem768,
                                 mlkem_level::mlkem1024};
     constexpr std::array forwards{ntt_traversal::stage_major, ntt_traversal::fuse_two_layers};
@@ -188,6 +194,7 @@ std::vector<mlkem_plan> enumerate_mlkem_plans()
                                basemul_schedule::direct_eager32};
     constexpr std::array instructions{mlkem_instruction::none, mlkem_instruction::fqmul};
     std::vector<mlkem_plan> out;
+    // 3 levels * 2 forward * 2 inverse * 2 reductions * 3 basemul * 2 instruction modes
     out.reserve(144);
     for (const mlkem_level level : levels)
     {
@@ -214,9 +221,12 @@ std::vector<mlkem_plan> enumerate_mlkem_plans()
 
 mlkem_candidate analyze_mlkem_plan(const mlkem_request &request, const mlkem_plan &plan)
 {
+    // k is the polynomial-vector width: 2/3/4 for ML-KEM-512/768/1024
     const unsigned k = mlkem_k(plan.level);
+    // ceiling on one reduced 4096-by-int16 product, used by the eager accumulator bound
     constexpr std::uint64_t montgomery_bound = (4096U * 32768U + 32768U * 3329U + 65535U) / 65536U;
     const bool late = plan.basemul == basemul_schedule::cached_late32;
+    // designated initializers name each analysis result instead of relying on field order
     mlkem_candidate out{
         .plan = plan,
         .id = mlkem_plan_id(plan),
@@ -227,7 +237,9 @@ mlkem_candidate analyze_mlkem_plan(const mlkem_request &request, const mlkem_pla
         .accumulator_bound =
             static_cast<std::uint64_t>(k) * 2U * (late ? 4096U * 32768U : montgomery_bound),
         .mulcache_coefficients = plan.basemul == basemul_schedule::direct_eager32 ? 0U : k * 128U,
+        // cached basemul needs 128 int16 values per vector lane
         .scratch_bytes = plan.basemul == basemul_schedule::direct_eager32 ? 0U : k * 256U,
+        // two k-wide input vectors plus one output polynomial, all 256 int16 values
         .caller_workspace_bytes = static_cast<std::uint32_t>((2U * k + 1U) * 512U),
         .ntt_in_place = true,
         .intt_in_place = true,
@@ -291,6 +303,7 @@ std::string serialize_mlkem_candidate(const mlkem_candidate &candidate)
 
 std::string serialize_mlkem_candidates(std::span<const mlkem_candidate> candidates)
 {
+    // span is a borrowed view here; serialization does not copy the candidate array
     std::string out = "[\n";
     for (std::size_t i = 0; i < candidates.size(); ++i)
     {
@@ -315,6 +328,7 @@ const mlkem_measurement &select_measured_mlkem_plan(mlkem_level level,
                                                     std::span<const mlkem_measurement> measurements,
                                                     mlkem_instruction instruction)
 {
+    // one level/instruction mode has 2*2*2*3 = 24 schedule choices
     std::vector<std::string_view> required;
     required.reserve(24);
     for (const mlkem_candidate &candidate : candidates)
@@ -330,6 +344,7 @@ const mlkem_measurement &select_measured_mlkem_plan(mlkem_level level,
         throw mlkem_error("candidate set is incomplete");
     }
 
+    // rejecting missing/duplicate rows keeps a partial benchmark run from looking like a winner
     const mlkem_measurement *winner = nullptr;
     unsigned found = 0;
     std::vector<std::string_view> seen;
@@ -350,6 +365,7 @@ const mlkem_measurement &select_measured_mlkem_plan(mlkem_level level,
         }
         seen.push_back(measurement.plan_id);
         ++found;
+        // lambda keeps the checked total calculation beside the comparison that uses it
         const auto total = [](const mlkem_measurement &value)
         {
             if (value.encapsulation_cycles >
@@ -361,6 +377,7 @@ const mlkem_measurement &select_measured_mlkem_plan(mlkem_level level,
             }
             return value.keygen_cycles + value.encapsulation_cycles + value.decapsulation_cycles;
         };
+        // tuple comparison gives deterministic tie breaks: cycles, stack, flash, then id
         if (winner == nullptr ||
             std::tuple(total(measurement), measurement.runtime_stack_bytes,
                        measurement.allocated_flash_bytes, measurement.plan_id) <
