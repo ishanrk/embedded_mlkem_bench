@@ -9,7 +9,7 @@
 namespace pqc_poly
 {
 
-// turn a checked candidate into the C arithmetic backend consumed by mlkem-native
+// builds the C arithmetic backend for this checked candidate
 [[nodiscard]] std::string generate_mlkem_backend(const mlkem_request &request,
                                                  const mlkem_candidate &candidate);
 [[nodiscard]] std::string generate_red32_backend(const mlkem_request &request,

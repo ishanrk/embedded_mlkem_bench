@@ -9,7 +9,7 @@ project(
 include(CheckIPOSupported)
 include(CTest)
 
-# host planner/tests are always available; PicoRV32 toolchain work is opt-in below
+# host planner and tests build without the PicoRV32 tools
 option(PQC_POLY_LTO "enable link-time optimization in release builds" ON)
 option(PQC_POLY_SANITIZE "enable address and undefined behavior sanitizers" OFF)
 option(PQC_POLY_WARNINGS_AS_ERRORS "treat compiler warnings as errors" ON)
@@ -37,7 +37,7 @@ option(PQC_POLY_FETCH_MLKEM_NATIVE "fetch the pinned mlkem native source" OFF)
 
 if(PQC_POLY_PICORV32_SYNTHESIS OR PQC_POLY_PICORV32_MLKEM OR
    PQC_POLY_PICORV32_FQMUL_VERIFY)
-    # every heavy target first needs the common firmware and Verilator setup
+    # these targets share the firmware and Verilator setup
     set(PQC_POLY_PICORV32 ON)
 endif()
 
@@ -112,7 +112,7 @@ add_library(
         src/target_measurement.cpp)
 pqc_poly_configure(pqc_poly_compiler)
 
-# these CLIs generate backends and later collect completed experiment evidence
+# these command line programs generate backends and collect experiment results
 add_executable(pqc-poly-mlkem src/mlkem_main.cpp src/mlkem_explore.cpp)
 pqc_poly_configure(pqc-poly-mlkem)
 target_link_libraries(pqc-poly-mlkem PRIVATE pqc_poly_compiler)
@@ -122,7 +122,7 @@ pqc_poly_configure(pqc-poly-red32)
 target_link_libraries(pqc-poly-red32 PRIVATE pqc_poly_compiler)
 
 if(BUILD_TESTING)
-    # all small host tests share the planner library and the same warning policy
+    # host tests share the planner library and compiler warning settings
     function(pqc_poly_add_test name source)
         set(target pqc-poly-${name}-test)
         add_executable(${target} ${source})

@@ -311,7 +311,7 @@ def hardware_figure(data: dict) -> None:
 
 
 def validate(data: dict) -> None:
-    # refuse to redraw charts if totals or reported route medians no longer match raw fields
+    # rejects chart data when totals or route medians do not match raw values
     for level, item in data["levels"].items():
         for design, operations in item["operation_cycles"].items():
             total = sum(operations.values())

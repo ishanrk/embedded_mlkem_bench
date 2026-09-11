@@ -1,4 +1,4 @@
-# RED32 block proof plus a bounded check that the instruction retires correctly through PicoRV32
+# checks RED32 in the PCPI block and during processor retirement
 [tasks]
 pcpi
 noninterference
@@ -6,7 +6,7 @@ rvfi
 rvfi_cover
 
 [options]
-# rvfi depth 24 is a bounded claim, not a proof of every possible processor execution
+# RVFI checks only the first 24 cycles of this harness
 pcpi: mode prove
 pcpi: depth 8
 noninterference: mode prove
@@ -23,7 +23,7 @@ rvfi: abc bmc3
 rvfi_cover: smtbmc boolector
 
 [script]
-# noninterference compares the block with RED32 disabled/enabled on non-RED32 inputs
+# noninterference compares other instructions with RED32 disabled and enabled
 pcpi: read -formal -sv pqc_pcpi_mlkem.sv red32_properties.sv
 pcpi: prep -top red32_properties
 noninterference: read -formal -sv pqc_pcpi_mlkem.sv red32_properties.sv

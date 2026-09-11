@@ -1,6 +1,6 @@
 #include <verilated.h>
 
-// Verilator turns the SystemVerilog top into the C++ model included below
+// Verilator converts the SystemVerilog top into the model included below
 #include "pqc_poly/target_measurement.hpp"
 
 #include <algorithm>
@@ -19,7 +19,7 @@
 #include <vector>
 
 #if defined(PQC_PCPI_UNIT)
-// unit build drives the coprocessor pins directly; normal build boots a whole PicoRV32
+// unit mode drives PCPI signals directly and normal mode boots PicoRV32
 #include "Vpqc_pcpi_mlkem.h"
 #else
 #include "Vpqc_picorv32_sim_top.h"
@@ -46,7 +46,7 @@ void require(bool condition, std::string_view message)
 
 void tick(Vpqc_pcpi_mlkem &model)
 {
-    // eval both halves of a clock so combinational outputs settle around the rising edge
+    // evaluates both clock levels around each rising edge
     model.clk = 0;
     model.eval();
     model.clk = 1;
@@ -86,7 +86,7 @@ void tick(Vpqc_pcpi_mlkem &model)
 
 [[nodiscard]] std::uint32_t fqmul_oracle(std::uint32_t left, std::uint32_t right)
 {
-    // independent wide arithmetic checks the exact Montgomery equation implemented in RTL
+    // computes the expected Montgomery result without using the RTL
     const std::int64_t product = static_cast<std::int64_t>(signed_low(left)) * signed_low(right);
     const std::uint32_t low =
         static_cast<std::uint32_t>(static_cast<std::uint64_t>(product) & UINT64_C(0xffff));
@@ -138,7 +138,7 @@ void run_fqmul_request(Vpqc_pcpi_mlkem &model, std::uint32_t left, std::uint32_t
 
     unsigned ready_count = 0;
     unsigned ready_cycle = 0;
-    // also look past the response to catch ready being held or emitted twice
+    // checks cycles after the response for a repeated ready signal
     for (unsigned cycle = 1; cycle <= 6; ++cycle)
     {
         tick(model);
@@ -170,7 +170,7 @@ void run_fqmul_request(Vpqc_pcpi_mlkem &model, std::uint32_t left, std::uint32_t
 
 void pcpi_test()
 {
-    // direct PCPI coverage: arithmetic, fixed latency, reset, decode, and back-to-back requests
+    // checks PCPI arithmetic latency reset decoding and consecutive requests
     Vpqc_pcpi_mlkem model;
     model.resetn = 0;
     model.pcpi_valid = 0;
@@ -204,7 +204,7 @@ void pcpi_test()
         run_multiply_request(model, next_random(state), next_random(state), i & 3U);
     }
 
-    // include coefficient bounds plus both int16 extremes to catch sign-extension errors
+    // includes coefficient limits and int16 limits to catch sign extension errors
     constexpr std::array<std::int32_t, 9> fqmul_values{0,
                                                        1,
                                                        -1,
@@ -227,7 +227,7 @@ void pcpi_test()
         const std::uint32_t left = next_random(state);
         const std::uint32_t right = next_random(state);
         run_fqmul_request(model, left, right);
-        // FQMUL ignores upper halves, so changing them must preserve the result and latency
+        // changing unused upper halves must preserve the FQMUL result and latency
         run_fqmul_request(model, left ^ UINT32_C(0xffff0000), right ^ UINT32_C(0x55550000));
     }
 
@@ -302,7 +302,7 @@ void pcpi_test()
 
 struct options
 {
-    // metadata and artifact paths supplied by the CMake experiment graph
+    // paths and measurement labels supplied by CMake
     std::string output{};
     std::string stack_output{};
     std::string stack_usage{};
@@ -439,7 +439,7 @@ void tick(Vpqc_picorv32_sim_top &model)
 
 void validate_instructions(const options &settings)
 {
-    // disassembly proves generated firmware uses only the instruction its plan requested
+    // checks that generated firmware contains only its requested custom instruction
     if (settings.plan_id.empty() || settings.disassembly.empty())
     {
         return;
@@ -530,7 +530,7 @@ void validate_instructions(const options &settings)
 
 void write_stack(const options &settings, const std::vector<std::uint32_t> &status)
 {
-    // decode tagged MMIO words and combine runtime watermark with GCC's static .su data
+    // combines MMIO stack values with compiler stack usage records
     if (settings.stack_output.empty())
     {
         return;
@@ -619,7 +619,7 @@ struct operation_position
 [[nodiscard]] operation_position mlkem_position(std::size_t index, std::string_view level,
                                                 unsigned kernel_inputs, unsigned operation_inputs)
 {
-    // firmware emits no names over MMIO, so reconstruct them from its fixed loop order
+    // assigns operation names using the fixed firmware loop order
     const std::size_t kernel_span = static_cast<std::size_t>(kernel_inputs) * 3U;
     const std::size_t operation_span = static_cast<std::size_t>(operation_inputs) * 3U;
     if (index < kernel_span)
@@ -694,7 +694,7 @@ struct operation_position
 void write_mlkem(const options &settings, std::span<const std::uint64_t> begins,
                  std::span<const std::uint64_t> ends, const std::vector<std::uint32_t> &status)
 {
-    // first marker is an empty calibration; remaining marker pairs become JSONL evidence rows
+    // uses the first marker pair for calibration and writes the rest as measurement rows
     const std::size_t measurement_count =
         5U * static_cast<std::size_t>(settings.kernel_inputs) * 3U +
         3U * static_cast<std::size_t>(settings.operation_inputs) * 3U;
@@ -779,7 +779,7 @@ void write_size(const options &settings)
 
 void simulate(const options &settings)
 {
-    // reset, clock until trap/termination, collect the one-cycle events from the RTL wrapper
+    // resets the processor and clocks it until trap or normal termination
     validate_instructions(settings);
     Vpqc_picorv32_sim_top model;
     std::vector<std::uint64_t> begins;
@@ -793,7 +793,7 @@ void simulate(const options &settings)
     }
     model.resetn = 1;
 
-    // guard against broken firmware or bus logic spinning forever
+    // stops simulation when firmware or bus logic never terminates
     constexpr std::uint64_t cycle_limit = UINT64_C(5000000000);
     for (std::uint64_t i = 0; i < cycle_limit && model.trap == 0 && model.terminate == 0; ++i)
     {

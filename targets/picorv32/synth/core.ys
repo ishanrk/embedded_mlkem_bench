@@ -1,8 +1,8 @@
-# read generic RTL, set the requested experiment parameters, then map it to ECP5 cells
+# reads RTL and maps the selected experiment to ECP5 cells
 yosys read_verilog -sv $::env(PICORV32_SOURCE)
 yosys read_verilog -sv $::env(PQC_PCPI_SOURCE)
 yosys read_verilog -sv $::env(PQC_CORE_SOURCE)
-# chparam specializes module parameters before unused instruction paths are removed
+# chparam sets module parameters before unused instruction circuits are removed
 yosys chparam -set STOCK_MUL $::env(STOCK_MUL) pqc_picorv32_core_top
 if {$::env(ENABLE_FQMUL)} {
     yosys chparam -set ENABLE_FQMUL 1 pqc_picorv32_core_top
@@ -16,7 +16,7 @@ if {$::env(ENABLE_FSRI)} {
         yosys chparam -set FSRI_IMPL $::env(FSRI_IMPL) pqc_picorv32_core_top
     }
 }
-# hierarchy rejects missing modules and chooses the core wrapper as the synthesis root
+# hierarchy checks modules and selects the core wrapper as the root
 yosys hierarchy -check -top pqc_picorv32_core_top
-# synth_ecp5 lowers generic logic to LUT4/FF/DSP/BRAM cells and writes nextpnr's JSON netlist
+# synth ecp5 maps logic to ECP5 cells and writes the nextpnr netlist
 yosys synth_ecp5 -top pqc_picorv32_core_top -json $::env(SYNTH_JSON)

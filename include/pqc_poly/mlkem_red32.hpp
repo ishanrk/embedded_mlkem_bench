@@ -12,10 +12,11 @@
 namespace pqc_poly
 {
 
-// RED32 uses the same software schedules but is measured as its own instruction experiment
+// RED32 measures the same schedules in a separate experiment
 inline constexpr std::string_view red32_candidate_schema =
     "pqc-poly-bench/mlkem-red32-candidate-v1";
 
+// one RED32 plan stores the software schedule used before custom reduction
 struct red32_plan
 {
     mlkem_level level{mlkem_level::mlkem512};
@@ -27,9 +28,9 @@ struct red32_plan
     friend bool operator==(const red32_plan &, const red32_plan &) = default;
 };
 
+// one RED32 candidate stores its plan range checks and instruction checks
 struct red32_candidate
 {
-    // extra fields record RED32's full-int32 input contract and canonical encoding
     std::string schema{red32_candidate_schema};
     red32_plan plan{};
     std::string id{};
@@ -48,7 +49,7 @@ struct red32_candidate
     bool fixed_loop_structure{false};
     bool full_domain_reduction{false};
     bool canonical_rs2_zero{false};
-    // unlike FQMUL, a normal RV32 MUL creates the product before RED32 reduces it
+    // normal RV32 MUL creates the product before RED32 reduces it
     bool standard_mul_before_reduction{false};
     bool legal{false};
     std::vector<std::string> rejections{};

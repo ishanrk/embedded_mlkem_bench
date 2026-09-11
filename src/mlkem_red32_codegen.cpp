@@ -9,7 +9,7 @@ namespace
 
 void replace_once(std::string &source, std::string_view before, std::string_view after)
 {
-    // exact one-hit replacement makes an upstream template change fail loudly
+    // requires exactly one matching section in the generated backend
     const std::size_t position = source.find(before);
     if (position == std::string::npos || source.find(before, position + before.size()) != std::string::npos)
     {
@@ -23,7 +23,7 @@ void replace_once(std::string &source, std::string_view before, std::string_view
 std::string generate_red32_backend(const mlkem_request &request,
                                    const red32_candidate &candidate)
 {
-    // start from the checked software backend, then swap only its reduction plumbing
+    // starts with the checked software backend and changes only reduction calls
     if (!candidate.legal || !check_red32_candidate(request, candidate).empty())
     {
         throw mlkem_error("cannot generate rejected red32 plan");
@@ -34,7 +34,7 @@ std::string generate_red32_backend(const mlkem_request &request,
     std::string source = generate_mlkem_backend(request, software);
 
     replace_once(source, "#include <stdint.h>\n\n", "#include <stdint.h>\n\n#include \"red32.h\"\n\n");
-    // FQMUL here remains MUL + RED32, not the combined custom FQMUL instruction
+    // FQMUL here uses normal MUL followed by RED32
     replace_once(
         source,
         "PQC_FORCE_INLINE int16_t pqc_montgomery_reduce(int32_t a)\n"

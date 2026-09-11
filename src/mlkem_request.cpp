@@ -7,7 +7,7 @@ namespace pqc_poly
 namespace
 {
 
-// tiny strict parser because the planner request deliberately has one supported key
+// parses the single supported request field and rejects all other fields
 void skip_space(std::string_view input, std::size_t &position) noexcept
 {
     while (position < input.size())
@@ -51,7 +51,7 @@ mlkem_request parse_mlkem_request(std::string_view input)
     std::uint64_t scratch_limit = 0;
     const char *const begin = input.data() + position;
     const char *const end = input.data() + input.size();
-    // from_chars parses without locale or allocations and reports where the number ended
+    // parses the number without locale rules or memory allocation
     const auto parsed = std::from_chars(begin, end, scratch_limit);
     if (parsed.ec != std::errc{} || parsed.ptr == begin)
     {

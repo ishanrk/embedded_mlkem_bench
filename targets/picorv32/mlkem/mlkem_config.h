@@ -1,7 +1,7 @@
 #ifndef PQC_POLY_MLKEM_CONFIG_H
 #define PQC_POLY_MLKEM_CONFIG_H
 
-// mlkem-native includes this file first; it selects our arithmetic hooks unless portable is requested
+// selects project arithmetic hooks unless the portable backend is requested
 #define MLK_CONFIG_SERIAL_FIPS202_ONLY
 #if !defined(PQC_MLKEM_PORTABLE)
 #define MLK_CONFIG_USE_NATIVE_BACKEND_ARITH

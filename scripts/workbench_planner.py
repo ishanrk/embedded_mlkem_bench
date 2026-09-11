@@ -5,14 +5,14 @@ from workbench_data import out, root, work, run, digest, write
 
 
 def main():
-    # compile the real planner directly, then instrument its generated forward NTT C
+    # compiles the planner and records execution order from generated forward NTT code
     work.mkdir(exist_ok=True, parents=True)
     command = ["c++", "-std=c++20", "-O2", "-I", root / "include", root / "scripts/workbench/planner.cpp",
                root / "src/mlkem_plan.cpp", root / "src/mlkem_check.cpp", root / "src/mlkem_codegen.cpp", "-o", work / "planner"]
     run(command)
     data = json.loads(run([work / "planner", work / "generated"]))
     data["operation_order"] = {}
-    # record indices immediately before each generated butterfly multiplication
+    # inserts a recorder before each generated butterfly multiplication
     replacements = {
         "const int16_t t = pqc_fqmul(r[j + length], zeta);": "record(j, j + length, zeta_index - 1, length, 0);",
         "const int16_t t0 = pqc_fqmul(x2, z0);": "record(start + j, start + 2U * length + j, groups + g, 2U * length, 1);",
@@ -39,7 +39,7 @@ static void record(unsigned left, unsigned right, unsigned zeta, unsigned length
         for line in run([work / traversal]).splitlines():
             left, right, zeta, length, fused = map(int, line.split())
             events.append({"left": left, "right": right, "zeta_index": zeta, "length": length, "fused": bool(fused)})
-        # 256 coefficients * 7 layers / 2 coefficients per butterfly
+        # seven layers of 128 butterflies produce 896 events
         assert len(events) == 896
         actual = sorted((e["left"], e["right"], e["zeta_index"]) for e in events)
         expected = sorted((r["left_base"] + j, r["right_base"] + j, r["zeta_index"]) for r in data["forward_records"] for j in range(r["length"]))

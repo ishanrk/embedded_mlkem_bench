@@ -35,7 +35,7 @@ void write(const std::filesystem::path &path, std::string_view value)
 
 int red32_run(int argc, char **argv, std::ostream &output, std::ostream &error)
 {
-    // RED32 generation is separate so its 72 backends cannot mix with FQMUL measurements
+    // writes RED32 backends into their own experiment set
     try
     {
         if (argc == 2 &&

@@ -1,10 +1,10 @@
 export async function show_experiments(asset: (name: string) => string, container: HTMLElement)
 {
-    // this section only renders recorded artifacts; absent evidence stays visibly absent
+    // renders recorded experiment artifacts and preserves missing results
     const read = async (name: string) => { const response = await fetch(asset(name)); if (!response.ok) throw new Error(name); return response.json(); };
     try
     {
-        // load independent area, packed-code, and bounded-formal evidence together
+        // loads area packed code and bounded formal evidence together
         const [baseline, sliced, packed, formal] = await Promise.all([
             read('fsri-baseline-route.json'), read('fsri-sliced-route.json'), read('packed-feasibility.json'), read('bounded-checks.json')]);
         const b = baseline.seeds[0], s = sliced.seeds[0];

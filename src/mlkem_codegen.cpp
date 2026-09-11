@@ -7,7 +7,7 @@ namespace pqc_poly
 namespace
 {
 
-// raw string literals keep generated C readable without escaping every quote/newline
+// raw string keeps the generated C text readable
 constexpr std::string_view prologue = R"pqc(#include <stdint.h>
 
 )pqc";
@@ -174,7 +174,7 @@ PQC_FORCE_INLINE void pqc_intt_pair(int16_t r[256], unsigned length, unsigned gr
 
 void append_forward(std::string &out, const mlkem_plan &plan)
 {
-    // emit calls for either seven whole layers or three fused pairs plus the last layer
+    // emits seven layers or three fused pairs followed by the final layer
     out += "void pqc_mlkem_ntt(int16_t r[256])\n{\n";
     if (plan.forward == ntt_traversal::stage_major)
     {
@@ -200,7 +200,7 @@ void append_forward(std::string &out, const mlkem_plan &plan)
 
 void append_inverse(std::string &out, const mlkem_plan &plan)
 {
-    // the generated flag controls whether the first layer in each pair reduces its sums
+    // this flag controls reduction after the first layer in each pair
     const char *reduce = plan.inverse_reduction == intt_sum_reduction::every_layer ? "1" : "0";
     out +=
         "void pqc_mlkem_intt(int16_t r[256])\n{\n"
@@ -239,7 +239,7 @@ void append_inverse(std::string &out, const mlkem_plan &plan)
 
 void append_base(std::string &out, const mlkem_plan &plan)
 {
-    // generate the cache and dot-product shape together so their layouts cannot drift
+    // builds cache and basemul code from the same schedule
     const unsigned k = mlkem_k(plan.level);
     out += "void pqc_mlkem_mulcache_one(int16_t *cache, const int16_t b[256])\n{\n";
     if (plan.basemul == basemul_schedule::direct_eager32)
@@ -292,7 +292,7 @@ void append_base(std::string &out, const mlkem_plan &plan)
         "            const unsigned p = lane * 256U + 2U * i;\n";
     if (plan.basemul == basemul_schedule::cached_late32)
     {
-        // fewer Montgomery reductions, paid for with larger 32-bit partial sums
+        // delayed reduction uses fewer instructions and larger int32 sums
         out +=
             "            const int16_t gb = cache[lane * 128U + i];\n"
             "            t0 += (int32_t)a[p + 1U] * gb + (int32_t)a[p] * b[p];\n"
@@ -306,7 +306,7 @@ void append_base(std::string &out, const mlkem_plan &plan)
         }
         else
         {
-            // direct mode trades scratch memory for recomputing this twiddle product
+            // direct mode saves scratch space by recomputing the twiddle product
             out +=
                 "            const int16_t gamma = (i & 1U) == 0U\n"
                 "                                      ? pqc_zetas[64U + i / 2U]\n"
@@ -353,7 +353,7 @@ void append_declarations(std::string &out, const mlkem_plan &plan)
 
 std::string generate_mlkem_backend(const mlkem_request &request, const mlkem_candidate &candidate)
 {
-    // code generation is downstream of validation; malformed analysis never becomes C
+    // rejects invalid candidates before generating C
     const std::vector<std::string> errors = check_mlkem_plan(request, candidate);
     if (!errors.empty() || !candidate.legal)
     {
@@ -368,7 +368,7 @@ std::string generate_mlkem_backend(const mlkem_request &request, const mlkem_can
         out += custom_include;
     }
     out += arithmetic_prologue;
-    // this is the only arithmetic hook changed for FQMUL plans
+    // FQMUL plans replace only the field multiplication function
     out += candidate.plan.instruction == mlkem_instruction::fqmul ? custom_fqmul
                                                                   : software_fqmul;
     out += arithmetic_epilogue;

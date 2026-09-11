@@ -1,4 +1,4 @@
-// bounded whole-core check that one symbolic FSRI reaches RVFI with the right effects
+// checks one symbolic FSRI retirement through RVFI for 22 cycles
 module rvfi_fsri_formal (
     input logic clk
 );
@@ -41,7 +41,7 @@ wire fsri = cycle >= 6'd2 && rvfi_valid &&
 
 assign mem_ready = mem_valid;
 assign mem_rdata = mem_addr == 32'b0 ? custom_insn : 32'h0000_006f;
-// use the architectural source values reported by RVFI for the reference result
+// calculates the expected result from source values reported by RVFI
 assign expected = {rvfi_rs2_rdata, rvfi_rs1_rdata} >> rvfi_insn[29:25];
 
 pqc_picorv32_core_top #(
@@ -89,7 +89,7 @@ begin
 
     if (fsri)
     begin
-        // FSRI is a pure register operation: next PC advances and memory masks stay zero
+        // requires FSRI to advance the program counter without a memory access
         retired <= 1'b1;
         assert(!rvfi_trap);
         assert(rvfi_rs1_addr == rvfi_insn[19:15]);
@@ -110,7 +110,7 @@ begin
 
     if (cycle == 6'd20)
     begin
-        // liveness is checked only within this fixed program and bounded depth
+        // requires retirement by cycle 20 only for this fixed program
         assert(retired);
     end
 end

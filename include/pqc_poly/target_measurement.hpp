@@ -13,7 +13,7 @@
 namespace pqc_poly
 {
 
-// identities recorded with evidence so a result can be tied back to exact source archives
+// identifies the exact source archive used for a measurement
 struct archive_hash
 {
     std::string name{};
@@ -22,9 +22,9 @@ struct archive_hash
     friend bool operator==(const archive_hash &, const archive_hash &) = default;
 };
 
+// exact sources tools and settings used for one experiment
 struct picorv32_manifest
 {
-    // complete tool/source recipe for reproducing the simulation and synthesis run
     std::string repository_sha{};
     std::string picorv32_sha{};
     std::string riscv_toolchain_release{};
@@ -49,9 +49,9 @@ struct picorv32_manifest
     friend bool operator==(const picorv32_manifest &, const picorv32_manifest &) = default;
 };
 
+// simulator clock count after subtracting empty marker cost
 struct cycle_measurement
 {
-    // simulator clock ticks, with the empty begin/end marker cost removed
     std::uint64_t begin_cycle{0};
     std::uint64_t end_cycle{0};
     std::uint64_t marker_overhead_cycles{0};
@@ -62,9 +62,9 @@ struct cycle_measurement
     friend bool operator==(const cycle_measurement &, const cycle_measurement &) = default;
 };
 
+// one measured operation for one input and one repeat
 struct mlkem_cycle_measurement
 {
-    // one JSONL row for a specific input and deterministic repeat
     std::string plan_id{};
     std::string level{};
     std::string operation{};
@@ -81,6 +81,7 @@ struct mlkem_cycle_measurement
                            const mlkem_cycle_measurement &) = default;
 };
 
+// bytes assigned to each firmware memory section
 struct code_size_measurement
 {
     std::uint64_t code_text_bytes{0};
@@ -92,9 +93,9 @@ struct code_size_measurement
     friend bool operator==(const code_size_measurement &, const code_size_measurement &) = default;
 };
 
+// one compiler stack usage record
 struct stack_frame
 {
-    // one compiler .su record; dynamic frames are accepted only when GCC says bounded
     std::string function{};
     std::uint64_t bytes{0};
     bool bounded_dynamic{false};
@@ -102,9 +103,9 @@ struct stack_frame
     friend bool operator==(const stack_frame &, const stack_frame &) = default;
 };
 
+// memory estimates from buffers static calls and the runtime watermark
 struct stack_measurement
 {
-    // three views of memory: explicit buffers, static call graph, and runtime high-water mark
     std::uint64_t explicit_scratch_bytes{0};
     std::uint64_t caller_working_bytes{0};
     std::uint64_t compiler_frame_bytes{0};
@@ -116,12 +117,14 @@ struct stack_measurement
     friend bool operator==(const stack_measurement &, const stack_measurement &) = default;
 };
 
+// routed ECP5 resource counts and frequency for one seed
 struct synthesis_seed
 {
-    // place-and-route result; LUT4/FF/DSP/BRAM are ECP5 resource counts, not board measurements
     std::uint32_t seed{0};
+    // lut4 counts logic cells and flip flops count registers
     std::uint64_t lut4{0};
     std::uint64_t flip_flops{0};
+    // dsp counts hardware multipliers and bram counts memory blocks
     std::uint64_t dsp{0};
     std::uint64_t bram{0};
     double maximum_frequency_mhz{0.0};
@@ -131,6 +134,7 @@ struct synthesis_seed
     friend bool operator==(const synthesis_seed &, const synthesis_seed &) = default;
 };
 
+// all routing seeds produced by one synthesis run
 struct synthesis_measurement
 {
     std::string yosys_version{};

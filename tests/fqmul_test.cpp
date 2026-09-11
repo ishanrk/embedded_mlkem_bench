@@ -7,7 +7,7 @@
 #include <limits>
 #include <string_view>
 
-// catches signed-low-half and Montgomery arithmetic mistakes in the C fallback/wrapper
+// checks signed low halves and Montgomery arithmetic in the software wrapper
 namespace
 {
 
@@ -89,7 +89,7 @@ int main()
         }
     }
 
-    // exhaust one low half because all inverse behavior is selected by these 16 bits
+    // checks every low half value that selects the inverse term
     for (std::uint32_t low = 0; low <= UINT32_C(0xffff); ++low)
     {
         check(low, UINT32_C(0x89abcdef));

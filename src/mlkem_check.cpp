@@ -9,10 +9,10 @@ namespace pqc_poly
 namespace
 {
 
-// wider than every machine value being checked, so the analysis can notice overflow first
+// range type wider than every checked machine value
 using wide_int = __int128;
 
-// conservative range of every value that could reach an arithmetic step
+// possible minimum and maximum at one arithmetic step
 struct interval
 {
     wide_int low;
@@ -37,7 +37,7 @@ struct interval
 
 [[nodiscard]] bool multiply_interval(interval left, interval right, interval &out)
 {
-    // extrema of an interval product must be one of these four endpoint products
+    // the smallest and largest products come from these four endpoint pairs
     std::array<wide_int, 4> products{};
     if (__builtin_mul_overflow(left.low, right.low, &products[0]) ||
         __builtin_mul_overflow(left.low, right.high, &products[1]) ||
@@ -56,7 +56,7 @@ struct interval
     constexpr wide_int q = 3329;
     constexpr wide_int r = 65536;
     constexpr wide_int qinv = 62209;
-    // leaves room for subtracting signed_inverse*q in a signed 32-bit implementation
+    // leaves room for the signed inverse product before subtraction
     constexpr wide_int input_limit = static_cast<wide_int>(INT32_MAX) - 32768 * q;
     if (qinv >= r || input.low <= -input_limit || input.high >= input_limit)
     {
@@ -77,7 +77,7 @@ struct interval
 
 [[nodiscard]] bool forward_intervals(wide_int &largest)
 {
-    // follow coefficient growth through all seven forward butterfly layers
+    // tracks coefficient growth through seven forward butterfly layers
     constexpr wide_int q = 3329;
     const interval zeta{-q / 2, q / 2};
     interval coefficient{-(q - 1), q - 1};
@@ -129,7 +129,7 @@ struct interval
             return false;
         }
         largest_lazy = std::max(largest_lazy, bound(sum));
-        // paired mode reduces after every second layer; the final layer is reduced either way
+        // paired mode reduces every second layer and always reduces the final layer
         const bool reduce_sum = reduction == intt_sum_reduction::every_layer || length == 4U ||
                                 length == 16U || length == 64U || length == 128U;
         if (reduce_sum)
@@ -152,7 +152,8 @@ struct interval
 
 [[nodiscard]] bool base_intervals(unsigned k, bool late, wide_int &accumulator, bool &montgomery_ok)
 {
-    // basemul adds two products per lane; late mode reduces only after all 2*k terms
+    // basemul adds two products per vector entry
+    // late mode reduces after every term has been accumulated
     const interval narrow{-4096, 4096};
     const interval coefficient{INT16_MIN, INT16_MAX};
     interval product{};
@@ -302,7 +303,7 @@ void add_once(std::vector<std::string> &out, std::string_view value)
 
 [[nodiscard]] std::vector<mlkem_record> checked_forward()
 {
-    // separate reconstruction catches a bug in the planner's schedule generator itself
+    // rebuilds the expected schedule without using planner output
     std::vector<mlkem_record> out;
     for (unsigned layer = 1; layer < 8; ++layer)
     {
@@ -349,7 +350,8 @@ void add_once(std::vector<std::string> &out, std::string_view value)
 void check_records(std::vector<std::string> &out, std::span<const mlkem_record> actual,
                    std::span<const mlkem_record> expected)
 {
-    // 1+2+4+8+16+32+64 = 127 records cover every NTT butterfly block
+    // the seven layers contain 1 2 4 8 16 32 and 64 blocks
+    // together they create 127 NTT records
     if (actual.size() < expected.size())
     {
         add_once(out, "missing_butterfly");
@@ -379,7 +381,7 @@ void check_records(std::vector<std::string> &out, std::span<const mlkem_record> 
 [[nodiscard]] const mlkem_record *record(std::span<const mlkem_record> records, unsigned layer,
                                          unsigned block)
 {
-    // capture layer/block by value so the small lookup predicate owns what it uses
+    // this lambda copies layer and block so the lookup owns both values
     const auto found = std::find_if(records.begin(), records.end(),
                                     [layer, block](const mlkem_record &value)
                                     { return value.layer == layer && value.block == block; });
@@ -393,7 +395,7 @@ void check_forward_grouping(std::vector<std::string> &out, std::span<const mlkem
     {
         return;
     }
-    // a fused group must be one parent butterfly followed by its two child blocks
+    // a fused group has one parent block followed by its two child blocks
     for (unsigned layer : {1U, 3U, 5U})
     {
         const unsigned blocks = 1U << (layer - 1U);
@@ -443,7 +445,7 @@ void check_inverse_grouping(std::vector<std::string> &out, std::span<const mlkem
 std::vector<std::string> check_mlkem_plan(const mlkem_request &request,
                                           const mlkem_candidate &candidate)
 {
-    // re-derive planner claims instead of trusting fields that arrive in the candidate
+    // checks candidate fields against values derived again here
     std::vector<std::string> out;
     if (candidate.schema != "pqc-poly-bench/mlkem-plan-v1")
     {
@@ -510,7 +512,7 @@ std::vector<std::string> check_mlkem_plan(const mlkem_request &request,
     {
         add_once(out, "montgomery_input_range");
     }
-    // late accumulation lives in int32; eager reductions return terms to int16 range
+    // late sums must fit signed int32 and eager terms must fit signed int16
     const wide_int accumulator_limit =
         late ? static_cast<wide_int>(INT32_MAX) : static_cast<wide_int>(INT16_MAX);
     if (accumulator >= accumulator_limit || accumulator < 0 ||
@@ -555,7 +557,7 @@ std::vector<std::string> check_mlkem_plan(const mlkem_request &request,
     }
     if (candidate.plan.instruction == mlkem_instruction::fqmul)
     {
-        // custom FQMUL must still return an int16 field value for every call-site range
+        // custom FQMUL must return an int16 value for every generated call
         interval result{};
         constexpr interval zeta{-1664, 1664};
         constexpr interval ntt_coefficient{-8 * 3329, 8 * 3329};

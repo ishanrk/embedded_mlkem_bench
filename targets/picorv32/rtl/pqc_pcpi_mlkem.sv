@@ -1,7 +1,7 @@
-// PCPI coprocessor shared by normal RV32M multiply and the three experiment instructions
-// PicoRV32 holds valid high until this block returns ready or declines the instruction
+// PCPI lets PicoRV32 send unsupported instructions to this block
+// this block handles normal RV32M multiply and the three custom instructions
 module pqc_pcpi_mlkem #(
-    // module parameters let synthesis remove instruction paths not used by an experiment
+    // parameters select which instruction circuits are included
     parameter ENABLE_FQMUL = 1'b0,
     parameter ENABLE_RED32 = 1'b0,
     parameter ENABLE_FSRI = 1'b0,
@@ -9,12 +9,14 @@ module pqc_pcpi_mlkem #(
 ) (
     input  logic        clk,
     input  logic        resetn,
-    // valid presents insn and its two register values; wait says we claimed but need more cycles
+    // valid presents one instruction and its two source register values
+    // wait means this block accepted the request and needs more cycles
     input  logic        pcpi_valid,
     input  logic [31:0] pcpi_insn,
     input  logic [31:0] pcpi_rs1,
     input  logic [31:0] pcpi_rs2,
-    // ready completes the request; wr says rd contains a value for the destination register
+    // ready completes the request
+    // write tells PicoRV32 to store read data in the destination register
     output logic        pcpi_wr,
     output logic [31:0] pcpi_rd,
     output logic        pcpi_wait,
@@ -31,24 +33,24 @@ module pqc_pcpi_mlkem #(
 
 typedef enum logic [2:0]
 {
-    // decode and accept a new request
+    // accepts a new request
     IDLE,
-    // FQMUL/normal MUL product, or first FSRI reuse step
+    // computes a product for MUL FQMUL or FSRI reuse
     PRODUCT,
-    // low16(product)*62209, or second FSRI step
+    // computes the Montgomery inverse term or second FSRI result half
     INVERSE,
-    // signed low16(inverse)*3329
+    // multiplies the signed inverse term by 3329
     MODULUS,
-    // hold the finished result for PicoRV32
+    // holds the finished result for PicoRV32
     RESPONSE
 } state_t;
 
-// state and the latched request below are registers updated only in always_ff
+// state and saved request values are registers updated on clock edges
 state_t state;
-// remembers a response until PicoRV32 drops or changes the still-valid request
+// prevents one held request from receiving the same response twice
 logic served;
 logic custom_request;
-// decode/claim signals below are combinational wires recalculated from current inputs
+// claim signals are combinational values derived from the current instruction
 logic m_claim;
 logic fqmul_claim;
 logic red32_claim;
@@ -59,7 +61,7 @@ logic same_request;
 logic [31:0] last_insn;
 logic [31:0] last_rs1;
 logic [31:0] last_rs2;
-// one shared multiply datapath handles RV32M, FQMUL, RED32, and FSRI reuse
+// one multiplier handles RV32M FQMUL RED32 and FSRI reuse
 logic signed [32:0] multiply_left;
 logic signed [32:0] multiply_right;
 logic signed [65:0] multiply_result;
@@ -87,10 +89,10 @@ assign formal_numerator = numerator;
 assign formal_fqmul_result = fqmul_result;
 `endif
 
-// always_comb describes wires: no values here survive a clock edge on their own
+// always comb recalculates these wires whenever an input changes
 always_comb
 begin
-    // masks keep opcode/funct bits and ignore rd/rs fields; funct3 separates custom operations
+    // masks keep decoder fields and remove register fields
     m_claim = pcpi_valid && pcpi_insn[6:0] == 7'b0110011 &&
               pcpi_insn[31:25] == 7'b0000001 && pcpi_insn[14] == 1'b0;
     fqmul_claim = ENABLE_FQMUL && pcpi_valid &&
@@ -101,12 +103,13 @@ begin
                  (pcpi_insn & 32'hc000_707f) == 32'h0000_200b;
     fsri_active = ENABLE_FSRI &&
                   (last_insn & 32'hc000_707f) == 32'h0000_200b;
-    // direct FSRI finishes here without entering the clocked FSM
+    // direct FSRI returns from combinational logic without entering the state machine
+    // ready can rise in the same cycle because this path stores no state
     fsri_direct_claim = fsri_claim && FSRI_IMPL == 2;
     claim = m_claim || fqmul_claim || red32_claim || (fsri_claim && FSRI_IMPL != 2);
     same_request = pcpi_insn == last_insn && pcpi_rs1 == last_rs1 && pcpi_rs2 == last_rs2;
 
-    // multiplier-reuse FSRI builds 2^-shift as a one-hot factor in two 16-bit pieces
+    // multiplier reuse FSRI builds the shift factor in two 16 bit pieces
     case (pcpi_insn[28:25])
         4'd0: fsri_half = 16'h0001;
         4'd1: fsri_half = 16'h8000;
@@ -138,17 +141,17 @@ begin
         end
     end
 
-    // sliced FSRI (impl 1) extracts the low and high result halves on consecutive states
+    // sliced FSRI extracts one result half in each of two states
     fsri_window = last_insn[29] ? {last_rs2[15:0], last_rs1[31:16]} : last_rs1;
     if (state == INVERSE)
     begin
         fsri_window = last_insn[29] ? last_rs2 : {last_rs2[15:0], last_rs1[31:16]};
     end
     fsri_shifted = fsri_window >> last_insn[28:25];
-    // direct implementation is just a 64-bit combinational funnel and has zero PCPI wait cycles
+    // direct FSRI shifts the joined source values with combinational logic
     fsri_direct = {pcpi_rs2, pcpi_rs1} >> pcpi_insn[29:25];
 
-    // choose operands for the multiplier according to the current FSM step
+    // selects multiplier operands for the current state
     multiply_left = 33'sd0;
     multiply_right = 33'sd0;
     if (state == PRODUCT)
@@ -160,13 +163,13 @@ begin
         end
         else if (custom_request)
         begin
-            // FQMUL uses signed low halves; upper register bits are intentionally ignored
+            // FQMUL sign extends only the low half of each source register
             multiply_left = $signed({{17{last_rs1[15]}}, last_rs1[15:0]});
             multiply_right = $signed({{17{last_rs2[15]}}, last_rs2[15:0]});
         end
         else
         begin
-            // sign extension follows MUL/MULH/MULHSU/MULHU funct3 rules
+            // sign extension follows the selected RV32M multiply operation
             multiply_left = $signed({1'b0, last_rs1});
             multiply_right = $signed({1'b0, last_rs2});
             if (last_insn[13:12] == 2'b01 || last_insn[13:12] == 2'b10)
@@ -188,7 +191,7 @@ begin
         end
         else
         begin
-            // RED32 arrives directly here because rs1 already contains the normal MUL result
+            // RED32 enters here because its source already contains the normal MUL result
             multiply_left = $signed({17'b0, product_value[15:0]});
             multiply_right = 33'sd62209;
         end
@@ -209,12 +212,12 @@ begin
         m_result = multiply_result[63:32];
     end
 
-    // Montgomery result is exactly (product - signed_inverse*q) / 2^16
+    // subtracts the modulus product and keeps the upper half as the Montgomery result
     numerator = $signed({product_value[31], product_value}) -
                 $signed({modulus_value[31], modulus_value});
     fqmul_result = $signed({{15{numerator[32]}}, numerator[32:16]});
 
-    // only answer the request whose operands were latched; avoids stale back-to-back responses
+    // responds only when current inputs match the saved request
     pcpi_ready = fsri_direct_claim || (state == RESPONSE && pcpi_valid && same_request);
     pcpi_wr = pcpi_ready;
     pcpi_rd = fsri_direct_claim ? fsri_direct[31:0] :
@@ -237,12 +240,12 @@ begin
     end
 end
 
-// always_ff is register logic; nonblocking <= makes all registers update together at the edge
+// always ff creates registers and nonblocking assignments update them together
 always_ff @(posedge clk)
 begin
     if (!resetn)
     begin
-        // synchronous active-low reset cancels work and clears any saved response
+        // active low reset takes effect on the clock edge and clears current work
         state <= IDLE;
         served <= 1'b0;
         custom_request <= 1'b0;
@@ -265,21 +268,22 @@ begin
                 end
                 if (claim && (!served || !same_request))
                 begin
-                    // PCPI inputs may change later, so every multicycle request is latched here
+                    // saves each multicycle request before its inputs can change
                     custom_request <= fqmul_claim || red32_claim;
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;
                     last_rs2 <= pcpi_rs2;
                     if (fsri_claim)
                     begin
-                        // impl 0 reuses PicoRV32's multiplier; impl 1 uses two sliced shifts
+                        // implementation 0 reuses the RV32M multiplier
+                        // implementation 1 uses sliced shifts
                         response_value <= pcpi_rs1;
                         modulus_value <= FSRI_IMPL == 0 ? $signed(fsri_factor) : 32'sd0;
                         state <= PRODUCT;
                     end
                     else if (red32_claim)
                     begin
-                        // skip PRODUCT: firmware already issued the ordinary RISC-V MUL
+                        // skips product because firmware already issued normal MUL
                         product_value <= $signed(pcpi_rs1);
                         state <= INVERSE;
                     end
@@ -305,7 +309,7 @@ begin
                 end
                 else if (custom_request)
                 begin
-                    // first of FQMUL's three multiplications
+                    // stores the first FQMUL multiplication result
                     product_value <= multiply_result[31:0];
                     state <= INVERSE;
                 end
@@ -331,14 +335,14 @@ begin
                 end
                 else
                 begin
-                    // low half is enough because Montgomery arithmetic is modulo 2^16 here
+                    // keeps the low half needed for the Montgomery inverse term
                     inverse_value <= multiply_result[15:0];
                     state <= MODULUS;
                 end
             end
             MODULUS:
             begin
-                // store inverse*q; RESPONSE forms and returns the shifted numerator
+                // stores the modulus product before the response state forms the result
                 modulus_value <= multiply_result[31:0];
                 state <= RESPONSE;
             end
@@ -347,7 +351,7 @@ begin
                 served <= 1'b1;
                 if (claim && !same_request)
                 begin
-                    // accept a new request immediately after answering the previous one
+                    // accepts a different request after returning the previous response
                     custom_request <= fqmul_claim || red32_claim;
                     last_insn <= pcpi_insn;
                     last_rs1 <= pcpi_rs1;

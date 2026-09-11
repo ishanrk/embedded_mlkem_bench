@@ -12,7 +12,7 @@ static volatile uint32_t *const status_mmio =
 static volatile uint32_t *const terminate_mmio =
     (volatile uint32_t *)(uintptr_t)PQC_BENCH_TERMINATE_ADDRESS;
 
-// freestanding firmware has no libc, but compiled ML-KEM code still needs these routines
+// firmware has no standard library so these memory routines are provided here
 void *memcpy(void *restrict destination, const void *restrict source, size_t count)
 {
     unsigned char *output = destination;
@@ -40,7 +40,7 @@ void *memset(void *destination, int value, size_t count)
 
 void pqc_bench_begin(void)
 {
-    // volatile keeps this observable MMIO store from being optimized away
+    // volatile keeps the MMIO store visible to the simulator
     *begin_mmio = 1U;
 }
 
@@ -71,13 +71,13 @@ _Noreturn void pqc_trap(uint32_t value)
 
 static void empty_call(void *context)
 {
-    // compiler barrier gives the stack wrapper a measurable no-work baseline
+    // compiler barrier gives the stack wrapper an empty baseline call
     __asm__ volatile("" : : "r"(context) : "memory");
 }
 
 static void fill_stack(void)
 {
-    // paint unused stack with 0xA5; calls overwrite a suffix growing down from stack_top
+    // fills unused stack with 0xA5 before the measured call
     volatile unsigned char *cursor = __measured_stack_bottom;
 
     while (cursor != __measured_stack_top)
@@ -88,7 +88,7 @@ static void fill_stack(void)
 
 static uint32_t used_stack(void)
 {
-    // first changed byte marks the deepest observed stack use
+    // the first changed byte marks the deepest observed stack use
     volatile const unsigned char *cursor = __measured_stack_bottom;
 
     while (cursor != __measured_stack_top && *cursor == UINT8_C(0xa5))
@@ -100,7 +100,7 @@ static uint32_t used_stack(void)
 
 struct pqc_stack_result pqc_measure_stack(pqc_bench_fn function, void *context)
 {
-    // run once empty and once real so the assembly stack-switch wrapper is subtracted
+    // subtracts the empty wrapper measurement from the real call measurement
     struct pqc_stack_result result;
 
     fill_stack();
