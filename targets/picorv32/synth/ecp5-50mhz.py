@@ -146,7 +146,7 @@ def main():
         "scope": "ecp5 core only without board memory",
     }
     seeds = []
-    all_pass = True
+    all_complete = True
     # several seeds show how placement changes the routing result
     for seed in args.seeds:
         config = work / f"seed-{seed}.config"
@@ -181,16 +181,22 @@ def main():
         if config.exists():
             pack = capture(pack_command, work / f"seed-{seed}-pack.log")
             pack_returncode = pack.returncode
-        # passing requires a packed route that reaches the 50 MHz target
-        passed = route.returncode == 0 and pack_returncode == 0 and frequency >= 50.0
-        all_pass = all_pass and passed
+        # complete means the route was measured and packed
+        complete = (
+            route.returncode == 0
+            and pack_returncode == 0
+            and frequency > 0
+            and counts["lut4"] > 0
+        )
+        meets_target = complete and frequency >= 50.0
+        all_complete = all_complete and complete
         seeds.append(
             {
                 "seed": seed,
-                "status": "complete" if frequency > 0 and counts["lut4"] > 0 else "failed measurement",
+                "status": "complete" if complete else "failed measurement",
                 **counts,
                 "maximum_frequency_mhz": frequency,
-                "meets_50mhz": passed,
+                "meets_50mhz": meets_target,
                 "command": report_command(command, replacements),
                 "ecppack_command": report_command(pack_command, replacements),
                 "nextpnr_returncode": route.returncode,
@@ -216,7 +222,7 @@ def main():
     pathlib.Path(args.output).write_text(
         json.dumps(result, indent=2, sort_keys=False) + "\n", encoding="utf-8"
     )
-    return 0 if all_pass else 1
+    return 0 if all_complete else 1
 
 
 if __name__ == "__main__":

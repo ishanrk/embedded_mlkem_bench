@@ -460,3 +460,18 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
     endforeach()
     add_custom_target(pqc-picorv32-synthesis DEPENDS ${pqc_synthesis_results})
 endif()
+
+if(PQC_POLY_PICORV32_MLKEM AND PQC_POLY_PICORV32_SYNTHESIS)
+    set(pqc_summary "${pqc_results}/summary.json")
+    add_custom_command(
+        OUTPUT "${pqc_summary}"
+        COMMAND
+            "${PQC_PYTHON}" "${PROJECT_SOURCE_DIR}/scripts/results.py" --input
+            "${pqc_results}" --output "${pqc_summary}"
+        DEPENDS
+            ${pqc_mlkem_results}
+            ${pqc_synthesis_results}
+            "${PROJECT_SOURCE_DIR}/scripts/results.py"
+        VERBATIM)
+    add_custom_target(pqc-picorv32-results DEPENDS "${pqc_summary}")
+endif()
