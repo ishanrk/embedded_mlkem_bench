@@ -56,12 +56,8 @@ SECTIONS
     }
 
     __image_end = ALIGN(16);
-    /* separates the measured stack from the monitor stack */
-    __measured_stack_bottom = 0x00060000;
-    __measured_stack_top = 0x00070000;
-    __monitor_stack_bottom = 0x00070000;
-    __monitor_stack_top = 0x00080000;
+    __stack_top = 0x00080000;
 
-    /* rejects firmware that overlaps the measured stack */
-    ASSERT(__image_end <= __measured_stack_bottom, "firmware overlaps measured stack")
+    /* leaves the rest of RAM for the firmware stack */
+    ASSERT(__image_end <= __stack_top, "firmware overlaps stack")
 }
