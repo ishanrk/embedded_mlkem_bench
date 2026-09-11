@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+# stage pinned RTL and the harness in one directory, then run both bounded SBY tasks
 r=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
 b=${1:-build/fsri}
 case "$b" in
@@ -13,6 +14,7 @@ p="$b/_deps/picorv32-src/picorv32.v"
 s=$(command -v sby)
 
 test -f "$p"
+# this is generated formal output only, safe to recreate for a fresh run
 rm -rf "$d"
 mkdir -p "$d"
 cp "$p" "$d/picorv32.v"

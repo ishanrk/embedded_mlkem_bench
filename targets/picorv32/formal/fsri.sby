@@ -1,3 +1,4 @@
+# both FSRI checks are bounded: direct PCPI behavior to 8 cycles, CPU/RVFI to 22
 [tasks]
 pcpi
 rvfi
@@ -9,10 +10,12 @@ rvfi: mode bmc
 rvfi: depth 22
 
 [engines]
+# bmc3 explores all symbolic inputs within the configured depth
 pcpi: abc bmc3
 rvfi: abc bmc3
 
 [script]
+# prep chooses either the isolated PCPI harness or the whole-core retirement harness
 pcpi: read -formal -sv pqc_pcpi_mlkem.sv fsri_properties.sv
 pcpi: prep -top fsri_properties
 rvfi: read -formal -D RISCV_FORMAL -sv picorv32.v pqc_pcpi_mlkem.sv pqc_picorv32_core_top.sv rvfi_fsri_monitor.sv

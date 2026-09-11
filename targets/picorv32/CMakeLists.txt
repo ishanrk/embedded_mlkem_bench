@@ -1,6 +1,7 @@
 set(PQC_RISCV_RELEASE "2026.07.15")
 set(PQC_CAD_RELEASE "2026-07-29")
 
+# keep every executable in a run on the pinned RISC-V/CAD suite releases
 set(pqc_required_tools
     PQC_RISCV_GCC|riscv32-unknown-elf-gcc|RISC-V_GNU_toolchain_${PQC_RISCV_RELEASE}
     PQC_RISCV_LD|riscv32-unknown-elf-ld|RISC-V_GNU_toolchain_${PQC_RISCV_RELEASE}
@@ -103,6 +104,7 @@ set(pqc_picorv32_source "${PQC_POLY_PICORV32_SOURCE_DIR}/picorv32.v")
 
 set(
     pqc_c_flags
+    # freestanding RV32IMC: no OS runtime, unwind metadata, PIC, or implicit stack helpers
     -std=c11
     -march=rv32imc
     -mabi=ilp32
@@ -128,6 +130,7 @@ set(
     -Werror)
 set(
     pqc_link_flags
+    # crt0 and link.ld replace the normal C runtime/start files
     -march=rv32imc
     -mabi=ilp32
     -nostdlib
@@ -161,6 +164,7 @@ add_custom_command(
     VERBATIM)
 
 function(pqc_add_firmware name define)
+    # compile smoke firmware, then derive the ELF, RAM-loadable HEX, and readable disassembly
     set(object "${pqc_target_dir}/${name}.o")
     set(elf "${pqc_target_dir}/${name}.elf")
     set(map "${pqc_target_dir}/${name}.map")
@@ -208,6 +212,7 @@ pqc_add_firmware(illegal PQC_TEST_ILLEGAL)
 set(pqc_sim_cflags "-std=c++20 -O3 -I${PROJECT_SOURCE_DIR}/include")
 
 function(pqc_add_verilated name top prefix cflags parameter)
+    # Verilator translates the chosen RTL top into C++ and links the host-side driver
     set(model_dir "${pqc_target_dir}/${name}-model")
     if(name STREQUAL "fsri")
         set(model_dir "${pqc_target_dir}/fsri-${PQC_POLY_FSRI_IMPL}-model")
@@ -284,6 +289,7 @@ set(pqc_sim_stamp "${pqc_results}/simulation.stamp")
 
 add_custom_command(
     OUTPUT "${pqc_sim_stamp}"
+    # unit-test PCPI, run full CPU twice, compare determinism, then exercise trap paths
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_results}"
     COMMAND "${pcpi_sim}"
     COMMAND
@@ -324,6 +330,7 @@ add_custom_command(
 add_custom_target(pqc-picorv32-sim DEPENDS "${pqc_sim_stamp}")
 
 if(PQC_POLY_PICORV32_MLKEM)
+    # generated arithmetic C is linked into pinned mlkem-native for every schedule and level
     pqc_poly_fetch_mlkem_native()
 
     set(pqc_mlkem_root "${PQC_POLY_MLKEM_NATIVE_SOURCE_DIR}/mlkem")
@@ -357,6 +364,7 @@ if(PQC_POLY_PICORV32_MLKEM)
 
     add_custom_command(
         OUTPUT ${pqc_mlkem_generated_files}
+        # one planner invocation materializes all 144 candidate backends
         COMMAND
             "$<TARGET_FILE:pqc-poly-mlkem>" "${PROJECT_SOURCE_DIR}/examples/mlkem.json" -o
             "${pqc_mlkem_generated}"
@@ -370,6 +378,7 @@ if(PQC_POLY_PICORV32_MLKEM)
         -DMLK_CONFIG_NO_RANDOMIZED_API
         -DMLK_CONFIG_FILE=\"mlkem_config.h\")
     foreach(pqc_level IN ITEMS 512 768 1024)
+        # compile mlkem-native once per k; generated schedules are separate objects below
         if(pqc_level EQUAL 512)
             set(pqc_k 2)
         elseif(pqc_level EQUAL 768)
@@ -528,6 +537,7 @@ if(PQC_POLY_PICORV32_MLKEM)
                         add_custom_command(
                             OUTPUT "${pqc_project_result}" "${pqc_stock_result}"
                                    "${pqc_stack_result}" "${pqc_size_result}"
+                            # same firmware under project and stock multiplier cores isolates CPU hardware
                             COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_mlkem_results}"
                             COMMAND
                                 "${project_sim}" "+firmware=${pqc_hex}" --output
@@ -573,6 +583,7 @@ if(PQC_POLY_PICORV32_MLKEM)
     endforeach()
 
     foreach(pqc_level IN ITEMS 512 768 1024)
+        # rebuild the same 72 schedule choices with FQMUL enabled in C and RTL
         set(pqc_level_fqmul)
         foreach(pqc_forward IN ITEMS stage fuse2)
             foreach(pqc_inverse IN ITEMS stage fuse2)
@@ -672,6 +683,7 @@ if(PQC_POLY_PICORV32_MLKEM)
     endforeach()
 
     foreach(pqc_level IN ITEMS 512 768 1024)
+        # portable mlkem-native is the untouched arithmetic baseline, one image per level
         set(pqc_plan_id "mlk${pqc_level}_portable")
         set(pqc_elf "${pqc_target_dir}/${pqc_plan_id}.elf")
         set(pqc_hex "${pqc_target_dir}/${pqc_plan_id}.hex")
@@ -740,6 +752,7 @@ if(PQC_POLY_PICORV32_MLKEM)
         "${pqc_mlkem_results}/mlkem1024-software-winner.json")
     add_custom_command(
         OUTPUT ${pqc_mlkem_complete_files}
+        # finalizer refuses incomplete rows and writes one software winner per level
         COMMAND
             "${CMAKE_COMMAND}" -E copy
             "${pqc_mlkem_generated}/mlkem512-candidates.json"
@@ -776,6 +789,7 @@ if(PQC_POLY_PICORV32_MLKEM)
     endif()
     string(SUBSTRING "${pqc_mlkem_repository_sha}" 0 8 pqc_mlkem_repository_short)
     string(SUBSTRING "${PQC_POLY_MLKEM_NATIVE_SHA}" 0 8 pqc_mlkem_native_short)
+    # source revisions in the directory name keep result sets from being silently mixed
     set(
         pqc_mlkem_final_results
         "${PROJECT_SOURCE_DIR}/results/raw/picorv32-step2-${pqc_mlkem_repository_short}-${pqc_mlkem_native_short}")
@@ -795,6 +809,7 @@ if(PQC_POLY_PICORV32_MLKEM)
 endif()
 
 if(PQC_POLY_PICORV32_FQMUL_VERIFY)
+    # copy formal inputs into an isolated SBY directory, then run block and RVFI tasks
     set(pqc_fqmul_formal_dir "${pqc_target_dir}/fqmul-formal")
     file(MAKE_DIRECTORY "${pqc_fqmul_formal_dir}")
     configure_file("${pqc_picorv32_source}" "${pqc_fqmul_formal_dir}/picorv32.v" COPYONLY)
@@ -836,6 +851,7 @@ if(PQC_POLY_PICORV32_FQMUL_VERIFY)
 
     set(
         pqc_cbmc_flags
+        # C-level checks cover wrapper conversions and generated arithmetic call sites
         --bounds-check
         --pointer-check
         --signed-overflow-check
@@ -886,6 +902,7 @@ if(PQC_POLY_PICORV32_FQMUL_VERIFY)
 endif()
 
 if(PQC_POLY_PICORV32_SYNTHESIS)
+    # synthesis evidence includes exact tools, flags, sources, and routing seeds
     function(pqc_json_array output)
         set(result "[")
         set(separator "")
@@ -955,6 +972,7 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
     pqc_json_array(pqc_compiler_flags_json ${pqc_c_flags})
     pqc_json_array(pqc_linker_flags_json ${pqc_manifest_link_flags})
 
+    # provenance lets a later reader tell exactly which setup produced the numbers
     set(pqc_manifest "${pqc_results}/baseline-manifest.json")
     set(pqc_manifest_content "{\n")
     string(APPEND pqc_manifest_content "  \"repository_sha\": \"${pqc_repository_sha}\",\n")
@@ -979,6 +997,7 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
     string(APPEND pqc_manifest_content "  \"container_digest\": ${pqc_container_digest}\n}\n")
     file(GENERATE OUTPUT "${pqc_manifest}" CONTENT "${pqc_manifest_content}")
 
+    # recover the reviewed baseline RTL rather than comparing against the moving working tree
     set(pqc_step1_sha e9b50a67dca6faafc8b8b2d1edcc79beff5eb99b)
     set(pqc_step1_dir "${pqc_target_dir}/step1-rtl")
     file(MAKE_DIRECTORY "${pqc_step1_dir}")
@@ -1000,6 +1019,7 @@ if(PQC_POLY_PICORV32_SYNTHESIS)
     set(pqc_synthesis_result "${pqc_results}/baseline-synthesis.json")
     add_custom_command(
         OUTPUT "${pqc_synthesis_result}"
+        # Yosys maps generic RTL to ECP5 cells; nextpnr places/routes five seeds at 50 MHz
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_results}"
         COMMAND
             "${PQC_PYTHON}" "${pqc_synth_dir}/ecp5-50mhz.py" --yosys "${PQC_YOSYS}"
@@ -1069,6 +1089,7 @@ endif()
 
 if(PQC_POLY_PICORV32_MLKEM AND PQC_POLY_PICORV32_SYNTHESIS AND
    PQC_POLY_PICORV32_FQMUL_VERIFY)
+    # only publish the final FQMUL comparison when measurements, synthesis, and checks all exist
     set(
         PQC_POLY_STEP2_RESULTS_DIR
         "${PROJECT_SOURCE_DIR}/results/raw/picorv32-step2-3f13dce5-69d24e37"

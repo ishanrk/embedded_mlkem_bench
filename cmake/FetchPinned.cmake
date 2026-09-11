@@ -1,5 +1,6 @@
 include(FetchContent)
 
+# commit identifies source; archive SHA-256 also catches a changed or corrupt download
 set(PQC_POLY_PICORV32_SHA "a473fc8fca393771d83b0ffcf0b14db3393339d8")
 set(PQC_POLY_PICORV32_ARCHIVE_SHA256
     "050ba03d03eaacadb5953f3ba2218b49866c71d505c2476e49a0c0f5fe14e36c")
@@ -8,6 +9,7 @@ set(PQC_POLY_MLKEM_NATIVE_ARCHIVE_SHA256
     "5f83af0a01fbed2c2d6cc370b56909f3b062728cff0ec9f310314707f13a1f3e")
 
 function(pqc_poly_fetch_picorv32)
+    # SOURCE_SUBDIR points at a nonexistent project so dependency CMake logic is never imported
     FetchContent_Declare(
         picorv32
         URL

@@ -1,5 +1,7 @@
+# CMake is configuring for a freestanding target, not the host running the build
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR riscv32)
+# compiler probes cannot link an OS program for this bare-metal target
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 find_program(PQC_RISCV_GCC riscv32-unknown-elf-gcc)

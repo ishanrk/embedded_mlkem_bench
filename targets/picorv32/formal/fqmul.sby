@@ -1,3 +1,4 @@
+# SymbiYosys tasks: block-level protocol/arithmetic, unchanged RV32M, then CPU retirement
 [tasks]
 pcpi
 m
@@ -5,6 +6,7 @@ rvfi
 rvfi_cover
 
 [options]
+# PCPI and M use the PDR proof engine; RVFI is only checked to the stated 24-cycle bound
 pcpi: mode prove
 pcpi: depth 8
 m: mode prove
@@ -21,6 +23,7 @@ rvfi: abc bmc3
 rvfi_cover: smtbmc boolector
 
 [script]
+# read builds the formal model, prep selects the property module used as the proof top
 pcpi: read -formal -sv pqc_pcpi_mlkem.sv fqmul_properties.sv
 pcpi: prep -top fqmul_properties
 m: read -formal -sv pqc_pcpi_mlkem.sv fqmul_properties.sv
@@ -31,6 +34,7 @@ rvfi_cover: read -formal -D RISCV_FORMAL -sv picorv32.v pqc_pcpi_mlkem.sv pqc_pi
 rvfi_cover: prep -top rvfi_fqmul_formal
 
 [files]
+# files copied into each task's working directory
 picorv32.v
 pqc_pcpi_mlkem.sv
 pqc_picorv32_core_top.sv

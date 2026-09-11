@@ -1,3 +1,4 @@
+// track a RED32 PCPI request and check its eventual architectural RVFI record
 module rvfi_red32_monitor (
     input logic        clock,
     input logic        reset,
@@ -29,6 +30,7 @@ logic [15:0] reference_inverse = 16'b0;
 logic signed [31:0] reference_modulus = 32'sd0;
 logic [31:0] reference_result = 32'b0;
 logic reference_ready = 1'b0;
+// reference pipeline starts at reduction because the regular MUL happened in firmware
 logic signed [32:0] inverse_left;
 logic signed [65:0] inverse_product;
 logic signed [32:0] modulus_left;
@@ -88,6 +90,7 @@ begin
 
         if (red32)
         begin
+            // no trap, no memory effect, next PC, destination register, and exact result
             assume(red32_result == reference_result);
             red32_retired <= 1'b1;
             assert(reference_ready);
@@ -112,6 +115,7 @@ end
 
 endmodule
 
+// execute one arbitrary RED32 encoding at reset PC, then loop for the bounded check
 module rvfi_red32_formal (
     input logic clk
 );
@@ -198,6 +202,7 @@ begin
     end
     if (cycle == 6'd20)
     begin
+        // only claims retirement within this harness and the .sby depth
         assert(red32_retired);
     end
     if (resetn)

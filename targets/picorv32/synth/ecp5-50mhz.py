@@ -10,8 +10,10 @@ import shlex
 import subprocess
 import sys
 
+# run Yosys once, route its ECP5 netlist under several seeds, and save machine-readable evidence
 
 def run(command, *, environment=None, output=None):
+    # synthesis failures are fatal here because there is no usable netlist to route
     completed = subprocess.run(
         command,
         check=False,
@@ -28,6 +30,7 @@ def run(command, *, environment=None, output=None):
 
 
 def capture(command, output):
+    # routing failures are still evidence, so preserve their log and return code
     completed = subprocess.run(
         command,
         check=False,
@@ -61,6 +64,7 @@ def resource_count(log, name):
 
 
 def resource_counts(log):
+    # LUT4 is logic area, DFF is state, DSP is hard arithmetic, DP16KD is block RAM
     return {
         "lut4": resource_count(log, "Total LUT4s"),
         "flip_flops": resource_count(log, "Total DFFs"),
@@ -70,6 +74,7 @@ def resource_counts(log):
 
 
 def maximum_frequency(log):
+    # nextpnr reports routed Fmax from static timing analysis, not a board measurement
     matches = re.findall(r"Max frequency[^:]*:\s*([0-9]+(?:\.[0-9]+)?)\s*MHz", log)
     if not matches:
         raise RuntimeError("nextpnr log lacks maximum frequency")
@@ -111,6 +116,7 @@ def main():
         (str(pathlib.Path(__file__).resolve().parents[3]), "${PROJECT_SOURCE_DIR}"),
         (str(pathlib.Path(args.yosys).resolve().parents[1]), "${PQC_OSS_CAD_SUITE_ROOT}"),
     ]
+    # Yosys turns RTL into an ECP5 cell netlist shared by every routing seed
     netlist_path = work / "core.json"
     yosys_log = work / "yosys.log"
     environment = os.environ.copy()
@@ -130,6 +136,7 @@ def main():
     yosys_command = [args.yosys, "-c", str(pathlib.Path(args.script).resolve())]
     run(yosys_command, environment=environment, output=yosys_log)
 
+    # hashes make stale/mixed RTL and netlists visible when results are copied elsewhere
     provenance = {
         "repository_sha": run(["git", "rev-parse", "HEAD"]),
         "dirty": bool(run(["git", "status", "--porcelain"])),
@@ -145,6 +152,7 @@ def main():
         "scope": "ecp5 core only without board memory",
     }
     if args.area_only:
+        # quick pre-route screen: count mapped cells without making any timing claim
         netlist = json.loads(netlist_path.read_text())
         counts = {}
         for cell in netlist["modules"]["pqc_picorv32_core_top"]["cells"].values():
@@ -157,6 +165,7 @@ def main():
         return 0
     seeds = []
     all_pass = True
+    # nextpnr placement is heuristic; several seeds show how sensitive the route is
     for seed in args.seeds:
         config = work / f"seed-{seed}.config"
         bitstream = work / f"seed-{seed}.bit"
@@ -190,6 +199,7 @@ def main():
         if config.exists():
             pack = capture(pack_command, work / f"seed-{seed}-pack.log")
             pack_returncode = pack.returncode
+        # 50 MHz is the experiment's target clock, so every reported pass must route and pack
         passed = route.returncode == 0 and pack_returncode == 0 and frequency >= 50.0
         all_pass = all_pass and passed
         seeds.append(

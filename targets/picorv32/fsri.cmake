@@ -2,6 +2,7 @@ if(NOT PQC_POLY_PICORV32_MLKEM)
     return()
 endif()
 
+# included from the parent directory, so pull its build variables into this scope explicitly
 set(pqc_picorv32_dir "${PROJECT_SOURCE_DIR}/targets/picorv32")
 foreach(
     pqc_name
@@ -31,6 +32,7 @@ file(MAKE_DIRECTORY "${pqc_fsri_generated}")
 
 set(pqc_fsri_keccak_source "${pqc_mlkem_root}/src/fips202/keccakf1600.c")
 set(pqc_fsri_keccak "${pqc_fsri_generated}/keccakf1600-fsri.c")
+# patch a generated copy of pinned Keccak; the downloaded source itself stays untouched
 file(READ "${pqc_fsri_keccak_source}" pqc_fsri_keccak_text)
 set(
     pqc_fsri_keccak_macro
@@ -56,6 +58,7 @@ endif()
 file(WRITE "${pqc_fsri_scu}" "${pqc_fsri_scu_output}")
 
 pqc_add_verilated(
+    # implementation parameter selects multiplier reuse, sliced, or direct RTL
     fsri
     pqc_picorv32_sim_top
     Vpqc_picorv32_sim_top
@@ -108,6 +111,7 @@ add_custom_command(
 set(pqc_fsri_binaries)
 set(pqc_fsri_measurements)
 foreach(pqc_level IN ITEMS 512 768 1024)
+    # FSRI changes Keccak only; use one fixed best-software polynomial schedule per level
     if(pqc_level EQUAL 512)
         set(pqc_k 2)
     elseif(pqc_level EQUAL 768)
@@ -237,6 +241,7 @@ add_dependencies(
     pqc-picorv32-mlkem-generate)
 
 if(PQC_POLY_PICORV32_SYNTHESIS)
+    # synthesize FSRI separately so its area/timing is never attributed to FQMUL or RED32
     set(pqc_fsri_synthesis "${pqc_results}/fsri-${PQC_POLY_FSRI_IMPL}-synthesis.json")
     add_custom_command(
         OUTPUT "${pqc_fsri_synthesis}"
