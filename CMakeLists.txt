@@ -2,53 +2,37 @@ cmake_minimum_required(VERSION 3.20)
 
 project(
     pqc_poly_bench
-    VERSION 0.3.0
-    DESCRIPTION "reproducible ML-KEM software and RISC-V ISA co-design experiments"
-    LANGUAGES CXX)
+    VERSION 0.4.0
+    DESCRIPTION "ML-KEM custom instruction measurements on PicoRV32"
+    LANGUAGES C CXX)
 
 include(CheckIPOSupported)
 include(CTest)
 
-# host planner and tests build without the PicoRV32 tools
-option(PQC_POLY_LTO "enable link-time optimization in release builds" ON)
+option(PQC_POLY_LTO "enable link time optimization in release builds" ON)
 option(PQC_POLY_SANITIZE "enable address and undefined behavior sanitizers" OFF)
 option(PQC_POLY_WARNINGS_AS_ERRORS "treat compiler warnings as errors" ON)
-option(PQC_POLY_PICORV32 "enable the opt in picorv32 simulation target" OFF)
-option(PQC_POLY_PICORV32_SYNTHESIS "enable the opt in picorv32 synthesis target" OFF)
-option(PQC_POLY_PICORV32_MLKEM "enable the opt in picorv32 mlkem measurements" OFF)
-option(PQC_POLY_PICORV32_FQMUL_VERIFY "enable the opt in fqmul formal and cbmc targets" OFF)
-set(PQC_POLY_BUILD_JOBS 4 CACHE STRING "maximum workers for optional verilator builds")
+option(PQC_POLY_PICORV32 "enable the PicoRV32 simulation targets" OFF)
+option(PQC_POLY_PICORV32_MLKEM "enable the complete ML-KEM measurements" OFF)
+option(PQC_POLY_PICORV32_FORMAL "enable the direct PCPI formal checks" OFF)
+option(PQC_POLY_PICORV32_SYNTHESIS "enable the ECP5 synthesis targets" OFF)
+set(PQC_POLY_BUILD_JOBS 4 CACHE STRING "maximum workers for optional Verilator builds")
+
 if(NOT PQC_POLY_BUILD_JOBS MATCHES "^[1-9][0-9]*$")
     message(FATAL_ERROR "PQC_POLY_BUILD_JOBS must be positive")
 endif()
-set(PQC_POLY_FSRI_IMPL "reuse" CACHE STRING "fsri implementation reuse sliced or direct")
-set_property(CACHE PQC_POLY_FSRI_IMPL PROPERTY STRINGS reuse sliced direct)
-if(PQC_POLY_FSRI_IMPL STREQUAL "reuse")
-    set(pqc_fsri_impl 0)
-elseif(PQC_POLY_FSRI_IMPL STREQUAL "sliced")
-    set(pqc_fsri_impl 1)
-elseif(PQC_POLY_FSRI_IMPL STREQUAL "direct")
-    set(pqc_fsri_impl 2)
-else()
-    message(FATAL_ERROR "unknown fsri implementation")
-endif()
 
-option(PQC_POLY_FETCH_MLKEM_NATIVE "fetch the pinned mlkem native source" OFF)
-
-if(PQC_POLY_PICORV32_SYNTHESIS OR PQC_POLY_PICORV32_MLKEM OR
-   PQC_POLY_PICORV32_FQMUL_VERIFY)
-    # these targets share the firmware and Verilator setup
+if(PQC_POLY_PICORV32_MLKEM OR PQC_POLY_PICORV32_FORMAL OR
+   PQC_POLY_PICORV32_SYNTHESIS)
     set(PQC_POLY_PICORV32 ON)
 endif()
 
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-if(PQC_POLY_FETCH_MLKEM_NATIVE)
-    include("${PROJECT_SOURCE_DIR}/cmake/FetchPinned.cmake")
-    pqc_poly_fetch_mlkem_native()
-endif()
 
 set(PQC_POLY_IPO_SUPPORTED OFF)
 if(PQC_POLY_LTO AND NOT PQC_POLY_SANITIZE)
@@ -57,7 +41,7 @@ endif()
 
 add_library(pqc_poly_options INTERFACE)
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(
         pqc_poly_options
         INTERFACE
@@ -88,81 +72,45 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 function(pqc_poly_configure target)
-    target_include_directories(
-        ${target}
-        PUBLIC
-            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
     target_link_libraries(${target} PRIVATE pqc_poly_options)
-
     if(PQC_POLY_IPO_SUPPORTED)
         set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
     endif()
 endfunction()
 
-add_library(
-    pqc_poly_compiler
-    STATIC
-        src/mlkem_check.cpp
-        src/mlkem_codegen.cpp
-        src/mlkem_plan.cpp
-        src/mlkem_request.cpp
-        src/mlkem_red32.cpp
-        src/mlkem_red32_check.cpp
-        src/mlkem_red32_codegen.cpp
-        src/target_measurement.cpp)
-pqc_poly_configure(pqc_poly_compiler)
-
-# these command line programs generate backends and collect experiment results
-add_executable(pqc-poly-mlkem src/mlkem_main.cpp src/mlkem_explore.cpp)
-pqc_poly_configure(pqc-poly-mlkem)
-target_link_libraries(pqc-poly-mlkem PRIVATE pqc_poly_compiler)
-
-add_executable(pqc-poly-red32 src/mlkem_red32_main.cpp src/mlkem_red32_explore.cpp)
-pqc_poly_configure(pqc-poly-red32)
-target_link_libraries(pqc-poly-red32 PRIVATE pqc_poly_compiler)
-
 if(BUILD_TESTING)
-    # host tests share the planner library and compiler warning settings
     function(pqc_poly_add_test name source)
         set(target pqc-poly-${name}-test)
         add_executable(${target} ${source})
         pqc_poly_configure(${target})
-        target_link_libraries(${target} PRIVATE pqc_poly_compiler)
         add_test(NAME ${name} COMMAND ${target})
     endfunction()
 
-    pqc_poly_add_test(target-measurement tests/target_measurement_test.cpp)
-    pqc_poly_add_test(picorv32-manifest tests/picorv32_manifest_test.cpp)
-    target_compile_definitions(
-        pqc-poly-picorv32-manifest-test
-        PRIVATE PQC_POLY_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
-    pqc_poly_add_test(mlkem-plan tests/mlkem_plan_test.cpp)
-    pqc_poly_add_test(mlkem-check tests/mlkem_check_test.cpp)
     pqc_poly_add_test(fqmul tests/fqmul_test.cpp)
+    pqc_poly_add_test(red32 tests/red32_test.cpp)
     pqc_poly_add_test(fsri tests/fsri_test.cpp)
-    pqc_poly_add_test(mlkem-codegen tests/mlkem_codegen_test.cpp)
-    pqc_poly_add_test(mlkem-red32 tests/mlkem_red32_test.cpp)
-    pqc_poly_add_test(mlkem-red32-codegen tests/mlkem_red32_codegen_test.cpp)
-    target_compile_definitions(
-        pqc-poly-mlkem-codegen-test
-        PRIVATE
-            PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}"
-            PQC_POLY_TEST_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
-    target_compile_definitions(
-        pqc-poly-mlkem-red32-codegen-test
-        PRIVATE
-            PQC_POLY_TEST_CXX="${CMAKE_CXX_COMPILER}"
-            PQC_POLY_TEST_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
-    if(PQC_POLY_SANITIZE)
-        target_compile_definitions(pqc-poly-mlkem-codegen-test PRIVATE PQC_POLY_TEST_SANITIZE=1)
-        target_compile_definitions(pqc-poly-mlkem-red32-codegen-test PRIVATE PQC_POLY_TEST_SANITIZE=1)
-    endif()
 
-    add_test(NAME cli-help COMMAND pqc-poly-mlkem --help)
-    add_test(NAME red32-cli-help COMMAND pqc-poly-red32 --help)
+    # each build uses the same backend source with one primitive selection
+    foreach(pqc_level IN ITEMS 2 3 4)
+        foreach(pqc_primitive IN ITEMS software fqmul red32)
+            set(pqc_name fixed-backend-k${pqc_level}-${pqc_primitive})
+            set(pqc_target pqc-poly-${pqc_name}-test)
+            add_executable(
+                ${pqc_target}
+                tests/fixed_backend_test.cpp
+                targets/picorv32/mlkem/fixed_backend.c)
+            target_compile_definitions(${pqc_target} PRIVATE PQC_MLKEM_K=${pqc_level})
+            if(pqc_primitive STREQUAL "fqmul")
+                target_compile_definitions(${pqc_target} PRIVATE PQC_USE_FQMUL=1)
+            elseif(pqc_primitive STREQUAL "red32")
+                target_compile_definitions(${pqc_target} PRIVATE PQC_USE_RED32=1)
+            endif()
+            pqc_poly_configure(${pqc_target})
+            add_test(NAME ${pqc_name} COMMAND ${pqc_target})
+        endforeach()
+    endforeach()
 endif()
 
 if(PQC_POLY_PICORV32)
     add_subdirectory(targets/picorv32)
-    include("${PROJECT_SOURCE_DIR}/targets/picorv32/fsri.cmake")
 endif()
