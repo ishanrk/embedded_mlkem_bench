@@ -6,6 +6,7 @@ export type Hardware = {
 };
 export type Budget = { lut: number; ff: number; loss: number; dsp: number; bram: number; seeds: boolean };
 export const original_budget: Budget = { lut: 5, ff: 5, loss: 2, dsp: 0, bram: 0, seeds: true };
+// BigInt keeps the browser reference exact instead of passing 32/64-bit values through floats
 export const signed = (value: bigint, width: number) => BigInt.asIntN(width, value);
 export const unsigned = (value: bigint, width = 32) => BigInt.asUintN(width, value);
 export const hex = (value: bigint, width = 32) => `0x${unsigned(value, width).toString(16).padStart(Math.ceil(width / 4), '0')}`;
@@ -23,6 +24,7 @@ export function arithmetic(kind: Instruction, a: bigint, b: bigint, shift: numbe
     a = unsigned(a); b = unsigned(b);
     if (kind === 'fsri')
     {
+        // include both direct result and intermediates used to explain reuse/sliced RTL
         const joined = (b << 32n) | a;
         const coarse = BigInt(shift >> 4), residual = BigInt(shift & 15);
         const low_window = unsigned(joined >> (coarse * 16n));
@@ -33,6 +35,7 @@ export function arithmetic(kind: Instruction, a: bigint, b: bigint, shift: numbe
             lower_product: shift === 0 ? 0n : a * (1n << BigInt(32 - shift)),
             upper_product: shift === 0 ? 0n : b * (1n << BigInt(32 - shift)) };
     }
+    // RED32 receives t from a prior MUL; FQMUL creates t from the two signed low halves
     const t = kind === 'red32' ? signed(a, 32) : signed(a, 16) * signed(b, 16);
     const low = unsigned(t, 16);
     const u = signed(low * 62209n, 16);
@@ -43,6 +46,7 @@ export function arithmetic(kind: Instruction, a: bigint, b: bigint, shift: numbe
 }
 export function failures(h: Hardware, base: Hardware, budget: Budget): string[]
 {
+    // classify existing evidence under user-selected limits; never invent missing measurements
     const out: string[] = [];
     for (const [field, limit, label] of [['lut4', budget.lut, 'LUT4'], ['flip_flops', budget.ff, 'flip-flops']] as const)
     {
@@ -70,6 +74,7 @@ export function failures(h: Hardware, base: Hardware, budget: Budget): string[]
 }
 export function normalize_seed(seed: Record<string, number>)
 {
+    // zero fields are failed parser output, not a miraculous zero-area implementation
     const failed = seed.maximum_frequency_mhz <= 0 || seed.lut4 <= 0;
     return { original: seed, status: failed ? 'incomplete/failed run' : 'raw evidence available',
         lut4: failed ? null : seed.lut4, frequency: failed ? null : seed.maximum_frequency_mhz };

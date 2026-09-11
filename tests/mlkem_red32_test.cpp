@@ -8,6 +8,7 @@
 #include <set>
 #include <string_view>
 
+// catches full-int32 reduction errors and drift in the separate 72-plan RED32 experiment
 namespace
 {
 
@@ -66,6 +67,7 @@ void check_value(std::uint32_t value)
 
 int main()
 {
+    // signed-32 and signed-16 transition points exercise both conversions in RED32
     constexpr std::array<std::uint32_t, 13> boundaries{
         UINT32_C(0x00000000), UINT32_C(0x00000001), UINT32_C(0xffffffff),
         UINT32_C(0x7fffffff), UINT32_C(0x80000000), UINT32_C(0x00007fff),

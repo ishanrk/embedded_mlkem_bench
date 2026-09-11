@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 
+// drive one PCPI transaction and write both JSON snapshots and a waveform VCD
 namespace
 {
 std::string hex(unsigned __int128 value)
@@ -24,6 +25,7 @@ std::string hex(unsigned __int128 value)
 
 void snapshot(const Vpqc_pcpi_observe &model, unsigned edge)
 {
+    // expose raw internal values so the web UI can explain each FSM step
     std::cout << "{\"edge\":" << edge << ",\"state\":" << unsigned(model.state);
     const auto field = [](const char *name, unsigned __int128 value)
     {
@@ -66,6 +68,7 @@ int main(int argc, char **argv)
         model.trace(&trace, 8);
         trace.open(argv[4]);
         std::uint64_t time = 0;
+        // lambda captures model/trace/time and records both clock levels in the VCD
         const auto tick = [&]()
         {
             model.clk = 0;

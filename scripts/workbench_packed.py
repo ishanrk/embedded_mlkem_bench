@@ -5,6 +5,7 @@ from workbench_data import root, out, work, run, digest, write
 
 
 def main():
+    # build the independent model, then compare compiled loop bodies without adding packed RTL
     work.mkdir(exist_ok=True, parents=True)
     model_command = ["c++", "-std=c++20", "-O2", "-Wall", "-Wextra", root / "scripts/workbench/packed.cpp", "-o", work / "packed-model"]
     run(model_command)
@@ -28,6 +29,7 @@ def main():
         (out / f"{variant}-butterfly.dis.txt").write_text(disassembly + "\n")
         result["variants"][variant] = {"command": [str(x) for x in command], "object_sha256": digest(obj), "disassembly": f"{variant}-butterfly.dis.txt"}
         functions = {}
+        # count the steady-state loop through its bne, excluding one-time setup code
         for function, repetitions in (("pqc_forward_layer", 128), ("pqc_forward_pair", 64)):
             body = disassembly.split(f"<{function}>:", 1)[1]
             if function == "pqc_forward_layer":

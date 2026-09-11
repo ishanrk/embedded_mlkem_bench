@@ -16,6 +16,7 @@ rtl = "targets/picorv32/rtl/pqc_pcpi_mlkem.sv"
 
 
 def run(command, log=None):
+    # capture tool output so generated evidence records are reproducible and debuggable
     result = subprocess.run([str(x) for x in command], cwd=root, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
     if log:
@@ -26,6 +27,7 @@ def run(command, log=None):
 
 
 def digest(path):
+    # hashes tie browser artifacts to the exact local source that produced them
     return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
 
 
@@ -34,6 +36,7 @@ def write(name, value):
 
 
 def reference(kind, a, b, shift):
+    # arithmetic oracle shared by generation and the later stale-evidence check
     def signed(value, width):
         value &= (1 << width) - 1
         return value - (1 << width) if value >> (width - 1) else value
@@ -55,6 +58,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     if args.check:
+        # web builds are read-only: verify checked-in artifacts instead of regenerating them
         catalog = json.loads((out / "catalog.json").read_text())
         for name, expected in catalog["inputs"].items():
             if digest(root / name) != expected:
@@ -84,6 +88,7 @@ def main():
         return
     inputs = [rtl, "scripts/workbench/observe.sv", "scripts/workbench/trace.cpp",
               "scripts/workbench_data.py", "scripts/workbench/measurements.py", "results/summary.json"]
+    # catalog is the browser's index plus the provenance boundary for every copied artifact
     catalog = {"schema": "pqc-poly-bench/workbench-v1", "repository_sha": run(["git", "rev-parse", "HEAD"]),
                "dirty": bool(run(["git", "status", "--porcelain", "--untracked-files=normal"])),
                "inputs": {p: digest(root / p) for p in inputs}, "traces": [],
@@ -95,6 +100,7 @@ def main():
         catalog["inputs"][f"targets/picorv32/mlkem/{name}.h"] = digest(out / f"{name}.h")
     for name in export_measurements(root, out):
         catalog["inputs"][name] = digest(root / name)
+    # build native Verilator models and save fixed PCPI traces/VCDs for playback
     for variant, kind, revision in (("fqmul", "fqmul", None), ("red32", "red32", None),
                                   ("fsri_multiplier_reuse", "fsri", None),
                                   ("fsri_combinational", "fsri", historical),

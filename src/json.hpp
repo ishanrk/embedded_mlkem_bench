@@ -9,6 +9,7 @@
 namespace pqc_poly::detail
 {
 
+// small JSON string writer shared by planner output, including strict UTF-8 handling
 inline void append_hex_quad(std::string &out, std::uint16_t value)
 {
     constexpr std::string_view digits = "0123456789abcdef";

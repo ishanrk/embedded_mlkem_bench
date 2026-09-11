@@ -7,6 +7,7 @@
 
 namespace
 {
+// emit planner internals as JSON for the browser walkthrough
 void records(const std::vector<pqc_poly::mlkem_record> &values)
 {
     std::cout << '[';
@@ -45,6 +46,7 @@ int main(int argc, char **argv)
     records(initial.inverse_records);
     std::cout << ",\"candidates\":[";
     bool first = true;
+    // include legality under a grid of scratch/caller limits for every one of 144 plans
     for (const auto &plan : plans)
     {
         const auto candidate = pqc_poly::analyze_mlkem_plan({}, plan);
@@ -74,6 +76,7 @@ int main(int argc, char **argv)
         std::cout << "]}";
     }
     std::cout << "]}\n";
+    // Python instruments these two generated C files to observe actual butterfly order
     for (const auto traversal : {pqc_poly::ntt_traversal::stage_major, pqc_poly::ntt_traversal::fuse_two_layers})
     {
         auto plan = plans.front();

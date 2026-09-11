@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arithmetic, operand, failures, original_budget, normalize_seed } from './model.ts';
 
+// catches finite-width/sign mistakes and accepts only the operand forms exposed by the UI
 test('finite width arithmetic and operand validation', () => {
     assert.equal(operand('-2147483648'), 0x80000000n);
     for (const value of ['4294967296', '-2147483649', '1e3', '0x', '', '1.5']) assert.throws(() => operand(value));
+    // strange upper halves confirm FQMUL reads only signed low16 from each source
     assert.equal(arithmetic('fqmul', 0xdead8000n, 0xbeef0680n, 0).rd, arithmetic('fqmul', 0x8000n, 0x680n, 0).rd);
     assert.equal(arithmetic('red32', 0x7fffffffn, 0n, 0).result, 32599n);
     for (let shift = 0; shift < 32; shift++) {
@@ -15,6 +17,7 @@ test('finite width arithmetic and operand validation', () => {
     assert.throws(() => arithmetic('fsri', 0n, 0n, 32));
 });
 test('all native recordings agree with the independent bigint reference', () => {
+    // catches stale or arithmetically wrong Verilator playback artifacts
     const catalog = JSON.parse(readFileSync('public/evidence/catalog.json', 'utf8'));
     for (const entry of catalog.traces) {
         const trace = JSON.parse(readFileSync(`public/evidence/${entry.file}`, 'utf8'));
@@ -25,6 +28,7 @@ test('all native recordings agree with the independent bigint reference', () => 
     }
 });
 test('original budget rejects every reported custom variant and relaxed budget reclassifies', () => {
+    // protects the distinction between recorded numbers and user-adjustable eligibility
     const { hardware } = JSON.parse(readFileSync('public/evidence/summary.json', 'utf8'));
     for (const [key, h] of Object.entries(hardware)) {
         if (key !== 'baseline') assert.ok(failures(h as never, hardware.baseline, original_budget).length > 0, key);
@@ -33,6 +37,7 @@ test('original budget rejects every reported custom variant and relaxed budget r
     assert.ok(failures(hardware.fsri_multiplier_reuse, hardware.baseline, { ...original_budget, lut: 20, ff: 20, loss: 30 }).some(x => x.includes('3/5')));
 });
 test('failed parser zeros remain missing with original evidence retained', () => {
+    // failed routing must not appear as zero LUTs or zero MHz in comparisons
     const raw = { lut4: 0, maximum_frequency_mhz: 0 };
     const normalized = normalize_seed(raw);
     assert.equal(normalized.lut4, null);

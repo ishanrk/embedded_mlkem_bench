@@ -6,6 +6,7 @@ from workbench_data import root, work, out, run, digest, write
 
 
 def main():
+    # rerun only the FSRI block-level depth-8 task for reuse and sliced implementations
     results = {"schema": "pqc-poly-bench/bounded-check-v1", "tool": run(["sby", "--version"]),
                "yosys": run(["yosys", "-V"]), "scope": "pcpi bmc depth 8 only rvfi depth 22 not rerun",
                "assumptions": "existing fsri_properties harness fixed arbitrary operands valid fsri encoding unsupported non multiply encoding optional reset cancellation",
@@ -19,6 +20,7 @@ def main():
             shutil.copyfile(root / "targets/picorv32/rtl" / file, directory / file)
         shutil.copyfile(root / "build/picorv32-sim/_deps/picorv32-src/picorv32.v", directory / "picorv32.v")
         harness = directory / "fsri_properties.sv"
+        # generated harness selects the implementation without editing repository RTL
         harness.write_text(harness.read_text().replace(".ENABLE_FSRI(1'b1)", f".ENABLE_FSRI(1'b1), .FSRI_IMPL({impl})"))
         command = ["sby", "-f", "fsri.sby", "pcpi"]
         try:
