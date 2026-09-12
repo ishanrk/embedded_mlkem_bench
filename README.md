@@ -29,8 +29,6 @@ FSRI leaves the same arithmetic backend in place. Its build uses the pinned Kecc
 
 Every processor uses the same PicoRV32 parameters and the same multiplier in [`pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv) for ordinary RV32M multiplication. Each custom build enables one additional decoder and data path. This avoids changing the normal multiplication architecture between the baseline and instruction builds.
 
-![The three instruction data paths](docs/figures/instruction-designs.svg)
-
 ## Instructions
 
 FQMUL multiplies the signed low halves of its two source registers and Montgomery reduces the product modulo 3329. It responds after four PCPI cycles.
@@ -67,8 +65,6 @@ The previous checked in numbers compared different software schedules and are no
 | ML-KEM-768 | pending rerun | pending rerun | pending rerun | pending rerun |
 | ML-KEM-1024 | pending rerun | pending rerun | pending rerun | pending rerun |
 
-![Complete ML KEM cycle comparison](docs/figures/mlkem-cycle-comparison.svg)
-
 ## Complete core synthesis
 
 Yosys lowers the complete PicoRV32 core and selected PCPI hardware to ECP5 cells. nextpnr places and routes the same netlist with seeds 1 through 5. ecppack confirms that each routed configuration can be packed. Results record LUT4 flip flops DSP blocks BRAM blocks every routed maximum frequency and the median maximum frequency. The route requests 50 MHz and records whether each seed meets it.
@@ -86,44 +82,76 @@ These values also require a new run because the processor multiplier and enabled
 | RED32 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
 | FSRI | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
 
-![Complete core area](docs/figures/area.svg)
-
-![Routed maximum frequency](docs/figures/fmax.svg)
-
-![Cycle saving against LUT4 cost](docs/figures/hardware-tradeoff.svg)
-
-The canonical machine readable file is [`results/summary.json`](results/summary.json). It says `pending fair rerun` until all 12 ML-KEM measurements and all four five-seed synthesis results pass the completeness checks. Raw file names and schemas are described in [`results/raw/README.md`](results/raw/README.md).
+The canonical machine readable file is [`results/summary.json`](results/summary.json). It says `pending fair rerun` until all 12 ML-KEM measurements and all four five-seed synthesis results pass the completeness checks.
 
 ## Build and reproduce
 
-The normal host tests need CMake a C and C++ compiler and Python
+Run every command below from the repository root.
+
+### Software build and tests
+
+The host tests need CMake a C and C++ compiler and Python. The first build matches the optimized CI configuration. The second runs the same tests with address and undefined behavior sanitizers.
 
 ```sh
-cmake --preset release
-cmake --build --preset release
-ctest --preset release
+cmake -S . -B build/release -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_LTO=ON
+cmake --build build/release --parallel 4
+ctest --test-dir build/release --output-on-failure
 
-cmake --preset sanitize
-cmake --build --preset sanitize
-ctest --preset sanitize
+cmake -S . -B build/sanitize -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DPQC_POLY_LTO=OFF -DPQC_POLY_SANITIZE=ON
+cmake --build build/sanitize --parallel 4
+ctest --test-dir build/sanitize --output-on-failure
 ```
 
-PicoRV32 targets use the pinned RISC-V GNU toolchain release `2026.07.15` and OSS CAD Suite release `2026-07-29`. Put their executables on `PATH` and run
+### Direct PCPI RTL tests
+
+PicoRV32 targets use the pinned RISC-V GNU toolchain release `2026.07.15` and OSS CAD Suite release `2026-07-29`. Put the required executables on `PATH`. The direct instruction tests only need Verilator and Ninja from the CAD suite.
 
 ```sh
-cmake --preset picorv32-sim
-cmake --build --preset picorv32-sim
+cmake -S . -B build/picorv32-sim -G Ninja -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_LTO=OFF -DPQC_POLY_PICORV32=ON
+cmake --build build/picorv32-sim --target pqc-picorv32-sim --parallel 4
+```
 
-cmake --preset picorv32-experiment
-cmake --build --preset picorv32-formal
-cmake --build --preset picorv32-results
+This builds four direct PCPI models and checks disabled decoding plus the FQMUL RED32 and FSRI implementations against their software references.
+
+### Complete experiment
+
+Configure one build with the complete ML-KEM formal and synthesis paths enabled.
+
+```sh
+cmake -S . -B build/picorv32-experiment -G Ninja -DCMAKE_BUILD_TYPE=Release -DPQC_POLY_LTO=OFF -DPQC_POLY_PICORV32_MLKEM=ON -DPQC_POLY_PICORV32_FORMAL=ON -DPQC_POLY_PICORV32_SYNTHESIS=ON
+```
+
+Run all 12 complete ML-KEM simulations.
+
+```sh
+cmake --build build/picorv32-experiment --target pqc-picorv32-mlkem --parallel 4
+```
+
+Run the three bounded instruction checks.
+
+```sh
+cmake --build build/picorv32-experiment --target pqc-picorv32-formal --parallel 4
+```
+
+Synthesize place and route all four complete processor variants.
+
+```sh
+cmake --build build/picorv32-experiment --target pqc-picorv32-synthesis --parallel 4
+```
+
+Generate the checked summary from the complete measurement matrix then generate the local SVG figures. The SVG files are build artifacts and are not committed.
+
+```sh
+cmake --build build/picorv32-experiment --target pqc-picorv32-results --parallel 4
+python3 scripts/results.py --input build/picorv32-experiment/targets/picorv32/results --output results/summary.json
+python3 scripts/readme_figures.py
 ```
 
 The main targets are
 
 | Target | Purpose |
 | --- | --- |
-| `pqc-picorv32-sim` | direct PCPI reference tests and whole processor smoke firmware |
+| `pqc-picorv32-sim` | direct PCPI reference tests for all instruction settings |
 | `pqc-picorv32-baseline` | three complete baseline ML-KEM measurements |
 | `pqc-picorv32-fqmul` | three complete FQMUL measurements |
 | `pqc-picorv32-red32` | three complete RED32 measurements |
@@ -137,8 +165,8 @@ The main targets are
 
 - C and C++ reference tests cover FQMUL RED32 FSRI and the fixed backend for all three vector widths
 - Verilator compares each instruction RTL against its reference including boundaries random operands reset latency decoding and consecutive requests
-- whole processor simulation boots bare metal firmware and checks ordinary multiplication before running complete ML-KEM
-- each ML-KEM build checks complete cryptographic operation results and intended instruction use
+- whole processor simulation boots bare metal firmware and runs complete ML-KEM
+- each ML-KEM build checks complete cryptographic operation results deterministic repeats and intended instruction use
 - short bounded SymbiYosys jobs compare each PCPI response with its arithmetic reference for arbitrary operands in the explored trace
 - Yosys nextpnr and ecppack measure the complete core rather than the isolated instruction block
 
@@ -158,7 +186,7 @@ The formal checks are in [`targets/picorv32/formal`](targets/picorv32/formal). T
 | --- | --- |
 | [`targets/picorv32/mlkem`](targets/picorv32/mlkem) | fixed arithmetic backend and instruction wrappers |
 | [`targets/picorv32/rtl`](targets/picorv32/rtl) | PCPI instruction block and complete core wrappers |
-| [`targets/picorv32/firmware`](targets/picorv32/firmware) | bare metal startup runtime smoke test and complete benchmark |
+| [`targets/picorv32/firmware`](targets/picorv32/firmware) | bare metal startup runtime and complete benchmark |
 | [`targets/picorv32/sim`](targets/picorv32/sim) | direct instruction and complete processor Verilator drivers |
 | [`targets/picorv32/formal`](targets/picorv32/formal) | direct bounded PCPI properties |
 | [`targets/picorv32/synth`](targets/picorv32/synth) | complete core Yosys and ECP5 routing flow |
