@@ -8,7 +8,7 @@ I added four custom RISC-V instructions to PicoRV32 to accelerate operations tha
 
 The experiment uses [`mlkem-native`](https://github.com/pq-code-package/mlkem-native). It compares 4 custom instructions FQMUL, RED32, FSRI, and FDOT2X against the same baseline PicoRV32 configuration with respect to cycle counts, hardware area, and delay for ML-KEM key generation, encapsulation, and decapsulation. Verilator is used to simulate the PicoRV32 RTL and compile the SystemVerilog processor and custom instruction hardware into a fast C++ simulation. It also runs the actual ML-KEM firmware on that simulated PicoRV32.
 
-Of the 4 instructions tested, FSRI (isntruction to speed up Keccak on 32 bit chips) ended up being by far the most effective w.r.t reducing cycle count and hardware overhead. Making Keccak's 64 bit rotations with FSRI cheaper reduced complete ML-KEM cycle counts by roughly 31% to 33%.
+Of the 4 instructions tested, FSRI (instruction to speed up Keccak on 32 bit chips) ended up being by far the most effective w.r.t reducing cycle count and hardware overhead. Making Keccak's 64 bit rotations with FSRI cheaper reduced complete ML-KEM cycle counts by roughly 31% to 33%.
 
 ## Instructions
 
