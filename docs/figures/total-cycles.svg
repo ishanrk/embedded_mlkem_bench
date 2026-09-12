@@ -24,7 +24,7 @@
 <text x="362.00" y="569" text-anchor="middle" class="change">-30.86%</text>
 <rect x="414.00" y="373.08" width="60.00" height="141.92" rx="3" fill="#8356b6"/>
 <text x="444.00" y="363.08" text-anchor="middle" class="value">12,946,098</text>
-<text x="444.00" y="548" text-anchor="middle" class="variant">DOT2X</text>
+<text x="444.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
 <text x="444.00" y="569" text-anchor="middle" class="change">+0.14%</text>
 <text x="280.00" y="614" text-anchor="middle" class="group">ML-KEM-512</text>
 <rect x="506.00" y="289.98" width="60.00" height="225.02" rx="3" fill="#687386"/>
@@ -45,7 +45,7 @@
 <text x="782.00" y="569" text-anchor="middle" class="change">-31.74%</text>
 <rect x="834.00" y="289.41" width="60.00" height="225.59" rx="3" fill="#8356b6"/>
 <text x="864.00" y="279.41" text-anchor="middle" class="value">20,578,559</text>
-<text x="864.00" y="548" text-anchor="middle" class="variant">DOT2X</text>
+<text x="864.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
 <text x="864.00" y="569" text-anchor="middle" class="change">+0.25%</text>
 <text x="700.00" y="614" text-anchor="middle" class="group">ML-KEM-768</text>
 <rect x="926.00" y="170.39" width="60.00" height="344.61" rx="3" fill="#687386"/>
@@ -66,7 +66,7 @@
 <text x="1202.00" y="569" text-anchor="middle" class="change">-32.94%</text>
 <rect x="1254.00" y="170.00" width="60.00" height="345.00" rx="3" fill="#8356b6"/>
 <text x="1284.00" y="160.00" text-anchor="middle" class="value">31,471,662</text>
-<text x="1284.00" y="548" text-anchor="middle" class="variant">DOT2X</text>
+<text x="1284.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
 <text x="1284.00" y="569" text-anchor="middle" class="change">+0.11%</text>
 <text x="1120.00" y="614" text-anchor="middle" class="group">ML-KEM-1024</text>
 </svg>
