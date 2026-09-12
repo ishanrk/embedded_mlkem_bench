@@ -229,10 +229,18 @@ def total_cycles(data):
     note = None
     if pending_levels:
         note = "Pending parameter sets: " + ", ".join(pending_levels)
+    complete = len(groups) == len(LEVELS) and all(
+        value is not None for _, values in groups for value in values
+    )
+    subtitle = (
+        "Lower is better · Exact totals and change from each parameter set baseline"
+        if complete
+        else "Lower is better · Missing variant measurements are marked pending"
+    )
     grouped_bars(
         "total-cycles.svg",
         "Complete ML-KEM cycle count",
-        "Lower is better · Missing variant measurements are marked pending",
+        subtitle,
         groups,
         format_integer,
         note,
@@ -259,13 +267,24 @@ def operation_cycles(data):
             measured_cycles(data, variant, level, field) for variant in VARIANTS
         ]
         groups.append((label, values))
+    complete = completeness[level] == len(fields) * len(VARIANTS)
+    subtitle = (
+        f"Lower is better · ML-KEM-{level} operation medians and change from baseline"
+        if complete
+        else "Lower is better · The parameter set with the most verified measurements is shown"
+    )
+    note = (
+        "All values are medians from 30 inputs and three repeats"
+        if complete
+        else "Pending labels indicate operations without a verified cycle measurement"
+    )
     grouped_bars(
         "operation-cycles.svg",
         f"ML-KEM-{level} operation cycle count",
-        "Lower is better · The parameter set with the most verified measurements is shown",
+        subtitle,
         groups,
         format_integer,
-        "Pending labels indicate operations without a verified cycle measurement",
+        note,
     )
 
 

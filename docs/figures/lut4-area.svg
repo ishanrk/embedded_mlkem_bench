@@ -6,20 +6,24 @@
 <text x="56" y="48" class="title">Complete PicoRV32 core LUT4 area</text>
 <text x="56" y="78" class="subtitle">Lower is better · Complete routed core with the selected PCPI hardware</text>
 <path d="M70 535.5H1330" stroke="#98a2b3" stroke-width="1"/>
-<rect x="84.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="150.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<rect x="84.00" y="190.98" width="132" height="344.02" rx="4" fill="#687386"/>
+<text x="150" y="179.98" text-anchor="middle" class="value">3,788</text>
 <text x="150" y="570" text-anchor="middle" class="variant">Baseline</text>
-<rect x="359.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="425.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="150" y="593" text-anchor="middle" class="change">baseline</text>
+<rect x="359.00" y="190.71" width="132" height="344.29" rx="4" fill="#316bd6"/>
+<text x="425" y="179.71" text-anchor="middle" class="value">3,791</text>
 <text x="425" y="570" text-anchor="middle" class="variant">FQMUL</text>
-<rect x="634.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="700.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="425" y="593" text-anchor="middle" class="change">+0.08% vs baseline</text>
+<rect x="634.00" y="182.71" width="132" height="352.29" rx="4" fill="#c64d4d"/>
+<text x="700" y="171.71" text-anchor="middle" class="value">3,879</text>
 <text x="700" y="570" text-anchor="middle" class="variant">RED32</text>
-<rect x="909.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="975.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="700" y="593" text-anchor="middle" class="change">+2.40% vs baseline</text>
+<rect x="909.00" y="170.00" width="132" height="365.00" rx="4" fill="#27866f"/>
+<text x="975" y="159.00" text-anchor="middle" class="value">4,019</text>
 <text x="975" y="570" text-anchor="middle" class="variant">FSRI</text>
-<rect x="1184.00" y="491" width="132.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
-<text x="1250.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="975" y="593" text-anchor="middle" class="change">+6.10% vs baseline</text>
+<rect x="1184.00" y="184.89" width="132" height="350.11" rx="4" fill="#8356b6"/>
+<text x="1250" y="173.89" text-anchor="middle" class="value">3,855</text>
 <text x="1250" y="570" text-anchor="middle" class="variant">DOT2X</text>
-<text x="700" y="655" text-anchor="middle" class="note">No measured values are available yet</text>
+<text x="1250" y="593" text-anchor="middle" class="change">+1.77% vs baseline</text>
 </svg>

@@ -1,4 +1,4 @@
-# ML KEM custom instructions on PicoRV32
+# ML-KEM custom instructions on PicoRV32
 
 This project measures whether four small custom RISC-V instructions can accelerate complete ML-KEM on PicoRV32, and compares the cycle savings against the resulting FPGA area and timing cost.
 
@@ -64,67 +64,96 @@ evaluation.
 
 The instruction wrappers and software references are in [`targets/picorv32/mlkem`](targets/picorv32/mlkem). The complete PCPI implementation is in [`pqc_pcpi_mlkem.sv`](targets/picorv32/rtl/pqc_pcpi_mlkem.sv). Historical sliced and multiplier reuse FSRI implementations are not part of this experiment.
 
-## Complete ML KEM benchmark
+## Results
 
-[`mlkem_bench.c`](targets/picorv32/firmware/mlkem_bench.c) measures key generation encapsulation and decapsulation for ML-KEM-512 ML-KEM-768 and ML-KEM-1024. Each operation uses 30 deterministic inputs and three repeats. The firmware checks API success deterministic repeat outputs matching encapsulated and decapsulated shared secrets and rejection behavior after corrupting a ciphertext.
+[`mlkem_bench.c`](targets/picorv32/firmware/mlkem_bench.c) measures key generation encapsulation and decapsulation for all three ML-KEM parameter sets. Every operation uses 30 deterministic inputs and three repeats. The medians below come from PicoRV32 RTL simulation after subtracting measured marker overhead. All five variants produced matching output checksums at each parameter set and every disassembly contained only its intended custom encoding.
 
-The simulator subtracts the measured MMIO marker overhead and records median PicoRV32 cycle counts. It also scans each disassembly to ensure only the intended custom encoding appears. Output checksums must match across all five variants for each parameter set before a complete summary can be produced.
-
-### Performance
-
-The generated figures read individual verified values from the canonical summary. Missing measurements stay visibly pending until the fair rerun fills them.
-
-#### Total cycles
+### Cycle counts
 
 ![Complete ML-KEM cycle count for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/total-cycles.svg)
 
-#### Operation breakdown
-
-![ML-KEM operation cycle counts for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/operation-cycles.svg)
-
-#### Exact cycle results
-
-The previous checked in numbers compared different software schedules and are not valid for this narrower experiment. They were removed rather than relabeled. The table will be populated by the fair rerun.
+Each parenthesized value is the change from the matching baseline. Lower is better.
 
 | Parameter set | Baseline | FQMUL | RED32 | FSRI | DOT2X |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| ML-KEM-512 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
-| ML-KEM-768 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
-| ML-KEM-1024 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
+| ML-KEM-512 | 12,928,200 | 12,104,193 (-6.37%) | 12,170,769 (-5.86%) | 8,938,374 (-30.86%) | 12,946,098 (+0.14%) |
+| ML-KEM-768 | 20,526,389 | 19,505,483 (-4.97%) | 19,551,307 (-4.75%) | 14,011,166 (-31.74%) | 20,578,559 (+0.25%) |
+| ML-KEM-1024 | 31,435,662 | 29,967,799 (-4.67%) | 29,996,508 (-4.58%) | 21,081,744 (-32.94%) | 31,471,662 (+0.11%) |
 
-## Complete core synthesis
+FSRI has the lowest cycle count at every parameter set. FQMUL is consistently a little faster than RED32. DOT2X adds cycles at every parameter set.
 
-Yosys lowers the complete PicoRV32 core and selected PCPI hardware to ECP5 cells. nextpnr places and routes the same netlist with seeds 1 through 5. ecppack confirms that each routed configuration can be packed. Results record LUT4 flip flops DSP blocks BRAM blocks every routed maximum frequency and the median maximum frequency. The route requests 50 MHz and records whether each seed meets it.
+### Where the cycles change
 
-Source netlist repository and tool hashes are kept with the raw synthesis results so a number can be tied to the exact input that produced it.
+![ML-KEM-512 operation cycle counts for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/operation-cycles.svg)
+
+The operation figure shows ML-KEM-512 because it gives the clearest compact comparison. FQMUL reduces key generation by 5.01%, encapsulation by 6.20%, and decapsulation by 7.50%. RED32 follows the same pattern at 4.82%, 5.55%, and 6.86%. FSRI reduces all three operations, with the largest relative change in key generation at 33.79%. DOT2X increases each operation by 0.11% to 0.16%.
+
+The same pattern holds for ML-KEM-768 and ML-KEM-1024 in the canonical raw results.
 
 ### Hardware cost
 
-#### LUT4 area
-
 ![Complete core LUT4 counts for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/lut4-area.svg)
-
-#### Flip flops
 
 ![Complete core flip-flop counts for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/flip-flops.svg)
 
-#### Routed maximum frequency
+These are complete routed PicoRV32 cores, not isolated instruction blocks. All five variants use 4 DSP blocks and no BRAM.
 
-![Median routed maximum frequency and seed results for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/fmax.svg)
-
-### Hardware results
-
-These values also require a new run because the processor multiplier and enabled hardware matrix changed with the fair baseline.
-
-| Complete core | LUT4 | FF | DSP | BRAM | Median Fmax |
+| Variant | LUT4 | LUT4 change | Flip-flops | DSP | BRAM |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Baseline | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
-| FQMUL | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
-| RED32 | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
-| FSRI | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
-| DOT2X | pending rerun | pending rerun | pending rerun | pending rerun | pending rerun |
+| Baseline | 3,788 | baseline | 970 | 4 | 0 |
+| FQMUL | 3,791 | +3 (+0.08%) | 1,053 (+83) | 4 | 0 |
+| RED32 | 3,879 | +91 (+2.40%) | 1,054 (+84) | 4 | 0 |
+| FSRI | 4,019 | +231 (+6.10%) | 971 (+1) | 4 | 0 |
+| DOT2X | 3,855 | +67 (+1.77%) | 1,005 (+35) | 4 | 0 |
 
-The canonical machine readable file is [`results/summary.json`](results/summary.json). It says `pending fair rerun` until all 15 ML-KEM measurements and all five five-seed synthesis results pass the completeness checks.
+### Timing
+
+![Median routed maximum frequency and five seed results for Baseline FQMUL RED32 FSRI and DOT2X](docs/figures/fmax.svg)
+
+Yosys lowers each complete core to ECP5 cells. nextpnr places and routes seeds 1 through 5 for the LFE5U-45F-6BG381C, and ecppack confirms each result can be packed. The route requests 50 MHz. Every seed met that target.
+
+| Variant | Seed Fmax range | Median Fmax | Change from baseline |
+| --- | ---: | ---: | ---: |
+| Baseline | 57.43 to 68.20 MHz | 64.70 MHz | baseline |
+| FQMUL | 54.68 to 61.39 MHz | 59.01 MHz | -8.79% |
+| RED32 | 53.18 to 61.43 MHz | 58.36 MHz | -9.80% |
+| FSRI | 60.75 to 68.88 MHz | 66.35 MHz | +2.55% |
+| DOT2X | 51.54 to 59.97 MHz | 54.95 MHz | -15.07% |
+
+Source hashes, tool versions, commands, and all five seed measurements are recorded in [`results/raw`](results/raw).
+
+### End-to-end tradeoff
+
+Cycle count alone does not show whether a complete processor is faster when the variants route at different frequencies. The following estimate divides each RTL-measured total cycle count by that variant's median routed Fmax. It is not a physical board wall-clock measurement.
+
+| Parameter set | Baseline | FQMUL | RED32 | FSRI | DOT2X |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| ML-KEM-512 | 199.82 ms | 205.12 ms (+2.65%) | 208.55 ms (+4.37%) | 134.72 ms (-32.58%) | 235.60 ms (+17.91%) |
+| ML-KEM-768 | 317.25 ms | 330.55 ms (+4.19%) | 335.01 ms (+5.60%) | 211.17 ms (-33.44%) | 374.50 ms (+18.04%) |
+| ML-KEM-1024 | 485.87 ms | 507.84 ms (+4.52%) | 513.99 ms (+5.79%) | 317.74 ms (-34.60%) | 572.73 ms (+17.88%) |
+
+### What worked and what did not
+
+FQMUL saves 824,007 to 1,467,863 cycles by combining multiplication with Montgomery reduction. It adds only 3 LUT4s but adds 83 flip-flops, and its median Fmax falls by 8.79%. The cycle saving does not overcome that timing loss when each design runs at its own median routed Fmax, leaving estimated runtime 2.65% to 4.52% slower than baseline.
+
+RED32 saves 757,431 to 1,439,154 cycles by accelerating only Montgomery reduction after the ordinary RV32M multiply. It adds 91 LUT4s and 84 flip-flops, and median Fmax falls by 9.80%. Its estimated runtime is 4.37% to 5.79% slower than baseline. FQMUL therefore gives a slightly better cycle result with less LUT4 cost and a smaller timing loss than RED32.
+
+FSRI saves 3,989,826 to 10,353,918 cycles by replacing the software expansion of Keccak rotates. Key generation has the largest relative operation saving. FSRI adds 231 LUT4s but only one flip-flop, and its median Fmax is 2.55% higher than baseline. It is the only custom design that improves both cycle count and estimated runtime, reducing the latter by 32.58% to 34.60%.
+
+DOT2X is a useful negative result. It adds 17,898, 52,170, and 36,000 cycles for ML-KEM-512, ML-KEM-768, and ML-KEM-1024 respectively. It also adds 67 LUT4s and 35 flip-flops while reducing median Fmax by 15.07%. Estimated runtime is about 18% slower. The packed arithmetic reduces the number of scalar products, but the packing and instruction execution overhead erase that advantage while the additional hardware also hurts routed timing.
+
+The bounded local formal jobs use the same final RTL and property files.
+
+| Instruction | Formal status |
+| --- | --- |
+| FQMUL | pending due to solver timeout |
+| RED32 | PASS |
+| FSRI | PASS |
+| DOT2X | pending due to solver timeout |
+
+The measured answer is clear. Small custom instructions can make complete ML-KEM faster on PicoRV32, but the instruction must target enough work without damaging routed timing. FSRI wins cycle count, median Fmax, and estimated runtime. FQMUL has the smallest LUT4 increase and FSRI has the smallest flip-flop increase. FQMUL and RED32 save cycles but are not faster at their own median routed Fmax. DOT2X is not worthwhile in this mapping.
+
+The canonical [`results/summary.json`](results/summary.json) is generated from the 15 benchmark and 5 synthesis JSON files in [`results/raw`](results/raw).
 
 ## Build and reproduce
 
@@ -170,35 +199,44 @@ correctness target that builds and runs the five PCPI reference tests.
 
 ### Complete experiment
 
-The Python runner configures CMake when build products are needed. Each stage can
-be run independently:
+The Python runner configures CMake when build products are needed. Run the direct PCPI tests, complete benchmark matrix, and five synthesis variants as separate stages:
 
 ```sh
 python3 scripts/run_experiment.py --pcpi
 python3 scripts/run_experiment.py --bench
-python3 scripts/run_experiment.py --formal
 python3 scripts/run_experiment.py --synthesis
 ```
 
-Run the complete flow, including final summary generation, with:
+Formal verification is independent of measurement publication. A solver timeout leaves that instruction pending and does not invalidate benchmark or synthesis results.
 
 ```sh
-python3 scripts/run_experiment.py --all
+python3 scripts/run_experiment.py --formal
 ```
 
-The default build directory is `build/picorv32`; use `--build-dir` to change it.
+The default build directory is `build/picorv32`. Use `--build-dir` to change it.
 Runtime tool paths can be selected with `--sby`, `--yosys`, `--nextpnr`, and
 `--ecppack`. Extra CMake cache settings can be passed with repeated
 `--cmake-arg` options.
 
 The runner keeps the same 30 deterministic inputs, simulator arguments,
-disassembly validation, formal jobs, synthesis seeds, and JSON filenames. To
-update the checked summary and local figures after a complete run:
+disassembly validation, formal jobs, synthesis seeds, and JSON filenames. Its summary stage combines every valid result currently available and reports a partial summary when the matrix is incomplete.
 
 ```sh
-python3 scripts/results.py --input build/picorv32/targets/picorv32/results --output results/summary.json
+python3 scripts/run_experiment.py --summary
+```
+
+Publish only the compact machine-generated benchmark and synthesis JSON files, then generate the canonical summary and figures:
+
+```sh
+mkdir -p results/raw
+cp build/picorv32/targets/picorv32/results/{baseline,fqmul,red32,fsri,dot2x}-{512,768,1024}.json results/raw/
+cp build/picorv32/targets/picorv32/results/{baseline,fqmul,red32,fsri,dot2x}-synthesis.json results/raw/
+python3 scripts/results.py --input results/raw --output results/summary.json --allow-missing
+python3 scripts/results.py --input results/raw --output results/summary.json --allow-missing --check
 python3 scripts/readme_figures.py
 ```
+
+[`results/raw`](results/raw) contains the canonical machine measurements. [`results/summary.json`](results/summary.json) is generated from those files, and [`docs/figures`](docs/figures) is generated only from the summary.
 
 The main CMake targets are build products rather than experiment stages:
 
@@ -225,9 +263,10 @@ The formal checks are in [`targets/picorv32/formal`](targets/picorv32/formal). T
 
 - cycle counts come from PicoRV32 RTL simulation under Verilator and are not wall clock measurements
 - hardware values come from ECP5 synthesis placement and routing rather than a physical board measurement
+- estimated runtime combines RTL cycle counts with routed median Fmax and is not a physical board wall-clock measurement
 - the project makes no claim of physical side channel resistance
 - formal checking covers local custom instruction properties within bounded traces not complete ML-KEM or the whole processor
-- the checked in result table remains pending until the new fair matrix is rerun with the pinned heavy toolchains
+- FQMUL and DOT2X formal jobs remain pending because their solver runs timed out
 
 ## Repository map
 
