@@ -198,6 +198,7 @@ def generate_summary(root, results_dir):
             results_dir,
             "--output",
             results_dir / "summary.json",
+            "--allow-missing",
         ],
         cwd=root,
     )
