@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+<title id="title">ML-KEM-512 operation cycle count</title>
+<desc id="desc">Lower is better · The parameter set with the most verified measurements is shown</desc>
+<rect width="1400" height="760" fill="white"/>
+<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.change{font-size:12px;fill:#667085}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>
+<text x="56" y="48" class="title">ML-KEM-512 operation cycle count</text>
+<text x="56" y="78" class="subtitle">Lower is better · The parameter set with the most verified measurements is shown</text>
+<path d="M70 515.5H1330" stroke="#98a2b3" stroke-width="1"/>
+<rect x="86.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="116.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="116.00" y="548" text-anchor="middle" class="variant">Baseline</text>
+<rect x="168.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="198.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="198.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
+<rect x="250.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="280.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="280.00" y="548" text-anchor="middle" class="variant">RED32</text>
+<rect x="332.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="362.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="362.00" y="548" text-anchor="middle" class="variant">FSRI</text>
+<rect x="414.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="444.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="444.00" y="548" text-anchor="middle" class="variant">DOT2X</text>
+<text x="280.00" y="614" text-anchor="middle" class="group">Key generation</text>
+<rect x="506.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="536.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="536.00" y="548" text-anchor="middle" class="variant">Baseline</text>
+<rect x="588.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="618.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="618.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
+<rect x="670.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="700.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="700.00" y="548" text-anchor="middle" class="variant">RED32</text>
+<rect x="752.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="782.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="782.00" y="548" text-anchor="middle" class="variant">FSRI</text>
+<rect x="834.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="864.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="864.00" y="548" text-anchor="middle" class="variant">DOT2X</text>
+<text x="700.00" y="614" text-anchor="middle" class="group">Encapsulation</text>
+<rect x="926.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="956.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="956.00" y="548" text-anchor="middle" class="variant">Baseline</text>
+<rect x="1008.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="1038.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="1038.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
+<rect x="1090.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="1120.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="1120.00" y="548" text-anchor="middle" class="variant">RED32</text>
+<rect x="1172.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="1202.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="1202.00" y="548" text-anchor="middle" class="variant">FSRI</text>
+<rect x="1254.00" y="471" width="60.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="1284.00" y="498" text-anchor="middle" class="pending">PENDING</text>
+<text x="1284.00" y="548" text-anchor="middle" class="variant">DOT2X</text>
+<text x="1120.00" y="614" text-anchor="middle" class="group">Decapsulation</text>
+<text x="700" y="716" text-anchor="middle" class="note">Pending labels indicate operations without a verified cycle measurement</text>
+</svg>

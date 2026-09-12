@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+<title id="title">Routed maximum frequency</title>
+<desc id="desc">Higher is better · Bars show the median and open circles show individual routing seeds</desc>
+<rect width="1400" height="760" fill="white"/>
+<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.change{font-size:12px;fill:#667085}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>
+<text x="56" y="48" class="title">Routed maximum frequency</text>
+<text x="56" y="78" class="subtitle">Higher is better · Bars show the median and open circles show individual routing seeds</text>
+<path d="M70 535.5H1330" stroke="#98a2b3" stroke-width="1"/>
+<rect x="74.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="132.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="150" y="570" text-anchor="middle" class="variant">Baseline</text>
+<text x="150" y="620" text-anchor="middle" class="change">seeds pending</text>
+<rect x="349.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="407.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="425" y="570" text-anchor="middle" class="variant">FQMUL</text>
+<text x="425" y="620" text-anchor="middle" class="change">seeds pending</text>
+<rect x="624.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="682.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="700" y="570" text-anchor="middle" class="variant">RED32</text>
+<text x="700" y="620" text-anchor="middle" class="change">seeds pending</text>
+<rect x="899.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="957.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="975" y="570" text-anchor="middle" class="variant">FSRI</text>
+<text x="975" y="620" text-anchor="middle" class="change">seeds pending</text>
+<rect x="1174.00" y="491" width="116.00" height="44" rx="4" fill="#f8fafc" stroke="#c8cfda" stroke-dasharray="5 4"/>
+<text x="1232.00" y="518" text-anchor="middle" class="pending">PENDING</text>
+<text x="1250" y="570" text-anchor="middle" class="variant">DOT2X</text>
+<text x="1250" y="620" text-anchor="middle" class="change">seeds pending</text>
+<text x="700" y="655" text-anchor="middle" class="note">No routed frequency measurements are available yet</text>
+</svg>

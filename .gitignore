@@ -21,6 +21,5 @@ baseline-*.jsonl
 nextpnr-*
 formal-*
 /synthesis
-/docs/figures/*.svg
 !/results/raw/**/*.json
 !/results/raw/**/*.jsonl
