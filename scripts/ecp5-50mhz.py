@@ -110,7 +110,7 @@ def main():
     work = pathlib.Path(args.work)
     work.mkdir(parents=True, exist_ok=True)
     replacements = [
-        (str(pathlib.Path(__file__).resolve().parents[3]), "${PROJECT_SOURCE_DIR}"),
+        (str(pathlib.Path(__file__).resolve().parents[1]), "${PROJECT_SOURCE_DIR}"),
         (str(pathlib.Path(args.yosys).resolve().parents[1]), "${PQC_OSS_CAD_SUITE_ROOT}"),
     ]
     # Yosys creates one ECP5 netlist for every routing seed

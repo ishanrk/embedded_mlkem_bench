@@ -6,26 +6,11 @@ project(
     DESCRIPTION "ML-KEM custom instruction measurements on PicoRV32"
     LANGUAGES C CXX)
 
-include(CheckIPOSupported)
 include(CTest)
 
-option(PQC_POLY_LTO "enable link time optimization in release builds" ON)
 option(PQC_POLY_SANITIZE "enable address and undefined behavior sanitizers" OFF)
 option(PQC_POLY_WARNINGS_AS_ERRORS "treat compiler warnings as errors" ON)
-option(PQC_POLY_PICORV32 "enable the PicoRV32 simulation targets" OFF)
-option(PQC_POLY_PICORV32_MLKEM "enable the complete ML-KEM measurements" OFF)
-option(PQC_POLY_PICORV32_FORMAL "enable the direct PCPI formal checks" OFF)
-option(PQC_POLY_PICORV32_SYNTHESIS "enable the ECP5 synthesis targets" OFF)
-set(PQC_POLY_BUILD_JOBS 4 CACHE STRING "maximum workers for optional Verilator builds")
-
-if(NOT PQC_POLY_BUILD_JOBS MATCHES "^[1-9][0-9]*$")
-    message(FATAL_ERROR "PQC_POLY_BUILD_JOBS must be positive")
-endif()
-
-if(PQC_POLY_PICORV32_MLKEM OR PQC_POLY_PICORV32_FORMAL OR
-   PQC_POLY_PICORV32_SYNTHESIS)
-    set(PQC_POLY_PICORV32 ON)
-endif()
+option(PQC_POLY_PICORV32 "enable PicoRV32 build products" OFF)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -33,11 +18,6 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-set(PQC_POLY_IPO_SUPPORTED OFF)
-if(PQC_POLY_LTO AND NOT PQC_POLY_SANITIZE)
-    check_ipo_supported(RESULT PQC_POLY_IPO_SUPPORTED)
-endif()
 
 add_library(pqc_poly_options INTERFACE)
 
@@ -73,9 +53,6 @@ endif()
 
 function(pqc_poly_configure target)
     target_link_libraries(${target} PRIVATE pqc_poly_options)
-    if(PQC_POLY_IPO_SUPPORTED)
-        set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
-    endif()
 endfunction()
 
 if(BUILD_TESTING)

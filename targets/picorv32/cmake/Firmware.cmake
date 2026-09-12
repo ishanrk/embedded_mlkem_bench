@@ -193,29 +193,14 @@ function(build_mlkem_variant level k variant)
             "${pqc_firmware_dir}/link.ld"
         VERBATIM)
 
-    set(pqc_variant_elf "${elf}" PARENT_SCOPE)
-    set(pqc_variant_hex "${hex}" PARENT_SCOPE)
-    set(pqc_variant_dis "${dis}" PARENT_SCOPE)
-endfunction()
-
-function(run_mlkem_variant level variant elf hex dis)
-    set(result "${pqc_results}/${variant}-${level}.json")
-    add_custom_command(
-        OUTPUT "${result}"
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${pqc_results}"
-        COMMAND
-            "${pqc_cpu_${variant}}" "+firmware=${hex}" --output "${result}"
-            --disassembly "${dis}" --variant "${variant}" --level "${level}"
-            --inputs 30
-        DEPENDS "${pqc_cpu_${variant}}" "${elf}" "${hex}" "${dis}"
-        VERBATIM)
-    set(pqc_variant_result "${result}" PARENT_SCOPE)
+    add_custom_target(
+        "pqc-picorv32-firmware-${variant}-${level}"
+        DEPENDS "${elf}" "${hex}" "${dis}")
+    set(pqc_variant_outputs "${elf}" "${hex}" "${dis}" PARENT_SCOPE)
 endfunction()
 
 build_bare_metal_runtime()
 
-pqc_poly_fetch_mlkem_native()
-set(pqc_mlkem_root "${PQC_POLY_MLKEM_NATIVE_SOURCE_DIR}/mlkem")
 set(pqc_mlkem_generated "${pqc_target_dir}/mlkem-fixed")
 set(pqc_keccak_source "${pqc_mlkem_root}/src/fips202/keccakf1600.c")
 set(pqc_keccak_fsri "${pqc_mlkem_generated}/keccakf1600-fsri.c")
@@ -223,11 +208,11 @@ set(pqc_native_source "${pqc_mlkem_root}/mlkem_native.c")
 set(pqc_native_fsri "${pqc_mlkem_generated}/mlkem-native-fsri.c")
 prepare_fsri_keccak()
 
-set(pqc_baseline_results)
-set(pqc_fqmul_results)
-set(pqc_red32_results)
-set(pqc_fsri_results)
-set(pqc_mlkem_results)
+set(pqc_baseline_firmware_outputs)
+set(pqc_fqmul_firmware_outputs)
+set(pqc_red32_firmware_outputs)
+set(pqc_fsri_firmware_outputs)
+set(pqc_firmware_outputs)
 
 foreach(pqc_level IN ITEMS 512 768 1024)
     if(pqc_level EQUAL 512)
@@ -241,19 +226,19 @@ foreach(pqc_level IN ITEMS 512 768 1024)
     build_mlkem_common("${pqc_level}")
     foreach(pqc_variant IN ITEMS baseline fqmul red32 fsri)
         build_mlkem_variant("${pqc_level}" "${pqc_k}" "${pqc_variant}")
-        run_mlkem_variant(
-            "${pqc_level}"
-            "${pqc_variant}"
-            "${pqc_variant_elf}"
-            "${pqc_variant_hex}"
-            "${pqc_variant_dis}")
-        list(APPEND "pqc_${pqc_variant}_results" "${pqc_variant_result}")
-        list(APPEND pqc_mlkem_results "${pqc_variant_result}")
+        list(
+            APPEND "pqc_${pqc_variant}_firmware_outputs"
+            ${pqc_variant_outputs})
+        list(APPEND pqc_firmware_outputs ${pqc_variant_outputs})
     endforeach()
 endforeach()
 
-add_custom_target(pqc-picorv32-baseline DEPENDS ${pqc_baseline_results})
-add_custom_target(pqc-picorv32-fqmul DEPENDS ${pqc_fqmul_results})
-add_custom_target(pqc-picorv32-red32 DEPENDS ${pqc_red32_results})
-add_custom_target(pqc-picorv32-fsri DEPENDS ${pqc_fsri_results})
-add_custom_target(pqc-picorv32-mlkem DEPENDS ${pqc_mlkem_results})
+add_custom_target(
+    pqc-picorv32-firmware-baseline DEPENDS ${pqc_baseline_firmware_outputs})
+add_custom_target(
+    pqc-picorv32-firmware-fqmul DEPENDS ${pqc_fqmul_firmware_outputs})
+add_custom_target(
+    pqc-picorv32-firmware-red32 DEPENDS ${pqc_red32_firmware_outputs})
+add_custom_target(
+    pqc-picorv32-firmware-fsri DEPENDS ${pqc_fsri_firmware_outputs})
+add_custom_target(pqc-picorv32-firmware DEPENDS ${pqc_firmware_outputs})
