@@ -148,6 +148,8 @@ function(build_mlkem_variant level k variant)
         set(definition -DPQC_USE_FQMUL=1)
     elseif(variant STREQUAL "red32")
         set(definition -DPQC_USE_RED32=1)
+    elseif(variant STREQUAL "dot2x")
+        set(definition -DPQC_USE_DOT2X=1)
     endif()
     add_custom_command(
         OUTPUT "${backend}"
@@ -157,6 +159,7 @@ function(build_mlkem_variant level k variant)
             "${pqc_mlkem_dir}/fixed_backend.c" -o "${backend}"
         DEPENDS
             "${pqc_mlkem_dir}/fixed_backend.c"
+            "${pqc_mlkem_dir}/dot2x.h"
             "${pqc_mlkem_dir}/fqmul.h"
             "${pqc_mlkem_dir}/red32.h"
         VERBATIM)
@@ -212,6 +215,7 @@ set(pqc_baseline_firmware_outputs)
 set(pqc_fqmul_firmware_outputs)
 set(pqc_red32_firmware_outputs)
 set(pqc_fsri_firmware_outputs)
+set(pqc_dot2x_firmware_outputs)
 set(pqc_firmware_outputs)
 
 foreach(pqc_level IN ITEMS 512 768 1024)
@@ -224,7 +228,7 @@ foreach(pqc_level IN ITEMS 512 768 1024)
     endif()
 
     build_mlkem_common("${pqc_level}")
-    foreach(pqc_variant IN ITEMS baseline fqmul red32 fsri)
+    foreach(pqc_variant IN ITEMS baseline fqmul red32 fsri dot2x)
         build_mlkem_variant("${pqc_level}" "${pqc_k}" "${pqc_variant}")
         list(
             APPEND "pqc_${pqc_variant}_firmware_outputs"
@@ -241,4 +245,6 @@ add_custom_target(
     pqc-picorv32-firmware-red32 DEPENDS ${pqc_red32_firmware_outputs})
 add_custom_target(
     pqc-picorv32-firmware-fsri DEPENDS ${pqc_fsri_firmware_outputs})
+add_custom_target(
+    pqc-picorv32-firmware-dot2x DEPENDS ${pqc_dot2x_firmware_outputs})
 add_custom_target(pqc-picorv32-firmware DEPENDS ${pqc_firmware_outputs})

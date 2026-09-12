@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-// runs bare metal firmware inside the Verilator processor model
+// runs firmware inside the Verilator processor model
 namespace
 {
 
@@ -91,7 +91,8 @@ void require(bool condition, std::string_view message)
     require(!result.output.empty() && !result.disassembly.empty(),
             "missing output path");
     require(result.variant == "baseline" || result.variant == "fqmul" ||
-                result.variant == "red32" || result.variant == "fsri",
+                result.variant == "red32" || result.variant == "fsri" ||
+                result.variant == "dot2x",
             "invalid variant");
     require(result.level == "512" || result.level == "768" ||
                 result.level == "1024",
@@ -107,11 +108,11 @@ void require(bool condition, std::string_view message)
             std::istreambuf_iterator<char>()};
 }
 
-[[nodiscard]] std::array<std::size_t, 3> instruction_counts(
+[[nodiscard]] std::array<std::size_t, 4> instruction_counts(
     const std::string &path)
 {
     // checks which custom encodings were emitted in the firmware
-    std::array<std::size_t, 3> counts{};
+    std::array<std::size_t, 4> counts{};
     const std::string contents = read_file(path);
     std::string_view text = contents;
     while (!text.empty())
@@ -151,6 +152,11 @@ void require(bool condition, std::string_view message)
                         {
                             ++counts[2];
                         }
+                        if ((value & UINT32_C(0xfe00707f)) ==
+                            UINT32_C(0x0000300b))
+                        {
+                            ++counts[3];
+                        }
                     }
                 }
             }
@@ -165,9 +171,9 @@ void require(bool condition, std::string_view message)
 }
 
 void validate_instruction_counts(const options &settings,
-                                 const std::array<std::size_t, 3> &counts)
+                                 const std::array<std::size_t, 4> &counts)
 {
-    const std::array<std::string_view, 3> names{"fqmul", "red32", "fsri"};
+    const std::array<std::string_view, 4> names{"fqmul", "red32", "fsri", "dot2x"};
     for (std::size_t index = 0; index < names.size(); ++index)
     {
         const bool expected = settings.variant == names[index];
@@ -210,7 +216,7 @@ void write_array(std::ofstream &output,
 }
 
 void write_result(const options &settings,
-                  const std::array<std::size_t, 3> &counts,
+                  const std::array<std::size_t, 4> &counts,
                   const std::vector<std::uint64_t> &begins,
                   const std::vector<std::uint64_t> &ends,
                   const std::vector<std::uint32_t> &status)
@@ -276,7 +282,8 @@ void write_result(const options &settings,
            << "  \"custom_instruction_count\": "
            << counts[settings.variant == "fqmul" ? 0U
                      : settings.variant == "red32" ? 1U
-                                                   : 2U]
+                     : settings.variant == "fsri"  ? 2U
+                                                    : 3U]
            << ",\n"
            << "  \"cycles\": {\n"
            << "    \"keygen\": {\"median\": " << medians[0]
@@ -294,7 +301,7 @@ void write_result(const options &settings,
 
 void simulate(const options &settings)
 {
-    const std::array<std::size_t, 3> counts =
+    const std::array<std::size_t, 4> counts =
         instruction_counts(settings.disassembly);
     validate_instruction_counts(settings, counts);
 

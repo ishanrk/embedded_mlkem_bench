@@ -70,6 +70,7 @@ if(BUILD_TESTING)
     pqc_poly_add_test(fqmul tests/fqmul_test.cpp)
     pqc_poly_add_test(red32 tests/red32_test.cpp)
     pqc_poly_add_test(fsri tests/fsri_test.cpp)
+    pqc_poly_add_test(dot2x tests/dot2x_test.cpp)
     add_test(
         NAME results-summary
         COMMAND
@@ -79,7 +80,7 @@ if(BUILD_TESTING)
 
     # each build uses the same backend source with one primitive selection
     foreach(pqc_level IN ITEMS 2 3 4)
-        foreach(pqc_primitive IN ITEMS software fqmul red32)
+        foreach(pqc_primitive IN ITEMS software fqmul red32 dot2x)
             set(pqc_name fixed-backend-k${pqc_level}-${pqc_primitive})
             set(pqc_target pqc-poly-${pqc_name}-test)
             add_executable(
@@ -91,6 +92,8 @@ if(BUILD_TESTING)
                 target_compile_definitions(${pqc_target} PRIVATE PQC_USE_FQMUL=1)
             elseif(pqc_primitive STREQUAL "red32")
                 target_compile_definitions(${pqc_target} PRIVATE PQC_USE_RED32=1)
+            elseif(pqc_primitive STREQUAL "dot2x")
+                target_compile_definitions(${pqc_target} PRIVATE PQC_USE_DOT2X=1)
             endif()
             pqc_poly_configure(${pqc_target})
             add_test(NAME ${pqc_name} COMMAND ${pqc_target})

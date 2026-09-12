@@ -96,11 +96,12 @@ def parse_args():
     parser.add_argument("--enable-fqmul", action="store_true")
     parser.add_argument("--enable-red32", action="store_true")
     parser.add_argument("--enable-fsri", action="store_true")
+    parser.add_argument("--enable-dot2x", action="store_true")
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 2, 3, 4, 5])
     args = parser.parse_args()
     if any(seed < 1 for seed in args.seeds) or len(set(args.seeds)) != len(args.seeds):
         parser.error("routing seeds must be distinct positive integers")
-    if sum((args.enable_fqmul, args.enable_red32, args.enable_fsri)) > 1:
+    if sum((args.enable_fqmul, args.enable_red32, args.enable_fsri, args.enable_dot2x)) > 1:
         parser.error("custom instructions are separate synthesis experiments")
     return args
 
@@ -125,6 +126,7 @@ def main():
             "ENABLE_FQMUL": "1" if args.enable_fqmul else "0",
             "ENABLE_RED32": "1" if args.enable_red32 else "0",
             "ENABLE_FSRI": "1" if args.enable_fsri else "0",
+            "ENABLE_DOT2X": "1" if args.enable_dot2x else "0",
             "SYNTH_JSON": str(netlist_path.resolve()),
         }
     )
@@ -137,7 +139,7 @@ def main():
         "dirty": bool(run(["git", "status", "--porcelain"])),
         "source_sha256": {name: hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
                           for name, path in (("pcpi", args.pcpi), ("core", args.core), ("picorv32", args.picorv32), ("script", args.script))},
-        "parameters": {key: environment[key] for key in ("ENABLE_FQMUL", "ENABLE_RED32", "ENABLE_FSRI")},
+        "parameters": {key: environment[key] for key in ("ENABLE_FQMUL", "ENABLE_RED32", "ENABLE_FSRI", "ENABLE_DOT2X")},
         "netlist_sha256": hashlib.sha256(netlist_path.read_bytes()).hexdigest(),
         "reproduction": report_command([sys.executable, str(pathlib.Path(__file__).resolve()), *sys.argv[1:]], replacements),
         "picorv32_revision": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
@@ -213,6 +215,7 @@ def main():
         "fqmul_enabled": args.enable_fqmul,
         "red32_enabled": args.enable_red32,
         "fsri_enabled": args.enable_fsri,
+        "dot2x_enabled": args.enable_dot2x,
         "yosys_version": version([args.yosys, "-V"]),
         "nextpnr_version": version([args.nextpnr, "--version"]),
         "ecppack_version": version([args.ecppack, "--version"]),

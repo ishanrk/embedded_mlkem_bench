@@ -7,7 +7,7 @@ import statistics
 import sys
 
 
-VARIANTS = ("baseline", "fqmul", "red32", "fsri")
+VARIANTS = ("baseline", "fqmul", "red32", "fsri", "dot2x")
 LEVELS = ("512", "768", "1024")
 PINS = {
     "mlkem_native": "69d24e37b8a04c6050ec55bc84a4228d7051bb4b",
@@ -94,6 +94,9 @@ def load_synthesis(input_dir, variant):
     data = read_json(path)
     if data.get("schema") != "pqc-poly-bench/synthesis-v2":
         raise RuntimeError(f"wrong synthesis schema in {path}")
+    for instruction in VARIANTS[1:]:
+        if data.get(f"{instruction}_enabled") is not (instruction == variant):
+            raise RuntimeError(f"wrong synthesis variant in {path}")
     seeds = data.get("seeds")
     if not isinstance(seeds, list) or [seed.get("seed") for seed in seeds] != [1, 2, 3, 4, 5]:
         raise RuntimeError(f"synthesis seeds are incomplete in {path}")

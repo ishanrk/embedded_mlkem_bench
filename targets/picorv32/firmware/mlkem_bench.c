@@ -12,9 +12,17 @@
 #define PQC_MLKEM_REPEATS 3U
 #define PQC_CHECKSUM_TAG UINT32_C(0x48415348)
 
+
+// this file essentially sets up the input and benchmarking for the four firmware builds, which are:
+// 1. mlkem-native: uses the native fixed backend for all arithmetic operations
+// 2. mlkem-soft: uses the C backend for all arithmetic operations
+// 3. mlkem-mixed: uses the native fixed backend for NTT and INTT, and the C backend for all other arithmetic operations
+// 4. mlkem-mixed-ntt: uses the native fixed backend for NTT, and the C backend for all other arithmetic operations, including INTT
+
 struct mlkem_bench_state
 {
     // static buffers keep setup identical across the four firmware builds
+    // buffers are needed for the mlkem key gen, key encaps calls etc.
     uint8_t pk[MLKEM_PUBLICKEYBYTES(MLK_CONFIG_PARAMETER_SET)];
     uint8_t sk[MLKEM_SECRETKEYBYTES(MLK_CONFIG_PARAMETER_SET)];
     uint8_t ct[MLKEM_CIPHERTEXTBYTES(MLK_CONFIG_PARAMETER_SET)];
@@ -29,6 +37,8 @@ struct mlkem_bench_state
 static struct mlkem_bench_state state;
 static volatile uint32_t checksum = UINT32_C(2166136261);
 
+
+// pseudorandom generator
 static uint32_t next_random(uint32_t *value)
 {
     uint32_t current = *value;
@@ -65,6 +75,7 @@ static int same_bytes(const uint8_t *left, const uint8_t *right, size_t count)
     return difference == 0U;
 }
 
+// not a hash function btw, just a simple checksum to keep track of the output of each operation
 static uint32_t hash_bytes(const uint8_t *input, size_t count)
 {
     uint32_t value = UINT32_C(2166136261);
@@ -89,6 +100,12 @@ static void prepare_input(unsigned input)
                UINT32_C(0x71000000) + input);
 }
 
+
+// pqc_bench_begin and bench_end place markers in the MMIO space, which the simulator can use to measure the time taken by the operation
+// pqc_bench_begin writes to the special begin address 0x10000000
+// pqc_bench_end writes to the special end address 0x10000004
+// sim_top hardware module detects these writes and raises benchmark_begin or benchmark_end
+// firmware_sim.cpp sees those signals and stores the current simulator cycle_count
 #define PQC_MEASURE(statement) \
     do                         \
     {                          \
@@ -96,6 +113,8 @@ static void prepare_input(unsigned input)
         statement;             \
         pqc_bench_end();       \
     } while (0)
+
+
 
 static void measure_keygen(void)
 {

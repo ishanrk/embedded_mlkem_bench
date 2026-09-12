@@ -111,6 +111,32 @@
         "percent_change_vs_baseline": null,
         "verified": false
       }
+    },
+    "dot2x": {
+      "512": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "768": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      },
+      "1024": {
+        "keygen_cycles": null,
+        "encapsulation_cycles": null,
+        "decapsulation_cycles": null,
+        "total_cycles": null,
+        "percent_change_vs_baseline": null,
+        "verified": false
+      }
     }
   },
   "hardware": {
@@ -145,6 +171,16 @@
       "fmax_change_vs_baseline_percent": null
     },
     "fsri": {
+      "lut4": null,
+      "flip_flops": null,
+      "dsp": null,
+      "bram": null,
+      "fmax_by_seed_mhz": [],
+      "median_fmax_mhz": null,
+      "meets_50mhz_by_seed": [],
+      "fmax_change_vs_baseline_percent": null
+    },
+    "dot2x": {
       "lut4": null,
       "flip_flops": null,
       "dsp": null,
