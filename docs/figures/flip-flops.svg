@@ -1,29 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
 <title id="title">Complete PicoRV32 core flip-flop area</title>
-<desc id="desc">Lower is better · Complete routed core with the selected PCPI hardware · All five variants use the same 4 DSP blocks</desc>
+<desc id="desc">Fewer flip flops = less register logic</desc>
 <rect width="1400" height="760" fill="white"/>
-<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.change{font-size:12px;fill:#667085}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>
+<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>
 <text x="56" y="48" class="title">Complete PicoRV32 core flip-flop area</text>
-<text x="56" y="78" class="subtitle">Lower is better · Complete routed core with the selected PCPI hardware · All five variants use the same 4 DSP blocks</text>
+<text x="56" y="78" class="subtitle">Fewer flip flops = less register logic</text>
 <path d="M70 535.5H1330" stroke="#98a2b3" stroke-width="1"/>
 <rect x="84.00" y="199.09" width="132" height="335.91" rx="4" fill="#687386"/>
 <text x="150" y="188.09" text-anchor="middle" class="value">970</text>
 <text x="150" y="570" text-anchor="middle" class="variant">Baseline</text>
-<text x="150" y="593" text-anchor="middle" class="change">baseline</text>
 <rect x="359.00" y="170.35" width="132" height="364.65" rx="4" fill="#316bd6"/>
 <text x="425" y="159.35" text-anchor="middle" class="value">1,053</text>
 <text x="425" y="570" text-anchor="middle" class="variant">FQMUL</text>
-<text x="425" y="593" text-anchor="middle" class="change">+8.56% vs baseline</text>
 <rect x="634.00" y="170.00" width="132" height="365.00" rx="4" fill="#c64d4d"/>
 <text x="700" y="159.00" text-anchor="middle" class="value">1,054</text>
 <text x="700" y="570" text-anchor="middle" class="variant">RED32</text>
-<text x="700" y="593" text-anchor="middle" class="change">+8.66% vs baseline</text>
 <rect x="909.00" y="198.74" width="132" height="336.26" rx="4" fill="#27866f"/>
 <text x="975" y="187.74" text-anchor="middle" class="value">971</text>
 <text x="975" y="570" text-anchor="middle" class="variant">FSRI</text>
-<text x="975" y="593" text-anchor="middle" class="change">+0.10% vs baseline</text>
 <rect x="1184.00" y="186.97" width="132" height="348.03" rx="4" fill="#8356b6"/>
 <text x="1250" y="175.97" text-anchor="middle" class="value">1,005</text>
 <text x="1250" y="570" text-anchor="middle" class="variant">FDOT2X</text>
-<text x="1250" y="593" text-anchor="middle" class="change">+3.61% vs baseline</text>
 </svg>
