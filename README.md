@@ -4,7 +4,7 @@
 
 I added four custom RISC-V instructions to PicoRV32 to accelerate operations that ML-KEM performs repeatedly. Three target polynomial arithmetic around the NTT. The fourth targets the 64 bit rotations used by Keccak.
 
-(**Important**)For a much more detailed explanation of the project, see my [full project write-up](https://ishankumthekar.com/projects/custom-risc-v-ml-kem-instructions).
+(**Important**) For a much more detailed explanation of the project, see my [full project write-up](https://ishankumthekar.com/projects/custom-risc-v-ml-kem-instructions).
 
 The experiment uses a pinned version of [`mlkem-native`](https://github.com/pq-code-package/mlkem-native). It compares FQMUL, RED32, FSRI, and FDOT2X against the same baseline PicoRV32 configuration. Each custom build enables only the instruction being measured.
 
