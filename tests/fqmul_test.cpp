@@ -7,6 +7,7 @@
 #include <limits>
 #include <string_view>
 
+// checks signed low halves and Montgomery arithmetic in the software wrapper
 namespace
 {
 
@@ -88,6 +89,7 @@ int main()
         }
     }
 
+    // checks every low half value that selects the inverse term
     for (std::uint32_t low = 0; low <= UINT32_C(0xffff); ++low)
     {
         check(low, UINT32_C(0x89abcdef));

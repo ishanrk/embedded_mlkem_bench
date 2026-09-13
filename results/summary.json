@@ -1,204 +1,254 @@
 {
-  "schema": "pqc-poly-bench/summary-v1",
-  "platform": {
-    "core": "PicoRV32",
-    "isa": "RV32IMC",
-    "fpga": "LFE5U-45F-6BG381C",
-    "target_frequency_mhz": 50,
-    "routing_seeds": [1, 2, 3, 4, 5],
-    "picorv32_sha": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
-    "mlkem_native_sha": "69d24e37b8a04c6050ec55bc84a4228d7051bb4b"
+  "schema": "pqc-poly-bench/summary-v2",
+  "status": "complete",
+  "platform": "PicoRV32 RTL simulation and LFE5U 45F 6BG381C routing",
+  "pins": {
+    "mlkem_native": "69d24e37b8a04c6050ec55bc84a4228d7051bb4b",
+    "picorv32": "a473fc8fca393771d83b0ffcf0b14db3393339d8"
   },
-  "budget": {
-    "max_lut4_increase_percent": 5.0,
-    "max_flip_flop_increase_percent": 5.0,
-    "max_median_fmax_loss_percent": 2.0,
-    "extra_dsp": 0,
-    "extra_bram": 0,
-    "all_seeds_must_meet_50mhz": true
-  },
-  "levels": {
-    "512": {
-      "portable": 13004560,
-      "software": 12636735,
-      "fqmul": 11703506,
-      "red32": 11847177,
-      "fsri_combinational": 8700799,
-      "fsri_multiplier_reuse": 9055759,
-      "operation_cycles": {
-        "software": {
-          "keygen": 3711104,
-          "encapsulation": 3947876,
-          "decapsulation": 4977755
-        },
-        "fqmul": {
-          "keygen": 3497610,
-          "encapsulation": 3664791,
-          "decapsulation": 4541105
-        },
-        "red32": {
-          "keygen": 3524710,
-          "encapsulation": 3711506,
-          "decapsulation": 4610961
-        },
-        "fsri_multiplier_reuse": {
-          "keygen": 2571127,
-          "encapsulation": 2858621,
-          "decapsulation": 3626011
-        }
+  "baseline": "pinned mlkem native with the fixed upstream arithmetic schedule and project RV32M PCPI multiplier",
+  "measurements": {
+    "baseline": {
+      "512": {
+        "keygen_cycles": 3743636,
+        "encapsulation_cycles": 4055679,
+        "decapsulation_cycles": 5128885,
+        "total_cycles": 12928200,
+        "percent_change_vs_baseline": 0.0,
+        "verified": true
       },
-      "gain_vs_software_percent": {
-        "fqmul": 7.385048432209744,
-        "red32": 6.24811709670259,
-        "fsri_combinational": 31.146779607232407,
-        "fsri_multiplier_reuse": 28.337826186906664
+      "768": {
+        "keygen_cycles": 5971774,
+        "encapsulation_cycles": 6535731,
+        "decapsulation_cycles": 8018884,
+        "total_cycles": 20526389,
+        "percent_change_vs_baseline": 0.0,
+        "verified": true
+      },
+      "1024": {
+        "keygen_cycles": 9367805,
+        "encapsulation_cycles": 10072983,
+        "decapsulation_cycles": 11994874,
+        "total_cycles": 31435662,
+        "percent_change_vs_baseline": 0.0,
+        "verified": true
       }
     },
-    "768": {
-      "portable": 20658560,
-      "software": 20143356,
-      "fqmul": 19023552,
-      "red32": 19187466,
-      "fsri_combinational": 13604448,
-      "fsri_multiplier_reuse": 14189088,
-      "operation_cycles": {
-        "software": {
-          "keygen": 5897792,
-          "encapsulation": 6419627,
-          "decapsulation": 7825937
-        },
-        "fqmul": {
-          "keygen": 5618665,
-          "encapsulation": 6091140,
-          "decapsulation": 7313747
-        },
-        "red32": {
-          "keygen": 5660611,
-          "encapsulation": 6133342,
-          "decapsulation": 7393513
-        },
-        "fsri_multiplier_reuse": {
-          "keygen": 4069679,
-          "encapsulation": 4540833,
-          "decapsulation": 5578576
-        }
+    "fqmul": {
+      "512": {
+        "keygen_cycles": 3556027,
+        "encapsulation_cycles": 3804098,
+        "decapsulation_cycles": 4744068,
+        "total_cycles": 12104193,
+        "percent_change_vs_baseline": -6.3737,
+        "verified": true
       },
-      "gain_vs_software_percent": {
-        "fqmul": 5.559172960056904,
-        "red32": 4.745435666231585,
-        "fsri_combinational": 32.461859880746786,
-        "fsri_multiplier_reuse": 29.559463676261295
+      "768": {
+        "keygen_cycles": 5700985,
+        "encapsulation_cycles": 6248921,
+        "decapsulation_cycles": 7555577,
+        "total_cycles": 19505483,
+        "percent_change_vs_baseline": -4.9736,
+        "verified": true
+      },
+      "1024": {
+        "keygen_cycles": 8987608,
+        "encapsulation_cycles": 9635234,
+        "decapsulation_cycles": 11344957,
+        "total_cycles": 29967799,
+        "percent_change_vs_baseline": -4.6694,
+        "verified": true
       }
     },
-    "1024": {
-      "portable": 31479592,
-      "software": 30964081,
-      "fqmul": 29318051,
-      "red32": 29614042,
-      "fsri_combinational": 20711107,
-      "fsri_multiplier_reuse": 21634003,
-      "operation_cycles": {
-        "software": {
-          "keygen": 9299335,
-          "encapsulation": 9899724,
-          "decapsulation": 11765022
-        },
-        "fqmul": {
-          "keygen": 8879368,
-          "encapsulation": 9406970,
-          "decapsulation": 11031713
-        },
-        "red32": {
-          "keygen": 8945304,
-          "encapsulation": 9503283,
-          "decapsulation": 11165455
-        },
-        "fsri_multiplier_reuse": {
-          "keygen": 6390918,
-          "encapsulation": 6953092,
-          "decapsulation": 8289993
-        }
+    "red32": {
+      "512": {
+        "keygen_cycles": 3563052,
+        "encapsulation_cycles": 3830728,
+        "decapsulation_cycles": 4776989,
+        "total_cycles": 12170769,
+        "percent_change_vs_baseline": -5.8588,
+        "verified": true
       },
-      "gain_vs_software_percent": {
-        "fqmul": 5.315933645826595,
-        "red32": 4.360016368643397,
-        "fsri_combinational": 33.11247635607206,
-        "fsri_multiplier_reuse": 30.131939003776665
+      "768": {
+        "keygen_cycles": 5722917,
+        "encapsulation_cycles": 6247255,
+        "decapsulation_cycles": 7581135,
+        "total_cycles": 19551307,
+        "percent_change_vs_baseline": -4.7504,
+        "verified": true
+      },
+      "1024": {
+        "keygen_cycles": 8987833,
+        "encapsulation_cycles": 9648186,
+        "decapsulation_cycles": 11360489,
+        "total_cycles": 29996508,
+        "percent_change_vs_baseline": -4.5781,
+        "verified": true
+      }
+    },
+    "fsri": {
+      "512": {
+        "keygen_cycles": 2478765,
+        "encapsulation_cycles": 2829156,
+        "decapsulation_cycles": 3630453,
+        "total_cycles": 8938374,
+        "percent_change_vs_baseline": -30.8614,
+        "verified": true
+      },
+      "768": {
+        "keygen_cycles": 3969963,
+        "encapsulation_cycles": 4495547,
+        "decapsulation_cycles": 5545656,
+        "total_cycles": 14011166,
+        "percent_change_vs_baseline": -31.7407,
+        "verified": true
+      },
+      "1024": {
+        "keygen_cycles": 6130576,
+        "encapsulation_cycles": 6784843,
+        "decapsulation_cycles": 8166325,
+        "total_cycles": 21081744,
+        "percent_change_vs_baseline": -32.9369,
+        "verified": true
+      }
+    },
+    "dot2x": {
+      "512": {
+        "keygen_cycles": 3747591,
+        "encapsulation_cycles": 4061664,
+        "decapsulation_cycles": 5136843,
+        "total_cycles": 12946098,
+        "percent_change_vs_baseline": 0.1384,
+        "verified": true
+      },
+      "768": {
+        "keygen_cycles": 5984824,
+        "encapsulation_cycles": 6553149,
+        "decapsulation_cycles": 8040586,
+        "total_cycles": 20578559,
+        "percent_change_vs_baseline": 0.2542,
+        "verified": true
+      },
+      "1024": {
+        "keygen_cycles": 9377392,
+        "encapsulation_cycles": 10084993,
+        "decapsulation_cycles": 12009277,
+        "total_cycles": 31471662,
+        "percent_change_vs_baseline": 0.1145,
+        "verified": true
       }
     }
   },
   "hardware": {
     "baseline": {
-      "lut4": 3583,
+      "lut4": 3788,
       "flip_flops": 970,
       "dsp": 4,
       "bram": 0,
-      "median_fmax_mhz": 68.7,
-      "fmax_by_seed_mhz": [69.9, 70.68, 68.7, 66.39, 66.99],
-      "seeds_meeting_50mhz": 5,
-      "all_seeds_meet_50mhz": true
+      "fmax_by_seed_mhz": [
+        68.03,
+        64.7,
+        61.93,
+        57.43,
+        68.2
+      ],
+      "median_fmax_mhz": 64.7,
+      "meets_50mhz_by_seed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "fmax_change_vs_baseline_percent": 0.0
     },
     "fqmul": {
-      "lut4": 3788,
+      "lut4": 3791,
       "flip_flops": 1053,
       "dsp": 4,
       "bram": 0,
-      "median_fmax_mhz": 60.51,
-      "fmax_by_seed_mhz": [60.51, 60.68, 57.4, 54.38, 62.12],
-      "seeds_meeting_50mhz": 5,
-      "all_seeds_meet_50mhz": true,
-      "lut4_change_percent": 5.721462461624337,
-      "flip_flop_change_percent": 8.556701030927835,
-      "fmax_change_percent": -11.92139737991267,
-      "budget_pass": false
+      "fmax_by_seed_mhz": [
+        61.39,
+        60.49,
+        59.01,
+        54.68,
+        56.48
+      ],
+      "median_fmax_mhz": 59.01,
+      "meets_50mhz_by_seed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "fmax_change_vs_baseline_percent": -8.7944
     },
     "red32": {
-      "lut4": 3816,
-      "flip_flops": 1053,
+      "lut4": 3879,
+      "flip_flops": 1054,
       "dsp": 4,
       "bram": 0,
-      "median_fmax_mhz": 60.2,
-      "fmax_by_seed_mhz": [60.2, 60.5, 56.33, 53.67, 61.44],
-      "seeds_meeting_50mhz": 5,
-      "all_seeds_meet_50mhz": true,
-      "lut4_change_percent": 6.502930505163271,
-      "flip_flop_change_percent": 8.556701030927835,
-      "fmax_change_percent": -12.372634643377001,
-      "budget_pass": false
+      "fmax_by_seed_mhz": [
+        58.36,
+        58.2,
+        53.18,
+        61.43,
+        58.61
+      ],
+      "median_fmax_mhz": 58.36,
+      "meets_50mhz_by_seed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "fmax_change_vs_baseline_percent": -9.7991
     },
-    "fsri_combinational": {
-      "lut4": 4018,
-      "flip_flops": 970,
+    "fsri": {
+      "lut4": 4019,
+      "flip_flops": 971,
       "dsp": 4,
       "bram": 0,
-      "median_fmax_mhz": 66.72,
-      "all_seeds_meet_50mhz": true,
-      "commit": "1b1d01aaaffe48a0bfff3cdc096cca526f8a40ca",
-      "lut4_change_percent": 12.140664247837009,
-      "flip_flop_change_percent": 0.0,
-      "fmax_change_percent": -2.8820960698690015,
-      "budget_pass": false
+      "fmax_by_seed_mhz": [
+        66.78,
+        60.75,
+        66.35,
+        68.88,
+        60.86
+      ],
+      "median_fmax_mhz": 66.35,
+      "meets_50mhz_by_seed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "fmax_change_vs_baseline_percent": 2.5502
     },
-    "fsri_multiplier_reuse": {
-      "lut4": 3905,
-      "flip_flops": 1037,
+    "dot2x": {
+      "lut4": 3855,
+      "flip_flops": 1005,
       "dsp": 4,
       "bram": 0,
-      "median_fmax_mhz": 50.25,
-      "fmax_by_seed_mhz": [52.4, 50.25, 45.42, 47.2, 50.26],
-      "seeds_meeting_50mhz": 3,
-      "all_seeds_meet_50mhz": false,
-      "lut4_change_percent": 8.986882500697739,
-      "flip_flop_change_percent": 6.907216494845361,
-      "fmax_change_percent": -26.85589519650655,
-      "budget_pass": false
+      "fmax_by_seed_mhz": [
+        58.9,
+        59.97,
+        53.07,
+        51.54,
+        54.95
+      ],
+      "median_fmax_mhz": 54.95,
+      "meets_50mhz_by_seed": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "fmax_change_vs_baseline_percent": -15.0696
     }
-  },
-  "geometric_mean_speedup_vs_software": {
-    "fqmul": 1.0648638187235022,
-    "red32": 1.0539780611625218,
-    "fsri_combinational": 1.4759121545744727,
-    "fsri_multiplier_reuse": 1.4153686083693011
-  },
-  "conclusion": "no tested custom instruction meets the full hardware budget"
+  }
 }

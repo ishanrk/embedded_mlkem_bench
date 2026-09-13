@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+// RED32 receives a signed int32 product and only performs reduction
 static inline int32_t pqc_mlk_red32_c(uint32_t value)
 {
     const int64_t signed_value =
@@ -13,17 +14,14 @@ static inline int32_t pqc_mlk_red32_c(uint32_t value)
     return (int32_t)(numerator / INT64_C(65536));
 }
 
-#if defined(__CPROVER)
-int32_t pqc_mlk_red32_model(uint32_t value);
 
-static inline int32_t pqc_mlk_red32(uint32_t value)
-{
-    return pqc_mlk_red32_model(value);
-}
-#elif defined(__riscv) && defined(PQC_POLY_HAVE_MLK_RED32)
+// similiar inline assembly testing ur true hardware instruction
+#if defined(__riscv) && defined(PQC_USE_RED32)
 static inline int32_t pqc_mlk_red32(uint32_t value)
 {
     int32_t result;
+    // insn places value in the first source register and zero in the unused source register
+    // the destination register receives result
     __asm__ volatile(".insn r 0x0b, 1, 0, %0, %1, x0" : "=r"(result) : "r"(value));
     return result;
 }
@@ -36,8 +34,9 @@ static inline int32_t pqc_mlk_red32(uint32_t value)
 
 static inline int32_t pqc_mlk_fqmul_red32(int16_t left, int16_t right)
 {
+    // this uses normal MUL followed by custom RED32
     int32_t product;
-#if defined(__riscv) && defined(PQC_POLY_HAVE_MLK_RED32)
+#if defined(__riscv) && defined(PQC_USE_RED32)
     __asm__ volatile("mul %0, %1, %2"
                      : "=r"(product)
                      : "r"((int32_t)left), "r"((int32_t)right));

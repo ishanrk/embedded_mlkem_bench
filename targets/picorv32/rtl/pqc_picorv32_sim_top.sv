@@ -1,9 +1,9 @@
+// wraps the processor with memory and simulator event outputs
 module pqc_picorv32_sim_top #(
-    parameter STOCK_MUL = 1'b0,
     parameter ENABLE_FQMUL = 1'b0,
     parameter ENABLE_RED32 = 1'b0,
     parameter ENABLE_FSRI = 1'b0,
-    parameter FSRI_IMPL = 0
+    parameter ENABLE_DOT2X = 1'b0
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -16,6 +16,7 @@ module pqc_picorv32_sim_top #(
     output logic [63:0] cycle_count
 );
 
+// low addresses hold firmware and high addresses carry benchmark events
 localparam logic [31:0] memory_limit = 32'h0008_0000;
 localparam logic [31:0] begin_address = 32'h1000_0000;
 localparam logic [31:0] end_address = 32'h1000_0004;
@@ -38,6 +39,7 @@ string firmware;
 
 initial
 begin
+    // loads the firmware hex file named by the simulator argument
     if (!$value$plusargs("firmware=%s", firmware))
     begin
         $fatal(1, "missing +firmware=<hex>");
@@ -45,14 +47,14 @@ begin
     $readmemh(firmware, memory);
 end
 
+// each memory request completes after one cycle
 assign mem_ready = pending;
 
 pqc_picorv32_core_top #(
-    .STOCK_MUL(STOCK_MUL),
     .ENABLE_FQMUL(ENABLE_FQMUL),
     .ENABLE_RED32(ENABLE_RED32),
     .ENABLE_FSRI(ENABLE_FSRI),
-    .FSRI_IMPL(FSRI_IMPL)
+    .ENABLE_DOT2X(ENABLE_DOT2X)
 ) core (
     .clk(clk),
     .resetn(resetn),
@@ -70,6 +72,7 @@ always_ff @(posedge clk)
 begin
     if (!resetn)
     begin
+        // reset clears the pending bus request and simulator event outputs
         pending <= 1'b0;
         request_addr <= 32'b0;
         request_wdata <= 32'b0;
@@ -85,17 +88,20 @@ begin
     else
     begin
         cycle_count <= cycle_count + 1'b1;
+        // each event stays low unless its MMIO address is written this cycle
         benchmark_begin <= 1'b0;
         benchmark_end <= 1'b0;
         status_valid <= 1'b0;
 
         if (pending)
         begin
+            // completes the request saved on the previous clock edge
             pending <= 1'b0;
             if (request_addr < memory_limit)
             begin
                 if (request_wstrb[0])
                 begin
+                    // byte strobes update only the selected memory bytes
                     memory[request_addr[18:2]][7:0] <= request_wdata[7:0];
                 end
                 if (request_wstrb[1])
@@ -113,6 +119,7 @@ begin
             end
             else if (request_wstrb != 4'b0)
             begin
+                // firmware sends benchmark events through these MMIO addresses
                 case (request_addr)
                     begin_address:
                     begin
@@ -139,6 +146,7 @@ begin
         end
         else if (mem_valid)
         begin
+            // saves request values until the memory response is ready
             pending <= 1'b1;
             request_addr <= mem_addr;
             request_wdata <= mem_wdata;

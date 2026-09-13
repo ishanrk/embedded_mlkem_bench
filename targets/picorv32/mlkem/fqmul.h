@@ -3,6 +3,13 @@
 
 #include <stdint.h>
 
+// the idea behind this file is that any of this code is only called if PQC_USE_FQMUL is defined.
+// FQMUL is simply ONE hardware instruction doing Montgomery_Reduce(a*b)
+
+// implement fqmul in C (we will need this if we want to test the C implementation of FQMUL against the hardware instruction)
+
+// note: fixed_backend.c already has a software fqmul path, this is not a duplicate
+// this version models the custom instruction's exact register level behavior so we can test it against the hardware
 static inline int32_t pqc_mlk_signed16(uint32_t value)
 {
     const uint32_t low = value & UINT32_C(0xffff);
@@ -22,17 +29,15 @@ static inline int32_t pqc_mlk_fqmul_c(uint32_t left, uint32_t right)
     return numerator / INT32_C(65536);
 }
 
-#if defined(__CPROVER)
-int32_t pqc_mlk_fqmul_model(uint32_t left, uint32_t right);
+// the actual hardware instruction is implemented in assembly in the file mlkem_native.S, and is called pqc_mlk_fqmul
 
-static inline int32_t pqc_mlk_fqmul(uint32_t left, uint32_t right)
-{
-    return pqc_mlk_fqmul_model(left, right);
-}
-#elif defined(PQC_POLY_HAVE_MLK_FQMUL)
+#if defined(__riscv) && defined(PQC_USE_FQMUL)
 static inline int32_t pqc_mlk_fqmul(uint32_t left, uint32_t right)
 {
     int32_t result;
+    // inline assembly call
+    // insn places left and right in source registers
+    // the destination register receives result
     __asm__ volatile(".insn r 0x0b, 0, 0, %0, %1, %2" : "=r"(result) : "r"(left), "r"(right));
     return result;
 }

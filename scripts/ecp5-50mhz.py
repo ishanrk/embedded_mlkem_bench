@@ -1,0 +1,236 @@
+#!/usr/bin/env python3
+
+import argparse
+import hashlib
+import json
+import os
+import pathlib
+import re
+import shlex
+import subprocess
+import sys
+
+# runs Yosys once and routes the ECP5 netlist with several seeds
+
+def run(command, *, environment=None, output=None):
+    # stops when synthesis fails because no netlist exists to route
+    completed = subprocess.run(
+        command,
+        check=False,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if output is not None:
+        output.write_text(completed.stdout, encoding="utf-8")
+    if completed.returncode != 0:
+        raise RuntimeError(f"command failed: {shlex.join(command)}")
+    return completed.stdout.strip()
+
+
+def capture(command, output):
+    # keeps the log and return code when routing fails
+    completed = subprocess.run(
+        command,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    output.write_text(completed.stdout, encoding="utf-8")
+    return completed
+
+
+def version(command):
+    lines = run(command).splitlines()
+    if not lines:
+        raise RuntimeError(f"version command produced no output: {shlex.join(command)}")
+    return lines[-1]
+
+
+def report_command(command, replacements):
+    result = shlex.join(command)
+    for source, replacement in sorted(replacements, key=lambda value: len(value[0]), reverse=True):
+        result = result.replace(source, replacement)
+    return result
+
+
+def resource_count(log, name):
+    matches = re.findall(rf"{name}:\s*([0-9]+)\s*/", log)
+    if not matches:
+        raise RuntimeError(f"nextpnr log lacks {name}")
+    return int(matches[-1])
+
+
+def resource_counts(log):
+    # LUT4 counts logic and DFF counts registers
+    # DSP counts multipliers and DP16KD counts memory blocks
+    return {
+        "lut4": resource_count(log, "Total LUT4s"),
+        "flip_flops": resource_count(log, "Total DFFs"),
+        "dsp": resource_count(log, "MULT18X18D") + resource_count(log, "ALU54B"),
+        "bram": resource_count(log, "DP16KD"),
+    }
+
+
+def maximum_frequency(log):
+    # reads routed maximum frequency from nextpnr timing analysis
+    matches = re.findall(r"Max frequency[^:]*:\s*([0-9]+(?:\.[0-9]+)?)\s*MHz", log)
+    if not matches:
+        raise RuntimeError("nextpnr log lacks maximum frequency")
+    return float(matches[-1])
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--yosys", required=True)
+    parser.add_argument("--nextpnr", required=True)
+    parser.add_argument("--ecppack", required=True)
+    parser.add_argument("--picorv32", required=True)
+    parser.add_argument("--pcpi", required=True)
+    parser.add_argument("--core", required=True)
+    parser.add_argument("--script", required=True)
+    parser.add_argument("--work", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--enable-fqmul", action="store_true")
+    parser.add_argument("--enable-red32", action="store_true")
+    parser.add_argument("--enable-fsri", action="store_true")
+    parser.add_argument("--enable-dot2x", action="store_true")
+    parser.add_argument("--seeds", nargs="+", type=int, default=[1, 2, 3, 4, 5])
+    args = parser.parse_args()
+    if any(seed < 1 for seed in args.seeds) or len(set(args.seeds)) != len(args.seeds):
+        parser.error("routing seeds must be distinct positive integers")
+    if sum((args.enable_fqmul, args.enable_red32, args.enable_fsri, args.enable_dot2x)) > 1:
+        parser.error("custom instructions are separate synthesis experiments")
+    return args
+
+
+def main():
+    args = parse_args()
+    work = pathlib.Path(args.work)
+    work.mkdir(parents=True, exist_ok=True)
+    replacements = [
+        (str(pathlib.Path(__file__).resolve().parents[1]), "${PROJECT_SOURCE_DIR}"),
+        (str(pathlib.Path(args.yosys).resolve().parents[1]), "${PQC_OSS_CAD_SUITE_ROOT}"),
+    ]
+    # Yosys creates one ECP5 netlist for every routing seed
+    netlist_path = work / "core.json"
+    yosys_log = work / "yosys.log"
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "PICORV32_SOURCE": str(pathlib.Path(args.picorv32).resolve()),
+            "PQC_PCPI_SOURCE": str(pathlib.Path(args.pcpi).resolve()),
+            "PQC_CORE_SOURCE": str(pathlib.Path(args.core).resolve()),
+            "ENABLE_FQMUL": "1" if args.enable_fqmul else "0",
+            "ENABLE_RED32": "1" if args.enable_red32 else "0",
+            "ENABLE_FSRI": "1" if args.enable_fsri else "0",
+            "ENABLE_DOT2X": "1" if args.enable_dot2x else "0",
+            "SYNTH_JSON": str(netlist_path.resolve()),
+        }
+    )
+    yosys_command = [args.yosys, "-c", str(pathlib.Path(args.script).resolve())]
+    run(yosys_command, environment=environment, output=yosys_log)
+
+    # hashes identify the exact RTL and netlist used for the result
+    provenance = {
+        "repository_sha": run(["git", "rev-parse", "HEAD"]),
+        "dirty": bool(run(["git", "status", "--porcelain"])),
+        "source_sha256": {name: hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+                          for name, path in (("pcpi", args.pcpi), ("core", args.core), ("picorv32", args.picorv32), ("script", args.script))},
+        "parameters": {key: environment[key] for key in ("ENABLE_FQMUL", "ENABLE_RED32", "ENABLE_FSRI", "ENABLE_DOT2X")},
+        "netlist_sha256": hashlib.sha256(netlist_path.read_bytes()).hexdigest(),
+        "reproduction": report_command([sys.executable, str(pathlib.Path(__file__).resolve()), *sys.argv[1:]], replacements),
+        "picorv32_revision": "a473fc8fca393771d83b0ffcf0b14db3393339d8",
+        "compiler_flags": None,
+        "elf_sha256": None,
+        "scope": "ecp5 core only without board memory",
+    }
+    seeds = []
+    all_complete = True
+    # several seeds show how placement changes the routing result
+    for seed in args.seeds:
+        config = work / f"seed-{seed}.config"
+        bitstream = work / f"seed-{seed}.bit"
+        log_path = work / f"seed-{seed}.log"
+        command = [
+            args.nextpnr,
+            "--json",
+            str(netlist_path),
+            "--textcfg",
+            str(config),
+            "--45k",
+            "--package",
+            "CABGA381",
+            "--speed",
+            "6",
+            "--freq",
+            "50",
+            "--lpf-allow-unconstrained",
+            "--seed",
+            str(seed),
+        ]
+        route = capture(command, log_path)
+        try:
+            frequency = maximum_frequency(route.stdout)
+            counts = resource_counts(route.stdout)
+        except RuntimeError:
+            frequency = 0.0
+            counts = {"lut4": 0, "flip_flops": 0, "dsp": 0, "bram": 0}
+        pack_returncode = -1
+        pack_command = [args.ecppack, str(config), str(bitstream)]
+        if config.exists():
+            pack = capture(pack_command, work / f"seed-{seed}-pack.log")
+            pack_returncode = pack.returncode
+        # complete means the route was measured and packed
+        complete = (
+            route.returncode == 0
+            and pack_returncode == 0
+            and frequency > 0
+            and counts["lut4"] > 0
+        )
+        meets_target = complete and frequency >= 50.0
+        all_complete = all_complete and complete
+        seeds.append(
+            {
+                "seed": seed,
+                "status": "complete" if complete else "failed measurement",
+                **counts,
+                "maximum_frequency_mhz": frequency,
+                "meets_50mhz": meets_target,
+                "command": report_command(command, replacements),
+                "ecppack_command": report_command(pack_command, replacements),
+                "nextpnr_returncode": route.returncode,
+                "ecppack_returncode": pack_returncode,
+            }
+        )
+
+    result = {
+        "schema": "pqc-poly-bench/synthesis-v2" if args.seeds == [1, 2, 3, 4, 5] else "pqc-poly-bench/exploratory-routing-v1",
+        "provenance": provenance,
+        "fpga_part": "LFE5U-45F-6BG381C",
+        "target_frequency_mhz": 50,
+        "period_ns": 20,
+        "fqmul_enabled": args.enable_fqmul,
+        "red32_enabled": args.enable_red32,
+        "fsri_enabled": args.enable_fsri,
+        "dot2x_enabled": args.enable_dot2x,
+        "yosys_version": version([args.yosys, "-V"]),
+        "nextpnr_version": version([args.nextpnr, "--version"]),
+        "ecppack_version": version([args.ecppack, "--version"]),
+        "yosys_command": report_command(yosys_command, replacements),
+        "seeds": seeds,
+    }
+    pathlib.Path(args.output).write_text(
+        json.dumps(result, indent=2, sort_keys=False) + "\n", encoding="utf-8"
+    )
+    return 0 if all_complete else 1
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        sys.exit(2)

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+<title id="title">Complete ML-KEM cycle count</title>
+<desc id="desc">Fewer cycles = more efficient</desc>
+<rect width="1400" height="760" fill="white"/>
+<style>text{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#172033}.title{font-size:28px;font-weight:700}.subtitle{font-size:15px;fill:#5c6678}.variant{font-size:15px;font-weight:650}.group{font-size:17px;font-weight:650}.value{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;font-size:12px;font-weight:650}.pending{font-size:12px;font-weight:650;fill:#8992a3;letter-spacing:.04em}.note{font-size:13px;fill:#667085}</style>
+<text x="56" y="48" class="title">Complete ML-KEM cycle count</text>
+<text x="56" y="78" class="subtitle">Fewer cycles = more efficient</text>
+<path d="M70 515.5H1330" stroke="#98a2b3" stroke-width="1"/>
+<rect x="86.00" y="373.28" width="60.00" height="141.72" rx="3" fill="#687386"/>
+<text x="116.00" y="363.28" text-anchor="middle" class="value">12,928,200</text>
+<text x="116.00" y="548" text-anchor="middle" class="variant">Baseline</text>
+<rect x="168.00" y="382.31" width="60.00" height="132.69" rx="3" fill="#316bd6"/>
+<text x="198.00" y="372.31" text-anchor="middle" class="value">12,104,193</text>
+<text x="198.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
+<rect x="250.00" y="381.58" width="60.00" height="133.42" rx="3" fill="#c64d4d"/>
+<text x="280.00" y="371.58" text-anchor="middle" class="value">12,170,769</text>
+<text x="280.00" y="548" text-anchor="middle" class="variant">RED32</text>
+<rect x="332.00" y="417.02" width="60.00" height="97.98" rx="3" fill="#27866f"/>
+<text x="362.00" y="407.02" text-anchor="middle" class="value">8,938,374</text>
+<text x="362.00" y="548" text-anchor="middle" class="variant">FSRI</text>
+<rect x="414.00" y="373.08" width="60.00" height="141.92" rx="3" fill="#8356b6"/>
+<text x="444.00" y="363.08" text-anchor="middle" class="value">12,946,098</text>
+<text x="444.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
+<text x="280.00" y="614" text-anchor="middle" class="group">ML-KEM-512</text>
+<rect x="506.00" y="289.98" width="60.00" height="225.02" rx="3" fill="#687386"/>
+<text x="536.00" y="279.98" text-anchor="middle" class="value">20,526,389</text>
+<text x="536.00" y="548" text-anchor="middle" class="variant">Baseline</text>
+<rect x="588.00" y="301.18" width="60.00" height="213.82" rx="3" fill="#316bd6"/>
+<text x="618.00" y="291.18" text-anchor="middle" class="value">19,505,483</text>
+<text x="618.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
+<rect x="670.00" y="300.67" width="60.00" height="214.33" rx="3" fill="#c64d4d"/>
+<text x="700.00" y="290.67" text-anchor="middle" class="value">19,551,307</text>
+<text x="700.00" y="548" text-anchor="middle" class="variant">RED32</text>
+<rect x="752.00" y="361.41" width="60.00" height="153.59" rx="3" fill="#27866f"/>
+<text x="782.00" y="351.41" text-anchor="middle" class="value">14,011,166</text>
+<text x="782.00" y="548" text-anchor="middle" class="variant">FSRI</text>
+<rect x="834.00" y="289.41" width="60.00" height="225.59" rx="3" fill="#8356b6"/>
+<text x="864.00" y="279.41" text-anchor="middle" class="value">20,578,559</text>
+<text x="864.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
+<text x="700.00" y="614" text-anchor="middle" class="group">ML-KEM-768</text>
+<rect x="926.00" y="170.39" width="60.00" height="344.61" rx="3" fill="#687386"/>
+<text x="956.00" y="160.39" text-anchor="middle" class="value">31,435,662</text>
+<text x="956.00" y="548" text-anchor="middle" class="variant">Baseline</text>
+<rect x="1008.00" y="186.49" width="60.00" height="328.51" rx="3" fill="#316bd6"/>
+<text x="1038.00" y="176.49" text-anchor="middle" class="value">29,967,799</text>
+<text x="1038.00" y="548" text-anchor="middle" class="variant">FQMUL</text>
+<rect x="1090.00" y="186.17" width="60.00" height="328.83" rx="3" fill="#c64d4d"/>
+<text x="1120.00" y="176.17" text-anchor="middle" class="value">29,996,508</text>
+<text x="1120.00" y="548" text-anchor="middle" class="variant">RED32</text>
+<rect x="1172.00" y="283.90" width="60.00" height="231.10" rx="3" fill="#27866f"/>
+<text x="1202.00" y="273.90" text-anchor="middle" class="value">21,081,744</text>
+<text x="1202.00" y="548" text-anchor="middle" class="variant">FSRI</text>
+<rect x="1254.00" y="170.00" width="60.00" height="345.00" rx="3" fill="#8356b6"/>
+<text x="1284.00" y="160.00" text-anchor="middle" class="value">31,471,662</text>
+<text x="1284.00" y="548" text-anchor="middle" class="variant">FDOT2X</text>
+<text x="1120.00" y="614" text-anchor="middle" class="group">ML-KEM-1024</text>
+</svg>

@@ -1,0 +1,14 @@
+[options]
+mode bmc
+depth 7
+
+[engines]
+abc bmc3
+
+[script]
+read -formal -sv pqc_pcpi_mlkem.sv dot2x_properties.sv
+prep -top dot2x_properties
+
+[files]
+pqc_pcpi_mlkem.sv
+dot2x_properties.sv
